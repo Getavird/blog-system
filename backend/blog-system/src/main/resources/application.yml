@@ -1,0 +1,170 @@
+# Spring Boot 配置文件
+spring:
+  application:
+    name: blog-system
+  
+  # 数据源配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 修改为你自己的数据库连接信息
+    url: jdbc:mysql://localhost:3306/blog_system?useSSL=false&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    
+    # HikariCP 连接池配置（Spring Boot默认使用Hikari）
+    hikari:
+      connection-timeout: 30000      # 连接超时时间（毫秒）
+      minimum-idle: 5                # 最小空闲连接数
+      maximum-pool-size: 20          # 最大连接数
+      idle-timeout: 600000           # 空闲连接超时时间（毫秒）
+      max-lifetime: 1800000          # 连接最大生命周期（毫秒）
+      auto-commit: true              # 自动提交
+      pool-name: BlogHikariCP        # 连接池名称
+  
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB            # 单个文件最大大小
+      max-request-size: 50MB         # 整个请求最大大小
+      enabled: true
+  
+  # Jackson JSON配置
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss  # 日期格式
+    time-zone: GMT+8                  # 时区
+    default-property-inclusion: non_null  # 不序列化null值
+  
+  # 静态资源配置
+  web:
+    resources:
+      static-locations: classpath:/static/,file:./uploads/
+  
+  # 开发工具（热部署）
+  devtools:
+    restart:
+      enabled: true
+      additional-paths: src/main/java
+      exclude: static/**,public/**
+
+# 服务器配置
+server:
+  port: 8080                         # 服务器端口
+  servlet:
+    context-path: /                  # 应用上下文路径
+    session:
+      timeout: 30m                   # Session超时时间
+      cookie:
+        http-only: true              # 仅HTTP访问
+        secure: false                # 是否仅HTTPS（开发环境设为false）
+        max-age: 1800                # Cookie有效期（秒）
+  
+  # Tomcat配置（可选）
+  tomcat:
+    connection-timeout: 5000         # 连接超时时间
+    max-threads: 200                 # 最大线程数
+    min-spare-threads: 10            # 最小空闲线程数
+    accept-count: 100                # 等待队列长度
+
+# MyBatis配置
+mybatis:
+  type-aliases-package: com.blog.entity  # 实体类包路径
+  configuration:
+    map-underscore-to-camel-case: true   # 自动转换下划线到驼峰命名
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # 输出SQL到控制台
+    # 其他配置
+    default-statement-timeout: 30
+    default-fetch-size: 100
+  mapper-locations: classpath:mapper/*.xml  # Mapper XML文件位置
+
+# 日志配置
+logging:
+  level:
+    com.blog: DEBUG                   # 项目包日志级别
+    org.springframework: INFO
+    org.mybatis: DEBUG
+    org.apache.ibatis: DEBUG
+  file:
+    name: logs/blog-system.log        # 日志文件路径
+    max-size: 10MB                    # 单个日志文件最大大小
+    max-history: 30                   # 保留的日志文件天数
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %highlight(%-5level) %cyan(%logger{36}) - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 自定义配置
+blog:
+  system:
+    name: "个人博客系统"
+    version: "1.0.0"
+    description: "基于Spring Boot + Vue 3的个人博客系统"
+  
+  # 文件上传配置
+  upload:
+    path: ./uploads/                  # 上传文件保存路径
+    max-size: 10MB                    # 文件最大大小
+    allowed-types:                    # 允许的文件类型
+      - image/jpeg
+      - image/png
+      - image/gif
+      - image/webp
+    access-url: /uploads/             # 文件访问URL前缀
+  
+  # 安全配置
+  security:
+    jwt:
+      secret: blog-system-jwt-secret-key-2024  # JWT密钥（实际项目应更复杂）
+      expiration: 604800              # JWT有效期（秒），7天
+    password:
+      min-length: 6                   # 密码最小长度
+      max-length: 20                  # 密码最大长度
+      require-special-char: false     # 是否要求特殊字符
+  
+  # 文章配置
+  article:
+    default-summary-length: 200       # 默认摘要长度
+    allow-comment: true               # 是否允许评论
+    allow-anonymous-comment: false    # 是否允许匿名评论
+
+# 开发环境特定配置
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    # 开发环境数据库连接（可以与上面不同）
+    url: jdbc:mysql://localhost:3306/blog_system_dev?useSSL=false
+    username: root
+    password: root
+  devtools:
+    restart:
+      enabled: true
+
+logging:
+  level:
+    com.blog: TRACE
+
+# 生产环境特定配置
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    # 生产环境数据库连接
+    url: jdbc:mysql://prod-server:3306/blog_system?useSSL=true
+    username: blog_prod
+    password: ${DB_PASSWORD:prod_password}  # 从环境变量读取
+  devtools:
+    restart:
+      enabled: false
+
+mybatis:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl  # 生产环境关闭SQL日志
+
+logging:
+  level:
+    com.blog: INFO
+  file:
+    name: /var/log/blog/blog-system.log
