@@ -1,15 +1,12 @@
 import request from '@/utils/request'
 
 // 用户登录
-export const login = (data: { username: string; password: string }) => {
-  return request.post<{
-    token: string
-    user: any
-  }>('/api/user/login', data)
+export const login = (data) => {
+  return request.post('/api/user/login', data)
 }
 
 // 用户注册
-export const register = (data: { username: string; email: string; password: string }) => {
+export const register = (data) => {
   return request.post('/api/user/register', data)
 }
 
@@ -19,7 +16,7 @@ export const getUserInfo = () => {
 }
 
 // 更新用户信息
-export const updateUserInfo = (data: any) => {
+export const updateUserInfo = (data) => {
   return request.put('/api/user/info', data)
 }
 
@@ -29,7 +26,7 @@ export const logout = () => {
 }
 
 // 上传头像
-export const uploadAvatar = (file: File) => {
+export const uploadAvatar = (file) => {
   const formData = new FormData()
   formData.append('file', file)
   return request.post('/api/user/avatar', formData, {

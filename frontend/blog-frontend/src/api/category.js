@@ -6,16 +6,16 @@ export const getCategories = () => {
 }
 
 // 创建分类
-export const createCategory = (data: any) => {
+export const createCategory = (data) => {
   return request.post('/api/categories', data)
 }
 
 // 更新分类
-export const updateCategory = (id: number, data: any) => {
+export const updateCategory = (id, data) => {
   return request.put(`/api/categories/${id}`, data)
 }
 
 // 删除分类
-export const deleteCategory = (id: number) => {
+export const deleteCategory = (id) => {
   return request.delete(`/api/categories/${id}`)
 }

@@ -31,44 +31,23 @@
           <div class="articles-section">
             <h2><el-icon><Document /></el-icon> 最新文章</h2>
             
-            <!-- 加载状态 -->
-            <div v-if="loading" class="loading-state">
-              <p>加载中...</p>
-            </div>
-            
-            <!-- 文章列表 -->
-            <div v-else-if="articles.length > 0" class="article-list">
-              <div v-for="article in articles" :key="article.id" class="article-item" @click="viewArticle(article.id)">
-                <div class="article-content">
-                  <h3>{{ article.title }}</h3>
-                  <p class="article-summary">{{ article.summary }}</p>
-                  <div class="article-meta">
-                    <span class="author">{{ article.authorName }}</span>
-                    <span class="time">{{ formatTime(article.createTime) }}</span>
-                    <span class="views">👁 {{ article.viewCount }}</span>
-                    <span class="likes">❤ {{ article.likeCount }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- 空状态 -->
-            <div v-else class="empty-state">
-              <p>暂无文章</p>
-            </div>
-            
-            <!-- 分页 -->
-            <div v-if="articles.length > 0" class="pagination-wrapper">
-              <el-pagination
-                :current-page="currentPage"
-                :page-size="pageSize"
-                :total="total"
-                :page-sizes="[5, 10, 20]"
-                layout="total, sizes, prev, pager, next"
-                @size-change="handleSizeChange"
-                @current-change="handlePageChange"
-              />
-            </div>
+            <!-- 使用 ArticleList 组件 -->
+            <ArticleList
+              :articles="articles"
+              :loading="loading"
+              :show-time="true"
+              :show-views="true"
+              :show-author="true"
+              :show-summary="true"
+              :show-pagination="true"
+              :total="total"
+              :current-page="currentPage"
+              :page-size="pageSize"
+              @article-click="viewArticle"
+              @create-click="toWriteArticle"
+              @size-change="handleSizeChange"
+              @page-change="handlePageChange"
+            />
           </div>
           
           <!-- 右侧：侧边栏 -->
@@ -91,12 +70,29 @@
               <h3><el-icon><Folder /></el-icon> 文章分类</h3>
               <ul class="category-list">
                 <li v-for="category in categories" :key="category.id">
-                  <a href="javascript:;" class="category-item">
+                  <a href="javascript:;" class="category-item" @click="viewCategory(category.id)">
                     <span class="category-name">{{ category.name }}</span>
                     <span class="category-count">({{ category.count }})</span>
                   </a>
                 </li>
               </ul>
+            </div>
+            
+            <!-- 标签云 -->
+            <div class="tags-card">
+              <h3><el-icon><PriceTag /></el-icon> 热门标签</h3>
+              <div class="tags-cloud">
+                <el-tag
+                  v-for="tag in tags"
+                  :key="tag.id"
+                  :type="tagTypes[tag.id % tagTypes.length]"
+                  size="medium"
+                  class="tag-cloud-item"
+                  @click="viewTag(tag.id)"
+                >
+                  {{ tag.name }} ({{ tag.count }})
+                </el-tag>
+              </div>
             </div>
           </aside>
         </div>
@@ -242,14 +238,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineAsyncComponent } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Document, Star, Folder } from '@element-plus/icons-vue'
+import { Document, Star, Folder, PriceTag } from '@element-plus/icons-vue'
 
-// 使用 defineAsyncComponent 导入组件
-const Header = defineAsyncComponent(() => import('../components/layout/Header.vue'))
-const Footer = defineAsyncComponent(() => import('../components/layout/Footer.vue'))
+// 导入组件
+import Header from '../components/layout/Header.vue'
+import Footer from '../components/layout/Footer.vue'
+import ArticleList from '../components/article/ArticleList.vue'
 
 const router = useRouter()
 
@@ -259,9 +256,13 @@ const isLoggedIn = ref(false)
 const articles = ref([])
 const hotArticles = ref([])
 const categories = ref([])
+const tags = ref([])
 const currentPage = ref(1)
 const pageSize = ref(5)
 const total = ref(0)
+
+// 标签类型数组
+const tagTypes = ['', 'success', 'info', 'warning', 'danger']
 
 // 登录/注册弹窗相关
 const showLoginDialog = ref(false)
@@ -354,40 +355,100 @@ const mockArticles = [
     title: 'Spring Boot入门教程',
     summary: '详细介绍Spring Boot的基本使用和配置，快速上手后端开发...',
     authorName: '张三',
+    authorId: 1,
     viewCount: 156,
     likeCount: 25,
-    createTime: '2024-01-15 10:30:00'
+    commentCount: 8,
+    createTime: '2024-01-15 10:30:00',
+    updateTime: '2024-01-15 10:30:00',
+    categoryName: '技术',
+    tags: ['Spring Boot', 'Java', '后端']
   },
   {
     id: 2,
     title: 'Vue 3新特性详解',
     summary: '深入解析Vue 3的新特性和使用技巧，带你快速上手Vue 3开发...',
     authorName: '李四',
+    authorId: 2,
     viewCount: 203,
     likeCount: 42,
-    createTime: '2024-01-14 14:20:00'
+    commentCount: 12,
+    createTime: '2024-01-14 14:20:00',
+    updateTime: '2024-01-15 09:30:00',
+    categoryName: '前端',
+    tags: ['Vue 3', '前端', 'JavaScript']
   },
   {
     id: 3,
     title: '数据库设计规范',
     summary: '分享数据库设计的最佳实践和规范，让你的数据架构更合理...',
     authorName: '王五',
+    authorId: 3,
     viewCount: 89,
     likeCount: 18,
-    createTime: '2024-01-13 09:15:00'
+    commentCount: 5,
+    createTime: '2024-01-13 09:15:00',
+    updateTime: '2024-01-13 09:15:00',
+    categoryName: '数据库',
+    tags: ['数据库', 'MySQL', '设计']
+  },
+  {
+    id: 4,
+    title: '如何写好技术文档',
+    summary: '技术文档写作的实用技巧和经验分享，提升文档质量和可读性...',
+    authorName: '赵六',
+    authorId: 4,
+    viewCount: 124,
+    likeCount: 32,
+    commentCount: 7,
+    createTime: '2024-01-12 16:45:00',
+    updateTime: '2024-01-12 16:45:00',
+    categoryName: '学习',
+    tags: ['文档', '写作', '技巧']
+  },
+  {
+    id: 5,
+    title: 'Git 高级使用技巧',
+    summary: '掌握Git的高级功能和工作流，提升团队协作效率...',
+    authorName: '钱七',
+    authorId: 5,
+    viewCount: 78,
+    likeCount: 15,
+    commentCount: 3,
+    createTime: '2024-01-11 11:20:00',
+    updateTime: '2024-01-11 11:20:00',
+    categoryName: '工具',
+    tags: ['Git', '版本控制', '工具']
   }
 ]
 
 const mockHotArticles = [
-  { id: 1, title: 'Vue 3新特性详解', viewCount: 320 },
-  { id: 2, title: 'MyBatis使用技巧', viewCount: 280 },
-  { id: 3, title: '数据库设计规范', viewCount: 250 }
+  { id: 2, title: 'Vue 3新特性详解', viewCount: 320 },
+  { id: 1, title: 'Spring Boot入门教程', viewCount: 280 },
+  { id: 4, title: '如何写好技术文档', viewCount: 250 },
+  { id: 3, title: '数据库设计规范', viewCount: 210 },
+  { id: 5, title: 'Git 高级使用技巧', viewCount: 180 }
 ]
 
 const mockCategories = [
   { id: 1, name: '技术', count: 12 },
   { id: 2, name: '生活', count: 8 },
-  { id: 3, name: '学习', count: 5 }
+  { id: 3, name: '学习', count: 5 },
+  { id: 4, name: '工具', count: 3 },
+  { id: 5, name: '随笔', count: 7 }
+]
+
+const mockTags = [
+  { id: 1, name: 'Vue', count: 15 },
+  { id: 2, name: 'React', count: 12 },
+  { id: 3, name: 'JavaScript', count: 28 },
+  { id: 4, name: 'Spring Boot', count: 10 },
+  { id: 5, name: 'Java', count: 22 },
+  { id: 6, name: 'Python', count: 18 },
+  { id: 7, name: '数据库', count: 9 },
+  { id: 8, name: '前端', count: 25 },
+  { id: 9, name: '后端', count: 20 },
+  { id: 10, name: '算法', count: 14 }
 ]
 
 // 生命周期
@@ -408,6 +469,7 @@ const loadData = () => {
     articles.value = mockArticles
     hotArticles.value = mockHotArticles
     categories.value = mockCategories
+    tags.value = mockTags
     total.value = 25
     loading.value = false
   }, 800)
@@ -417,30 +479,34 @@ const viewArticle = (id) => {
   router.push(`/article/${id}`)
 }
 
+const viewCategory = (categoryId) => {
+  // 这里可以跳转到分类页面或筛选该分类的文章
+  console.log('查看分类:', categoryId)
+  // 简单实现：在当前页面筛选该分类的文章
+  // 实际项目中可以跳转到分类页面
+  ElMessage.info(`查看分类 ${categories.value.find(c => c.id === categoryId)?.name || categoryId} 的文章`)
+}
+
+const viewTag = (tagId) => {
+  // 这里可以跳转到标签页面或筛选该标签的文章
+  console.log('查看标签:', tagId)
+  const tagName = tags.value.find(t => t.id === tagId)?.name || tagId
+  ElMessage.info(`查看标签 #${tagName} 的文章`)
+}
+
 const toWriteArticle = () => {
+  // 检查是否登录
+  if (!isLoggedIn.value) {
+    ElMessage.warning('请先登录')
+    showLoginDialog.value = true
+    return
+  }
   router.push('/article/create')
 }
 
 const toArticlesList = () => {
   currentPage.value = 1
   loadData()
-}
-
-const formatTime = (time) => {
-  const date = new Date(time)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  
-  if (days === 0) {
-    return '今天'
-  } else if (days === 1) {
-    return '昨天'
-  } else if (days < 7) {
-    return `${days}天前`
-  } else {
-    return date.toLocaleDateString('zh-CN')
-  }
 }
 
 const handlePageChange = (page) => {
@@ -619,80 +685,12 @@ const resetForm = () => {
 }
 
 .home-content .sidebar {
-  width: 300px;
+  width: 320px;
+  flex-shrink: 0;
 }
 
-.loading-state {
-  text-align: center;
-  padding: 40px;
-  color: #666;
-}
-
-.article-list .article-item {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-  cursor: pointer;
-  transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.article-list .article-item:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-}
-
-.article-list .article-item .article-content h3 {
-  font-size: 18px;
-  margin-bottom: 10px;
-  color: #333;
-}
-
-.article-list .article-item .article-content .article-summary {
-  color: #666;
-  line-height: 1.6;
-  margin-bottom: 15px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-clamp: 2;
-  display: -moz-box;
-  -moz-box-orient: vertical;
-  display: box;
-  box-orient: vertical;
-}
-
-.article-list .article-item .article-content .article-meta {
-  display: flex;
-  gap: 15px;
-  font-size: 12px;
-  color: #999;
-}
-
-.article-list .article-item .article-content .article-meta span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px;
-  color: #666;
-  background: white;
-  border-radius: 8px;
-}
-
-.pagination-wrapper {
-  margin-top: 30px;
-  display: flex;
-  justify-content: center;
-}
-
-.hot-articles, .category-card {
+/* 侧边栏卡片样式 */
+.hot-articles, .category-card, .tags-card {
   background: white;
   border-radius: 8px;
   padding: 20px;
@@ -700,7 +698,7 @@ const resetForm = () => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
-.hot-articles h3, .category-card h3 {
+.hot-articles h3, .category-card h3, .tags-card h3 {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -787,6 +785,23 @@ const resetForm = () => {
   font-size: 12px;
 }
 
+/* 标签云样式 */
+.tags-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-cloud-item {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.tag-cloud-item:hover {
+  transform: translateY(-2px);
+}
+
+/* 登录/注册弹窗样式 */
 .dialog-tabs {
   display: flex;
   margin-bottom: 30px;
@@ -849,6 +864,7 @@ const resetForm = () => {
   text-decoration: underline;
 }
 
+/* 响应式设计 */
 @media (max-width: 992px) {
   .home-content .container {
     flex-direction: column;

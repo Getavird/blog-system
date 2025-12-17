@@ -1,4 +1,3 @@
-// src/utils/auth.js
 // 检查是否登录
 export const isLoggedIn = () => {
   const token = localStorage.getItem('blog_token')

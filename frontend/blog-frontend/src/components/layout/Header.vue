@@ -83,7 +83,7 @@ const toWrite = () => {
 }
 
 const toProfile = () => {
-  router.push('/profile')
+  router.push('/user/profile')
 }
 
 const toMyArticles = () => {
