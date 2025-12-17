@@ -52,4 +52,18 @@ public interface UserMapper {
      */
     @Select("SELECT DATABASE()")
     String getDatabaseName();
+
+    @Select("SELECT * FROM user WHERE email = #{email}")
+    User findByEmail(String email);
+    
+    @Insert("INSERT INTO user(username, password, email, avatar, role, status, bio, create_time, update_time) " +
+            "VALUES(#{username}, #{password}, #{email}, #{avatar}, #{role}, #{status}, #{bio}, NOW(), NOW())")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(User user);
+    
+    @Update("UPDATE user SET email=#{email}, avatar=#{avatar}, bio=#{bio}, update_time=NOW() WHERE id=#{id}")
+    int update(User user);
+    
+    @Update("UPDATE user SET password=#{password}, update_time=NOW() WHERE id=#{id}")
+    int updatePassword(@Param("id") Integer id, @Param("password") String password);
 }

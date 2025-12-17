@@ -3,8 +3,13 @@ package com.blog.utils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.GetMapping;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 import javax.sql.DataSource;
+
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -61,5 +66,9 @@ public class DatabaseTest implements CommandLineRunner {
         } catch (Exception e) {
             System.out.println("⚠️  查询测试失败: " + e.getMessage());
         }
+    }
+    @GetMapping("/db-test")
+    public void dbTest(HttpServletResponse response) throws IOException {
+        response.sendRedirect("/api/debug/db-test");
     }
 }

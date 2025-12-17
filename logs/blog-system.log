@@ -1,0 +1,311 @@
+2025-12-16 10:36:19 [restartedMain] INFO  com.blog.BlogSystemApplication - Starting BlogSystemApplication using Java 21.0.8 with PID 4548 (D:\code\Project\vscode\blog-system\backend\blog-system\target\classes started by 31625 in D:\code\Project\vscode\blog-system)
+2025-12-16 10:36:19 [restartedMain] DEBUG com.blog.BlogSystemApplication - Running with Spring Boot v3.5.8, Spring v6.2.14
+2025-12-16 10:36:19 [restartedMain] INFO  com.blog.BlogSystemApplication - No active profile set, falling back to 1 default profile: "default"
+2025-12-16 10:36:19 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Searching for mappers annotated with @Mapper
+2025-12-16 10:36:19 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Using auto-configuration base package 'com.blog'
+2025-12-16 10:36:20 [restartedMain] WARN  o.m.s.mapper.ClassPathMapperScanner - No MyBatis mapper was found in '[com.blog]' package. Please check your configuration.
+2025-12-16 10:36:20 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2025-12-16 10:36:20 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-12-16 10:36:20 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.49]
+2025-12-16 10:36:20 [restartedMain] INFO  o.a.c.c.C.[Tomcat-3].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-12-16 10:36:20 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 802 ms
+2025-12-16 10:36:20 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Not found configuration for registering mapper bean using @MapperScan, MapperFactoryBean and MapperScannerConfigurer.
+2025-12-16 10:36:20 [restartedMain] DEBUG o.m.spring.SqlSessionFactoryBean - Property 'mapperLocations' was not specified.
+2025-12-16 10:36:20 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+2025-12-16 10:36:20 [restartedMain] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 1 endpoint beneath base path '/actuator'
+2025-12-16 10:36:20 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+2025-12-16 10:36:20 [restartedMain] INFO  com.blog.BlogSystemApplication - Started BlogSystemApplication in 1.556 seconds (process running for 1637.132)
+2025-12-16 10:36:20 [restartedMain] INFO  o.s.b.d.a.ConditionEvaluationDeltaLoggingListener - Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+   LogFileWebEndpointAutoConfiguration#logFileWebEndpoint matched:
+      - Log File found logging.file.name logs/blog-system.log (LogFileWebEndpointAutoConfiguration.LogFileCondition)
+      - @ConditionalOnMissingBean (types: org.springframework.boot.actuate.logging.LogFileWebEndpoint; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+
+Negative matches:
+-----------------
+
+    None
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2025-12-16 10:38:42 [File Watcher] INFO  o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener - Restarting due to 1 class path change (0 additions, 0 deletions, 1 modification)
+2025-12-16 10:38:42 [Thread-116] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2025-12-16 10:38:42 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+2025-12-16 10:38:42 [restartedMain] INFO  com.blog.BlogSystemApplication - Starting BlogSystemApplication using Java 21.0.8 with PID 4548 (D:\code\Project\vscode\blog-system\backend\blog-system\target\classes started by 31625 in D:\code\Project\vscode\blog-system)
+2025-12-16 10:38:42 [restartedMain] DEBUG com.blog.BlogSystemApplication - Running with Spring Boot v3.5.8, Spring v6.2.14
+2025-12-16 10:38:42 [restartedMain] INFO  com.blog.BlogSystemApplication - No active profile set, falling back to 1 default profile: "default"
+2025-12-16 10:38:42 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Searching for mappers annotated with @Mapper
+2025-12-16 10:38:42 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Using auto-configuration base package 'com.blog'
+2025-12-16 10:38:43 [restartedMain] WARN  o.m.s.mapper.ClassPathMapperScanner - No MyBatis mapper was found in '[com.blog]' package. Please check your configuration.
+2025-12-16 10:38:43 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2025-12-16 10:38:43 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-12-16 10:38:43 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.49]
+2025-12-16 10:38:43 [restartedMain] INFO  o.a.c.c.C.[Tomcat-3].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-12-16 10:38:43 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 539 ms
+2025-12-16 10:38:43 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Not found configuration for registering mapper bean using @MapperScan, MapperFactoryBean and MapperScannerConfigurer.
+2025-12-16 10:38:43 [restartedMain] DEBUG o.m.spring.SqlSessionFactoryBean - Property 'mapperLocations' was not specified.
+2025-12-16 10:38:43 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+2025-12-16 10:38:43 [restartedMain] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 1 endpoint beneath base path '/actuator'
+2025-12-16 10:38:43 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+2025-12-16 10:38:43 [restartedMain] INFO  com.blog.BlogSystemApplication - Started BlogSystemApplication in 0.901 seconds (process running for 1779.814)
+2025-12-16 10:38:43 [restartedMain] INFO  o.s.b.d.a.ConditionEvaluationDeltaLoggingListener - Condition evaluation unchanged
+2025-12-16 10:38:45 [File Watcher] INFO  o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener - Restarting due to 1 class path change (0 additions, 0 deletions, 1 modification)
+2025-12-16 10:38:45 [Thread-120] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2025-12-16 10:38:45 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+2025-12-16 10:38:45 [restartedMain] INFO  com.blog.BlogSystemApplication - Starting BlogSystemApplication using Java 21.0.8 with PID 4548 (D:\code\Project\vscode\blog-system\backend\blog-system\target\classes started by 31625 in D:\code\Project\vscode\blog-system)
+2025-12-16 10:38:45 [restartedMain] DEBUG com.blog.BlogSystemApplication - Running with Spring Boot v3.5.8, Spring v6.2.14
+2025-12-16 10:38:45 [restartedMain] INFO  com.blog.BlogSystemApplication - No active profile set, falling back to 1 default profile: "default"
+2025-12-16 10:38:45 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Searching for mappers annotated with @Mapper
+2025-12-16 10:38:45 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Using auto-configuration base package 'com.blog'
+2025-12-16 10:38:45 [restartedMain] WARN  o.m.s.mapper.ClassPathMapperScanner - No MyBatis mapper was found in '[com.blog]' package. Please check your configuration.
+2025-12-16 10:38:45 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2025-12-16 10:38:45 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-12-16 10:38:45 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.49]
+2025-12-16 10:38:45 [restartedMain] INFO  o.a.c.c.C.[Tomcat-3].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-12-16 10:38:45 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 482 ms
+2025-12-16 10:38:46 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Not found configuration for registering mapper bean using @MapperScan, MapperFactoryBean and MapperScannerConfigurer.
+2025-12-16 10:38:46 [restartedMain] DEBUG o.m.spring.SqlSessionFactoryBean - Property 'mapperLocations' was not specified.
+2025-12-16 10:38:46 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+2025-12-16 10:38:46 [restartedMain] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 1 endpoint beneath base path '/actuator'
+2025-12-16 10:38:46 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+2025-12-16 10:38:46 [restartedMain] INFO  com.blog.BlogSystemApplication - Started BlogSystemApplication in 0.772 seconds (process running for 1782.566)
+2025-12-16 10:38:46 [restartedMain] INFO  o.s.b.d.a.ConditionEvaluationDeltaLoggingListener - Condition evaluation unchanged
+2025-12-16 10:38:47 [File Watcher] INFO  o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener - Restarting due to 1 class path change (0 additions, 0 deletions, 1 modification)
+2025-12-16 10:38:47 [Thread-124] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2025-12-16 10:38:47 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+2025-12-16 10:38:47 [restartedMain] INFO  com.blog.BlogSystemApplication - Starting BlogSystemApplication using Java 21.0.8 with PID 4548 (D:\code\Project\vscode\blog-system\backend\blog-system\target\classes started by 31625 in D:\code\Project\vscode\blog-system)
+2025-12-16 10:38:47 [restartedMain] DEBUG com.blog.BlogSystemApplication - Running with Spring Boot v3.5.8, Spring v6.2.14
+2025-12-16 10:38:47 [restartedMain] INFO  com.blog.BlogSystemApplication - No active profile set, falling back to 1 default profile: "default"
+2025-12-16 10:38:48 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Searching for mappers annotated with @Mapper
+2025-12-16 10:38:48 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Using auto-configuration base package 'com.blog'
+2025-12-16 10:38:48 [restartedMain] WARN  o.m.s.mapper.ClassPathMapperScanner - No MyBatis mapper was found in '[com.blog]' package. Please check your configuration.
+2025-12-16 10:38:48 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2025-12-16 10:38:48 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-12-16 10:38:48 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.49]
+2025-12-16 10:38:48 [restartedMain] INFO  o.a.c.c.C.[Tomcat-3].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-12-16 10:38:48 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 502 ms
+2025-12-16 10:38:48 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Not found configuration for registering mapper bean using @MapperScan, MapperFactoryBean and MapperScannerConfigurer.
+2025-12-16 10:38:48 [restartedMain] DEBUG o.m.spring.SqlSessionFactoryBean - Property 'mapperLocations' was not specified.
+2025-12-16 10:38:48 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+2025-12-16 10:38:48 [restartedMain] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 1 endpoint beneath base path '/actuator'
+2025-12-16 10:38:48 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+2025-12-16 10:38:48 [restartedMain] INFO  com.blog.BlogSystemApplication - Started BlogSystemApplication in 0.882 seconds (process running for 1785.037)
+2025-12-16 10:38:48 [restartedMain] INFO  o.s.b.d.a.ConditionEvaluationDeltaLoggingListener - Condition evaluation unchanged
+2025-12-16 10:38:51 [File Watcher] INFO  o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener - Restarting due to 1 class path change (0 additions, 0 deletions, 1 modification)
+2025-12-16 10:38:51 [Thread-128] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2025-12-16 10:38:51 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+2025-12-16 10:38:51 [restartedMain] INFO  com.blog.BlogSystemApplication - Starting BlogSystemApplication using Java 21.0.8 with PID 4548 (D:\code\Project\vscode\blog-system\backend\blog-system\target\classes started by 31625 in D:\code\Project\vscode\blog-system)
+2025-12-16 10:38:51 [restartedMain] DEBUG com.blog.BlogSystemApplication - Running with Spring Boot v3.5.8, Spring v6.2.14
+2025-12-16 10:38:51 [restartedMain] INFO  com.blog.BlogSystemApplication - No active profile set, falling back to 1 default profile: "default"
+2025-12-16 11:02:54 [restartedMain] INFO  com.blog.BlogSystemApplication - Starting BlogSystemApplication using Java 21.0.8 with PID 25216 (D:\code\Project\vscode\blog-system\backend\blog-system\target\classes started by 31625 in D:\code\Project\vscode\blog-system)
+2025-12-16 11:02:54 [restartedMain] DEBUG com.blog.BlogSystemApplication - Running with Spring Boot v3.5.8, Spring v6.2.14
+2025-12-16 11:02:54 [restartedMain] INFO  com.blog.BlogSystemApplication - No active profile set, falling back to 1 default profile: "default"
+2025-12-16 11:02:54 [restartedMain] INFO  o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor - Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2025-12-16 11:02:54 [restartedMain] INFO  o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor - For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2025-12-16 11:02:56 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Searching for mappers annotated with @Mapper
+2025-12-16 11:02:56 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Using auto-configuration base package 'com.blog'
+2025-12-16 11:02:57 [restartedMain] DEBUG o.apache.ibatis.logging.LogFactory - Logging initialized using 'class org.apache.ibatis.logging.slf4j.Slf4jImpl' adapter.
+2025-12-16 11:02:57 [restartedMain] DEBUG o.m.s.mapper.ClassPathMapperScanner - Identified candidate component class: file [D:\code\Project\vscode\blog-system\backend\blog-system\target\classes\com\blog\dao\UserMapper.class]
+2025-12-16 11:02:57 [restartedMain] DEBUG o.m.s.mapper.ClassPathMapperScanner - Creating MapperFactoryBean with name 'userMapper' and 'com.blog.dao.UserMapper' mapperInterface
+2025-12-16 11:02:58 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2025-12-16 11:02:58 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-12-16 11:02:58 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.49]
+2025-12-16 11:02:58 [restartedMain] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-12-16 11:02:58 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 3730 ms
+2025-12-16 11:02:59 [restartedMain] DEBUG o.m.s.b.a.MybatisAutoConfiguration - Not found configuration for registering mapper bean using @MapperScan, MapperFactoryBean and MapperScannerConfigurer.
+2025-12-16 11:02:59 [restartedMain] DEBUG o.m.spring.SqlSessionFactoryBean - Property 'mapperLocations' was not specified.
+2025-12-16 11:03:00 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+2025-12-16 11:03:00 [restartedMain] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 1 endpoint beneath base path '/actuator'
+2025-12-16 11:03:01 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+2025-12-16 11:03:01 [restartedMain] INFO  com.blog.BlogSystemApplication - Started BlogSystemApplication in 7.898 seconds (process running for 9.382)
+2025-12-16 11:03:02 [RMI TCP Connection(2)-127.0.0.1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-12-16 11:03:02 [RMI TCP Connection(2)-127.0.0.1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-12-16 11:03:02 [RMI TCP Connection(2)-127.0.0.1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 3 ms
+2025-12-16 11:06:41 [http-nio-8080-exec-7] ERROR c.blog.common.GlobalExceptionHandler - 系统异常 - URL: http://localhost:8080/api/exception, Method: GET, Error: No static resource api/exception.
+org.springframework.web.servlet.resource.NoResourceFoundException: No static resource api/exception.
+	at org.springframework.web.servlet.resource.ResourceHttpRequestHandler.handleRequest(ResourceHttpRequestHandler.java:585)
+	at org.springframework.web.servlet.mvc.HttpRequestHandlerAdapter.handle(HttpRequestHandlerAdapter.java:52)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1089)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:979)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1014)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:903)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:564)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:658)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at com.blog.filter.AuthFilter.doFilter(AuthFilter.java:61)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:110)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:165)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:88)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:482)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:113)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:83)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:72)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:342)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:399)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:903)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1774)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:973)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:491)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:63)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2025-12-16 11:06:42 [http-nio-8080-exec-7] WARN  o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver - Resolved [org.springframework.web.servlet.resource.NoResourceFoundException: No static resource api/exception.]
+2025-12-16 11:06:58 [http-nio-8080-exec-2] ERROR c.blog.common.GlobalExceptionHandler - 系统异常 - URL: http://localhost:8080/api/user/login, Method: GET, Error: Request method 'GET' is not supported
+org.springframework.web.HttpRequestMethodNotSupportedException: Request method 'GET' is not supported
+	at org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMapping.handleNoMatch(RequestMappingInfoHandlerMapping.java:267)
+	at org.springframework.web.servlet.handler.AbstractHandlerMethodMapping.lookupHandlerMethod(AbstractHandlerMethodMapping.java:441)
+	at org.springframework.web.servlet.handler.AbstractHandlerMethodMapping.getHandlerInternal(AbstractHandlerMethodMapping.java:382)
+	at org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMapping.getHandlerInternal(RequestMappingInfoHandlerMapping.java:127)
+	at org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMapping.getHandlerInternal(RequestMappingInfoHandlerMapping.java:68)
+	at org.springframework.web.servlet.handler.AbstractHandlerMapping.getHandler(AbstractHandlerMapping.java:509)
+	at org.springframework.web.servlet.DispatcherServlet.getHandler(DispatcherServlet.java:1284)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1065)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:979)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1014)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:903)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:564)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:658)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at com.blog.filter.AuthFilter.doFilter(AuthFilter.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:110)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:165)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:88)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:482)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:113)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:83)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:72)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:342)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:399)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:903)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1774)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:973)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:491)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:63)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2025-12-16 11:06:58 [http-nio-8080-exec-2] WARN  o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver - Resolved [org.springframework.web.HttpRequestMethodNotSupportedException: Request method 'GET' is not supported]
+2025-12-16 11:07:00 [http-nio-8080-exec-4] ERROR c.blog.common.GlobalExceptionHandler - 系统异常 - URL: http://localhost:8080/api/user/register, Method: GET, Error: Request method 'GET' is not supported
+org.springframework.web.HttpRequestMethodNotSupportedException: Request method 'GET' is not supported
+	at org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMapping.handleNoMatch(RequestMappingInfoHandlerMapping.java:267)
+	at org.springframework.web.servlet.handler.AbstractHandlerMethodMapping.lookupHandlerMethod(AbstractHandlerMethodMapping.java:441)
+	at org.springframework.web.servlet.handler.AbstractHandlerMethodMapping.getHandlerInternal(AbstractHandlerMethodMapping.java:382)
+	at org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMapping.getHandlerInternal(RequestMappingInfoHandlerMapping.java:127)
+	at org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMapping.getHandlerInternal(RequestMappingInfoHandlerMapping.java:68)
+	at org.springframework.web.servlet.handler.AbstractHandlerMapping.getHandler(AbstractHandlerMapping.java:509)
+	at org.springframework.web.servlet.DispatcherServlet.getHandler(DispatcherServlet.java:1284)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1065)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:979)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1014)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:903)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:564)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:658)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at com.blog.filter.AuthFilter.doFilter(AuthFilter.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:110)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:162)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:138)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:165)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:88)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:482)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:113)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:83)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:72)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:342)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:399)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:903)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1774)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:973)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:491)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:63)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2025-12-16 11:07:00 [http-nio-8080-exec-4] WARN  o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver - Resolved [org.springframework.web.HttpRequestMethodNotSupportedException: Request method 'GET' is not supported]
