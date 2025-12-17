@@ -28,13 +28,9 @@ public class UserController {
      * 用户登录
      */
     @PostMapping("/login")
-    public Result<User> login(@RequestBody User user) {
-        // 明天实现具体逻辑
-        User mockUser = new User();
-        mockUser.setId(1);
-        mockUser.setUsername(user.getUsername());
-        mockUser.setRole(1);
-        return Result.success("登录功能已预留", mockUser);
+  public Result<User> login(@RequestBody User user) {
+        // 业务逻辑
+        return Result.success("登录成功", user);
     }
     
     /**

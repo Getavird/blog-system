@@ -15,7 +15,7 @@ public class CorsConfig implements WebMvcConfigurer {
         // 添加映射路径
         registry.addMapping("/**")
                 // 允许的来源（生产环境应配置具体的域名）
-                .allowedOriginPatterns("*")
+                .allowedOriginPatterns("http://localhost:3000", "http://localhost:5173")
                 // 允许的HTTP方法
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 // 允许的请求头

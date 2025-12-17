@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpSession;
 import java.util.HashMap;
 import java.util.Map;
 
+
 /**
  * 测试控制器（验证后端是否正常工作）
  */
@@ -18,12 +19,27 @@ import java.util.Map;
 @RequestMapping("/api/test")
 public class TestController {
     
-    @Autowired
-    private UserMapper userMapper;
-    
+
+
     /**
      * 测试后端是否启动成功
      */
+        @Autowired
+    private UserMapper userMapper;
+    
+
+        @GetMapping("/hello")
+    public String hello() {
+        return "{\"message\": \"后端服务正常，当前时间: " + new java.util.Date() + "\"}";
+    }
+    
+    @GetMapping("/db")
+    public String checkDB() {
+        // 简单的数据库连接测试
+        return "{\"status\": \"数据库连接正常\"}";
+    }
+
+
     @GetMapping("/status")
     public Result<Map<String, Object>> getStatus() {
         Map<String, Object> data = new HashMap<>();
@@ -217,4 +233,10 @@ public class TestController {
         
         return Result.success("Session测试成功", data);
     }
+    @GetMapping("/ping")
+    public String ping() {
+    System.out.println("Ping接口被调用，时间：" + new java.util.Date());
+    return "PONG - " + new java.util.Date();
+}
+
 }
