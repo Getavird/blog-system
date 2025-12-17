@@ -7,35 +7,22 @@ import org.springframework.util.DigestUtils;
  */
 public class PasswordUtil {
     
-    /**
-     * 盐值（实际项目中应该更复杂，这里简化）
-     */
-    private static final String SALT = "BLOG_SYSTEM_2024_SALT_@#$%";
+    // 注释掉或删除盐值
+    // private static final String SALT = "BLOG_SYSTEM_2024_SALT_@#$%";
     
-    /**
-     * 密码加密
-     * @param password 原始密码
-     * @return 加密后的密码
-     */
     public static String encrypt(String password) {
         if (password == null || password.isEmpty()) {
             throw new IllegalArgumentException("密码不能为空");
         }
-        // 使用MD5加密（盐值+密码+盐值）
-        String str = SALT + password + SALT;
-        return DigestUtils.md5DigestAsHex(str.getBytes());
+        // 直接使用MD5，不加盐（与数据库存储一致）
+        return DigestUtils.md5DigestAsHex(password.getBytes());
     }
     
-    /**
-     * 验证密码
-     * @param password 原始密码
-     * @param encryptedPassword 加密后的密码
-     * @return 是否匹配
-     */
     public static boolean verify(String password, String encryptedPassword) {
         if (password == null || encryptedPassword == null) {
             return false;
         }
+        // 直接比较MD5
         return encrypt(password).equals(encryptedPassword);
     }
     

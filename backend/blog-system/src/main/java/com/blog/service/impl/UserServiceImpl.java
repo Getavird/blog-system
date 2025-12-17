@@ -35,19 +35,45 @@ public class UserServiceImpl implements UserService {
     }
     
     @Override
-    public User login(String username, String password) {
+public User login(String username, String password) {
+    try {
+        System.out.println("🔍 开始用户登录验证: " + username);
+        
+        // 1. 根据用户名查询用户
         User user = userMapper.findByUsername(username);
         if (user == null) {
+            System.out.println("❌ 用户不存在: " + username);
             throw new RuntimeException("用户不存在");
         }
         
-        // 验证密码
-        if (!PasswordUtil.verify(password, user.getPassword())) {
+        System.out.println("✅ 找到用户: ID=" + user.getId() + ", 用户名=" + user.getUsername());
+        
+        // 2. 验证密码（使用PasswordUtil）
+        String encryptedPassword = PasswordUtil.encrypt(password);
+        if (!user.getPassword().equals(encryptedPassword)) {
+            System.out.println("❌ 密码不匹配");
             throw new RuntimeException("密码错误");
         }
         
+        System.out.println("✅ 密码验证通过");
+        
+        // 3. 检查用户状态
+        if (user.getStatus() != null && user.getStatus() == 0) {
+            System.out.println("❌ 用户已被禁用");
+            throw new RuntimeException("用户已被禁用");
+        }
+        
+        // 4. 不返回密码（安全）
+        user.setPassword(null);
+        
+        System.out.println("🎉 用户登录成功: " + username);
         return user;
+        
+    } catch (Exception e) {
+        System.err.println("💥 登录过程异常: " + e.getMessage());
+        throw new RuntimeException("登录失败: " + e.getMessage());
     }
+}
     
     @Override
     public User getUserById(Integer id) {
