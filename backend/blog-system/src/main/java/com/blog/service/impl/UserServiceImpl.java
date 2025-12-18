@@ -6,8 +6,12 @@ import com.blog.service.UserService;
 import com.blog.utils.PasswordUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
 
 @Service
+@Transactional
 public class UserServiceImpl implements UserService {
     
     @Autowired
@@ -25,13 +29,12 @@ public class UserServiceImpl implements UserService {
                 throw new RuntimeException("用户名已存在");
             }
             
-            // 2. 检查邮箱是否存在（可选）
+            // 2. 检查邮箱是否存在
             if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
-                // 需要先在UserMapper中实现findByEmail方法
-                // User existEmail = userMapper.findByEmail(user.getEmail());
-                // if (existEmail != null) {
-                //     throw new RuntimeException("邮箱已注册");
-                // }
+                User existEmail = userMapper.findByEmail(user.getEmail());
+                if (existEmail != null) {
+                    throw new RuntimeException("邮箱已注册");
+                }
             }
             
             // 3. 设置默认值
@@ -44,33 +47,30 @@ public class UserServiceImpl implements UserService {
             if (user.getStatus() == null) {
                 user.setStatus(1); // 默认启用
             }
+            if (user.getBio() == null) {
+                user.setBio("");
+            }
             
-            // 4. 密码加密（使用MD5）
+            // 4. 密码加密
             String encryptedPassword = PasswordUtil.encrypt(user.getPassword());
             user.setPassword(encryptedPassword);
             
             System.out.println("✅ 用户信息验证通过，准备保存到数据库");
             
-            // 5. 保存到数据库（需要先完善UserMapper.insert方法）
-            // 目前先使用模拟数据，等Mapper完善后替换
-            // int result = userMapper.insert(user);
-            // if (result > 0) {
-            //     // 返回用户信息（清除密码）
-            //     user.setPassword(null);
-            //     return user;
-            // } else {
-            //     throw new RuntimeException("注册失败，请稍后重试");
-            // }
-            
-            // 临时模拟返回（开发阶段使用）
-            user.setId(1000 + (int)(Math.random() * 9000)); // 模拟ID
-            user.setPassword(null); // 清除密码返回
-            System.out.println("✅ 用户注册成功: " + user.getUsername() + " (ID: " + user.getId() + ")");
-            return user;
+            // 5. 保存到数据库
+            int result = userMapper.insert(user);
+            if (result > 0) {
+                System.out.println("✅ 用户注册成功: " + user.getUsername() + " (ID: " + user.getId() + ")");
+                // 返回用户信息（清除密码）
+                user.setPassword(null);
+                return user;
+            } else {
+                throw new RuntimeException("注册失败，请稍后重试");
+            }
             
         } catch (RuntimeException e) {
             System.err.println("❌ 用户注册异常: " + e.getMessage());
-            throw e; // 重新抛出异常，让Controller处理
+            throw e;
         } catch (Exception e) {
             System.err.println("❌ 用户注册系统异常: " + e.getMessage());
             e.printStackTrace();
@@ -94,7 +94,7 @@ public class UserServiceImpl implements UserService {
                              ", 用户名=" + user.getUsername() + 
                              ", 数据库密码=" + user.getPassword());
             
-            // 2. 验证密码（使用PasswordUtil进行MD5加密后比较）
+            // 2. 验证密码
             String encryptedPassword = PasswordUtil.encrypt(password);
             System.out.println("🔐 输入密码加密后: " + encryptedPassword);
             
@@ -118,14 +118,16 @@ public class UserServiceImpl implements UserService {
                              " (ID: " + user.getId() + 
                              ", 角色: " + user.getRole() + ")");
             
-            // 5. 不返回密码（安全考虑）
+            // 5. 更新最后登录时间（需要先在User实体和表中添加lastLoginTime字段）
+            // 暂时跳过，保持简单
+            
+            // 6. 不返回密码（安全考虑）
             user.setPassword(null);
             
             return user;
             
         } catch (RuntimeException e) {
             System.err.println("💥 登录过程异常: " + e.getMessage());
-            // 直接抛出，让Controller处理
             throw new RuntimeException("登录失败: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("💥 登录系统异常: " + e.getMessage());
@@ -139,7 +141,6 @@ public class UserServiceImpl implements UserService {
         try {
             System.out.println("📋 查询用户信息: ID=" + id);
             
-            // 调用Mapper查询用户
             User user = userMapper.findById(id);
             
             if (user == null) {
@@ -173,10 +174,13 @@ public class UserServiceImpl implements UserService {
             }
             
             // 2. 只允许更新部分字段（不允许直接修改密码和角色）
-            // 注意：密码修改应该有专门的接口，使用单独的验证流程
-            
             // 更新邮箱
             if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+                // 检查邮箱是否被其他用户使用
+                User emailUser = userMapper.findByEmail(user.getEmail());
+                if (emailUser != null && !emailUser.getId().equals(user.getId())) {
+                    throw new RuntimeException("邮箱已被其他用户使用");
+                }
                 existingUser.setEmail(user.getEmail());
                 System.out.println("   - 更新邮箱: " + user.getEmail());
             }
@@ -194,64 +198,28 @@ public class UserServiceImpl implements UserService {
                     user.getBio().substring(0, 50) + "..." : user.getBio()));
             }
             
-            // 3. 保存到数据库（需要先完善UserMapper.update方法）
-            // 目前先返回true，等Mapper完善后替换
-            // int result = userMapper.update(existingUser);
-            // if (result > 0) {
-            //     System.out.println("✅ 用户信息更新成功");
-            //     return true;
-            // } else {
-            //     System.out.println("❌ 用户信息更新失败");
-            //     return false;
-            // }
+            // 3. 保存到数据库
+            int result = userMapper.update(existingUser);
+            if (result > 0) {
+                System.out.println("✅ 用户信息更新成功");
+                return true;
+            } else {
+                System.out.println("❌ 用户信息更新失败");
+                return false;
+            }
             
-            // 临时模拟成功
-            System.out.println("✅ 用户信息更新成功（模拟）");
-            return true;
-            
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             System.err.println("❌ 更新用户异常: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            System.err.println("❌ 更新用户系统异常: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
     }
     
     /**
-     * 辅助方法：验证用户名是否可用（用于注册时检查）
-     */
-    public boolean isUsernameAvailable(String username) {
-        try {
-            User user = userMapper.findByUsername(username);
-            return user == null; // 如果没有找到，说明用户名可用
-        } catch (Exception e) {
-            System.err.println("❌ 检查用户名异常: " + e.getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * 辅助方法：根据邮箱查询用户（用于找回密码等功能）
-     * 注意：需要先在UserMapper中实现findByEmail方法
-     */
-    public User getUserByEmail(String email) {
-        try {
-            System.out.println("📧 根据邮箱查询用户: " + email);
-            
-            // User user = userMapper.findByEmail(email);
-            // if (user != null) {
-            //     user.setPassword(null); // 不返回密码
-            // }
-            // return user;
-            return null;
-            
-        } catch (Exception e) {
-            System.err.println("❌ 根据邮箱查询用户异常: " + e.getMessage());
-            return null;
-        }
-    }
-    
-    /**
-     * 辅助方法：修改密码（需要旧密码验证）
+     * 修改密码（需要旧密码验证）
      */
     public boolean changePassword(Integer userId, String oldPassword, String newPassword) {
         try {
@@ -274,14 +242,15 @@ public class UserServiceImpl implements UserService {
             // 3. 加密新密码
             String encryptedNewPassword = PasswordUtil.encrypt(newPassword);
             
-            // 4. 更新密码（需要先完善UserMapper.updatePassword方法）
-            // user.setPassword(encryptedNewPassword);
-            // int result = userMapper.updatePassword(userId, encryptedNewPassword);
-            // return result > 0;
-            
-            // 暂时返回成功（模拟）
-            System.out.println("✅ 密码修改成功（模拟）");
-            return true;
+            // 4. 更新密码
+            int result = userMapper.updatePassword(userId, encryptedNewPassword);
+            if (result > 0) {
+                System.out.println("✅ 密码修改成功");
+                return true;
+            } else {
+                System.out.println("❌ 密码修改失败");
+                return false;
+            }
             
         } catch (Exception e) {
             System.err.println("❌ 修改密码异常: " + e.getMessage());
@@ -291,45 +260,20 @@ public class UserServiceImpl implements UserService {
     }
     
     /**
-     * 辅助方法：重置密码（管理员功能）
+     * 检查用户名是否可用
      */
-    public boolean resetPassword(Integer userId, String newPassword) {
+    public boolean isUsernameAvailable(String username) {
         try {
-            System.out.println("🔄 重置密码: 用户ID=" + userId);
-            
-            // 1. 获取用户信息
-            User user = userMapper.findById(userId);
-            if (user == null) {
-                System.out.println("❌ 用户不存在: ID=" + userId);
-                return false;
-            }
-            
-            // 2. 加密新密码
-            String encryptedPassword = PasswordUtil.encrypt(newPassword);
-            
-            // 3. 更新密码（需要先完善UserMapper.updatePassword方法）
-            // int result = userMapper.updatePassword(userId, encryptedPassword);
-            // if (result > 0) {
-            //     System.out.println("✅ 密码重置成功");
-            //     return true;
-            // } else {
-            //     System.out.println("❌ 密码重置失败");
-            //     return false;
-            // }
-            
-            // 暂时返回成功（模拟）
-            System.out.println("✅ 密码重置成功（模拟）");
-            return true;
-            
+            User user = userMapper.findByUsername(username);
+            return user == null;
         } catch (Exception e) {
-            System.err.println("❌ 重置密码异常: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("❌ 检查用户名异常: " + e.getMessage());
             return false;
         }
     }
     
     /**
-     * 辅助方法：检查用户是否是管理员
+     * 检查是否是管理员
      */
     public boolean isAdmin(Integer userId) {
         try {
@@ -339,5 +283,17 @@ public class UserServiceImpl implements UserService {
             System.err.println("❌ 检查管理员权限异常: " + e.getMessage());
             return false;
         }
+    }
+    
+    /**
+     * 获取用户统计数据
+     */
+    public User getUserWithStats(Integer userId) {
+        User user = userMapper.findById(userId);
+        if (user != null) {
+            user.setPassword(null);
+            // 这里可以添加统计信息查询，如文章数、获赞数等
+        }
+        return user;
     }
 }
