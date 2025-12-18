@@ -5,11 +5,6 @@ export const getBackendStatus = () => {
   return request.get('/api/test/status')
 }
 
-// 数据库测试
-export const testDatabase = () => {
-  return request.get('/api/test/db-test')
-}
-
 // 数据库状态
 export const getDbStatus = () => {
   return request.get('/api/debug/db-status')

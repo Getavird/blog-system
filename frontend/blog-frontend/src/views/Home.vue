@@ -241,12 +241,14 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Document, Star, Folder, PriceTag } from '@element-plus/icons-vue'
+import { Document, Star, Folder } from '@element-plus/icons-vue'
+import Header from '@/components/layout/Header.vue'
+import Footer from '@/components/layout/Footer.vue'
+import ArticleList from '@/components/article/ArticleList.vue'
+import { getArticles } from '@/api/article'
+import { getCategories } from '@/api/category'
+import { transformArticles, transformCategories, formatDateTime } from '@/utils/dataTransform'
 
-// 导入组件
-import Header from '../components/layout/Header.vue'
-import Footer from '../components/layout/Footer.vue'
-import ArticleList from '../components/article/ArticleList.vue'
 
 const router = useRouter()
 
@@ -256,9 +258,8 @@ const isLoggedIn = ref(false)
 const articles = ref([])
 const hotArticles = ref([])
 const categories = ref([])
-const tags = ref([])
 const currentPage = ref(1)
-const pageSize = ref(5)
+const pageSize = ref(10)
 const total = ref(0)
 
 // 标签类型数组
@@ -266,7 +267,7 @@ const tagTypes = ['', 'success', 'info', 'warning', 'danger']
 
 // 登录/注册弹窗相关
 const showLoginDialog = ref(false)
-const activeTab = ref('login') // 'login' 或 'register'
+const activeTab = ref('login')
 
 // 登录表单
 const loginFormRef = ref(null)
@@ -348,109 +349,6 @@ const registerRules = {
   ]
 }
 
-// 模拟数据
-const mockArticles = [
-  {
-    id: 1,
-    title: 'Spring Boot入门教程',
-    summary: '详细介绍Spring Boot的基本使用和配置，快速上手后端开发...',
-    authorName: '张三',
-    authorId: 1,
-    viewCount: 156,
-    likeCount: 25,
-    commentCount: 8,
-    createTime: '2024-01-15 10:30:00',
-    updateTime: '2024-01-15 10:30:00',
-    categoryName: '技术',
-    tags: ['Spring Boot', 'Java', '后端']
-  },
-  {
-    id: 2,
-    title: 'Vue 3新特性详解',
-    summary: '深入解析Vue 3的新特性和使用技巧，带你快速上手Vue 3开发...',
-    authorName: '李四',
-    authorId: 2,
-    viewCount: 203,
-    likeCount: 42,
-    commentCount: 12,
-    createTime: '2024-01-14 14:20:00',
-    updateTime: '2024-01-15 09:30:00',
-    categoryName: '前端',
-    tags: ['Vue 3', '前端', 'JavaScript']
-  },
-  {
-    id: 3,
-    title: '数据库设计规范',
-    summary: '分享数据库设计的最佳实践和规范，让你的数据架构更合理...',
-    authorName: '王五',
-    authorId: 3,
-    viewCount: 89,
-    likeCount: 18,
-    commentCount: 5,
-    createTime: '2024-01-13 09:15:00',
-    updateTime: '2024-01-13 09:15:00',
-    categoryName: '数据库',
-    tags: ['数据库', 'MySQL', '设计']
-  },
-  {
-    id: 4,
-    title: '如何写好技术文档',
-    summary: '技术文档写作的实用技巧和经验分享，提升文档质量和可读性...',
-    authorName: '赵六',
-    authorId: 4,
-    viewCount: 124,
-    likeCount: 32,
-    commentCount: 7,
-    createTime: '2024-01-12 16:45:00',
-    updateTime: '2024-01-12 16:45:00',
-    categoryName: '学习',
-    tags: ['文档', '写作', '技巧']
-  },
-  {
-    id: 5,
-    title: 'Git 高级使用技巧',
-    summary: '掌握Git的高级功能和工作流，提升团队协作效率...',
-    authorName: '钱七',
-    authorId: 5,
-    viewCount: 78,
-    likeCount: 15,
-    commentCount: 3,
-    createTime: '2024-01-11 11:20:00',
-    updateTime: '2024-01-11 11:20:00',
-    categoryName: '工具',
-    tags: ['Git', '版本控制', '工具']
-  }
-]
-
-const mockHotArticles = [
-  { id: 2, title: 'Vue 3新特性详解', viewCount: 320 },
-  { id: 1, title: 'Spring Boot入门教程', viewCount: 280 },
-  { id: 4, title: '如何写好技术文档', viewCount: 250 },
-  { id: 3, title: '数据库设计规范', viewCount: 210 },
-  { id: 5, title: 'Git 高级使用技巧', viewCount: 180 }
-]
-
-const mockCategories = [
-  { id: 1, name: '技术', count: 12 },
-  { id: 2, name: '生活', count: 8 },
-  { id: 3, name: '学习', count: 5 },
-  { id: 4, name: '工具', count: 3 },
-  { id: 5, name: '随笔', count: 7 }
-]
-
-const mockTags = [
-  { id: 1, name: 'Vue', count: 15 },
-  { id: 2, name: 'React', count: 12 },
-  { id: 3, name: 'JavaScript', count: 28 },
-  { id: 4, name: 'Spring Boot', count: 10 },
-  { id: 5, name: 'Java', count: 22 },
-  { id: 6, name: 'Python', count: 18 },
-  { id: 7, name: '数据库', count: 9 },
-  { id: 8, name: '前端', count: 25 },
-  { id: 9, name: '后端', count: 20 },
-  { id: 10, name: '算法', count: 14 }
-]
-
 // 生命周期
 onMounted(() => {
   // 检查登录状态
@@ -461,18 +359,85 @@ onMounted(() => {
 })
 
 // 方法
-const loadData = () => {
+const loadData = async () => {
   loading.value = true
-  
-  // 模拟API调用
-  setTimeout(() => {
-    articles.value = mockArticles
-    hotArticles.value = mockHotArticles
-    categories.value = mockCategories
-    tags.value = mockTags
-    total.value = 25
+  try {
+    // 1. 获取文章列表
+    const articlesResponse = await getArticles({
+      page: currentPage.value,
+      size: pageSize.value
+    })
+    
+    // 转换数据格式
+    articles.value = transformArticles(articlesResponse)
+    
+    // 热门文章取前5个（模拟）
+    hotArticles.value = articles.value.slice(0, 5).map(article => ({
+      id: article.id,
+      title: article.title,
+      viewCount: article.viewCount
+    }))
+    
+    // 2. 获取分类列表
+    const categoriesResponse = await getCategories()
+    categories.value = transformCategories(categoriesResponse)
+    
+    // 统计每个分类的文章数量
+    categories.value = categories.value.map(category => ({
+      ...category,
+      count: category.articleCount
+    }))
+    
+    // 3. 更新总数（这里需要后端支持返回总条数）
+    total.value = articlesResponse.length || 0
+    
+  } catch (error) {
+    console.error('加载数据失败:', error)
+    // 使用模拟数据作为回退
+    articles.value = getMockArticles()
+    categories.value = getMockCategories()
+    hotArticles.value = getMockHotArticles()
+  } finally {
     loading.value = false
-  }, 800)
+  }
+}
+
+// 模拟数据作为回退
+const getMockArticles = () => {
+  return [
+    {
+      id: 1,
+      title: 'Spring Boot入门教程',
+      summary: '详细介绍Spring Boot的基本使用和配置，快速上手后端开发...',
+      authorName: 'admin',
+      viewCount: 156,
+      likeCount: 25,
+      createTime: '2023-10-01T10:30:00'
+    },
+    {
+      id: 2,
+      title: 'Vue 3新特性详解',
+      summary: '深入解析Vue 3的新特性和使用技巧，带你快速上手Vue 3开发...',
+      authorName: 'admin',
+      viewCount: 203,
+      likeCount: 42,
+      createTime: '2023-10-02T14:20:00'
+    }
+  ]
+}
+
+const getMockCategories = () => {
+  return [
+    { id: 1, name: '技术分享', count: 12 },
+    { id: 2, name: '生活随笔', count: 8 }
+  ]
+}
+
+const getMockHotArticles = () => {
+  return [
+    { id: 1, title: 'Vue 3新特性详解', viewCount: 320 },
+    { id: 2, title: 'Spring Boot入门教程', viewCount: 280 }
+  ]
 }
 
 const viewArticle = (id) => {

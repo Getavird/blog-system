@@ -35,12 +35,14 @@ export const unlikeArticle = (id) => {
   return request.delete(`/api/articles/${id}/like`)
 }
 
-// 获取热门文章
-export const getHotArticles = () => {
-  return request.get('/api/articles/hot')
+// 搜索文章
+export const searchArticles = (keyword, params) => {
+  return request.get('/api/articles/search', { 
+    params: { keyword, ...params }
+  })
 }
 
-// 搜索文章
-export const searchArticles = (keyword) => {
-  return request.get('/api/articles/search', { params: { keyword } })
+// 获取我的文章
+export const getMyArticles = (params) => {
+  return request.get('/api/articles/my', { params })
 }

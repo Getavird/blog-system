@@ -1,3 +1,4 @@
+// src/main.js
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
@@ -15,7 +16,15 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
 
-app.use(createPinia())
+// 初始化 Pinia store
+const pinia = createPinia()
+app.use(pinia)
+
+// 初始化用户状态
+import { useUserStore } from './stores/user'
+const userStore = useUserStore()
+userStore.initFromStorage()
+
 app.use(router)
 app.use(ElementPlus)
 

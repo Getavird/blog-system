@@ -1,7 +1,7 @@
 -- 1. 插入测试数据
 -- 用户
 INSERT INTO `user` (username, password, email, role) VALUES
-('admin', MD5('admin123'), 'admin@blog.com', 1),
+('admin', MD5('123456'), 'admin@blog.com', 1),
 ('testuser', MD5('test123'), 'test@blog.com', 0),
 ('zhangsan', MD5('zhangsan123'), 'zhangsan@blog.com', 0);
 
