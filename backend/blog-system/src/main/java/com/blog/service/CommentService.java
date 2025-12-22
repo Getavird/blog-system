@@ -39,12 +39,12 @@ public interface CommentService {
     /**
      * 点赞评论
      */
-    boolean likeComment(Integer commentId);
+    boolean likeComment(Integer commentId, Integer userId);
     
     /**
      * 取消点赞评论
      */
-    boolean unlikeComment(Integer commentId);
+    boolean unlikeComment(Integer commentId, Integer userId);
     
     /**
      * 获取用户的最新评论

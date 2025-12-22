@@ -141,14 +141,16 @@ public class CommentController {
         if (!SessionUtil.isLogin(request)) {
             return Result.unauthorized("请先登录");
         }
-        
+        Integer userId = SessionUtil.getCurrentUserId(request);
         try {
-            boolean success = commentService.likeComment(id);
+            boolean success = commentService.likeComment(id, userId);
             return success ? Result.success("点赞成功") : Result.error("点赞失败");
         } catch (RuntimeException e) {
             return Result.error(e.getMessage());
         }
     }
+
+    
     
     /**
      * 取消点赞评论（需要登录）
@@ -159,9 +161,9 @@ public class CommentController {
         if (!SessionUtil.isLogin(request)) {
             return Result.unauthorized("请先登录");
         }
-        
+        Integer userId = SessionUtil.getCurrentUserId(request);
         try {
-            boolean success = commentService.unlikeComment(id);
+            boolean success = commentService.unlikeComment(id, userId);
             return success ? Result.success("取消点赞成功") : Result.error("取消点赞失败");
         } catch (RuntimeException e) {
             return Result.error(e.getMessage());

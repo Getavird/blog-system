@@ -45,10 +45,35 @@ CREATE TABLE IF NOT EXISTS `article` (
   `comment_count` INT DEFAULT 0 COMMENT '评论数',
   `allow_comment` TINYINT DEFAULT 1 COMMENT '允许评论：0否，1是',
   `is_top` TINYINT DEFAULT 0 COMMENT '是否置顶：0否，1是',
-  `tags` VARCHAR(255) COMMENT '文章标签，多个用逗号分隔',  -- 添加这行
+  `tags` VARCHAR(255) COMMENT '文章标签，多个用逗号分隔',
   `user_id` INT NOT NULL COMMENT '作者ID',
   `category_id` INT COMMENT '分类ID',
   `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `publish_time` DATETIME COMMENT '发布时间'
 ) ENGINE=InnoDB COMMENT='文章表';
+
+-- 文件上传记录表
+CREATE TABLE IF NOT EXISTS `upload_file` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT COMMENT '文件ID',
+  `original_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
+  `save_name` VARCHAR(255) NOT NULL COMMENT '保存文件名',
+  `file_path` VARCHAR(500) NOT NULL COMMENT '文件路径',
+  `file_size` BIGINT NOT NULL COMMENT '文件大小(字节)',
+  `file_type` VARCHAR(100) COMMENT '文件类型',
+  `file_ext` VARCHAR(50) COMMENT '文件扩展名',
+  `upload_user_id` INT COMMENT '上传用户ID',
+  `upload_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+  `used` TINYINT DEFAULT 0 COMMENT '0未使用，1已使用',
+  `usage_type` VARCHAR(50) COMMENT '使用类型：avatar头像, cover封面, article文章',
+  `usage_id` INT COMMENT '关联ID（如文章ID）',
+  `status` TINYINT DEFAULT 1 COMMENT '1正常，0删除'
+) ENGINE=InnoDB COMMENT='文件上传记录表';
+
+CREATE TABLE `user_like` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `comment_id` INT NOT NULL,
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uk_user_comment` (`user_id`, `comment_id`)
+) COMMENT='用户点赞记录表';

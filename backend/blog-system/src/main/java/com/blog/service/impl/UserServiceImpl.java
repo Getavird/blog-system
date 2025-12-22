@@ -1,14 +1,13 @@
 package com.blog.service.impl;
 
 import com.blog.dao.UserMapper;
+import com.blog.entity.ChangePasswordRequest;
 import com.blog.entity.User;
 import com.blog.service.UserService;
 import com.blog.utils.PasswordUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Date;
 
 @Service
 @Transactional
@@ -221,43 +220,91 @@ public class UserServiceImpl implements UserService {
     /**
      * 修改密码（需要旧密码验证）
      */
-    public boolean changePassword(Integer userId, String oldPassword, String newPassword) {
-        try {
-            System.out.println("🔑 修改密码: 用户ID=" + userId);
+@Override
+public boolean changePassword(Integer userId, ChangePasswordRequest request) {
+    try {
+        System.out.println("🔐 修改密码 - 用户ID: " + userId);
+        
+        // 1. 验证参数
+        if (request == null) {
+            throw new RuntimeException("请求参数不能为空");
+        }
+        
+        if (request.getOldPassword() == null || request.getOldPassword().trim().isEmpty()) {
+            throw new RuntimeException("原密码不能为空");
+        }
+        
+        if (request.getNewPassword() == null || request.getNewPassword().trim().isEmpty()) {
+            throw new RuntimeException("新密码不能为空");
+        }
+        
+        if (request.getConfirmPassword() == null || request.getConfirmPassword().trim().isEmpty()) {
+            throw new RuntimeException("确认密码不能为空");
+        }
+        
+        // 2. 验证新密码长度
+        if (request.getNewPassword().length() < 6) {
+            throw new RuntimeException("新密码长度至少6位");
+        }
+        
+        // 3. 验证新密码和确认密码是否一致
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("新密码和确认密码不一致");
+        }
+        
+        // 4. 获取用户信息
+        User user = userMapper.findById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+        
+        System.out.println("👤 用户信息 - 用户名: " + user.getUsername() + 
+                         ", 数据库密码: " + user.getPassword());
+        
+        // 5. 验证原密码
+        String encryptedOldPassword = PasswordUtil.encrypt(request.getOldPassword());
+        System.out.println("🔍 原密码验证 - 输入加密: " + encryptedOldPassword + 
+                         ", 数据库存储: " + user.getPassword());
+        
+        if (!user.getPassword().equals(encryptedOldPassword)) {
+            System.out.println("❌ 原密码错误");
+            throw new RuntimeException("原密码错误");
+        }
+        
+        // 6. 验证新密码是否与原密码相同
+        String encryptedNewPassword = PasswordUtil.encrypt(request.getNewPassword());
+        if (user.getPassword().equals(encryptedNewPassword)) {
+            throw new RuntimeException("新密码不能与原密码相同");
+        }
+        
+        // 7. 检查新密码强度（可选）
+        int strength = PasswordUtil.checkPasswordStrength(request.getNewPassword());
+        System.out.println("📊 新密码强度: " + strength + "级");
+        
+        // 8. 更新密码
+        int result = userMapper.updatePassword(userId, encryptedNewPassword);
+        
+        if (result > 0) {
+            System.out.println("✅ 密码修改成功 - 用户ID: " + userId);
             
-            // 1. 获取用户信息
-            User user = userMapper.findById(userId);
-            if (user == null) {
-                System.out.println("❌ 用户不存在: ID=" + userId);
-                return false;
-            }
-            
-            // 2. 验证旧密码
-            String encryptedOldPassword = PasswordUtil.encrypt(oldPassword);
-            if (!user.getPassword().equals(encryptedOldPassword)) {
-                System.out.println("❌ 旧密码错误");
-                return false;
-            }
-            
-            // 3. 加密新密码
-            String encryptedNewPassword = PasswordUtil.encrypt(newPassword);
-            
-            // 4. 更新密码
-            int result = userMapper.updatePassword(userId, encryptedNewPassword);
-            if (result > 0) {
-                System.out.println("✅ 密码修改成功");
-                return true;
-            } else {
-                System.out.println("❌ 密码修改失败");
-                return false;
-            }
-            
-        } catch (Exception e) {
-            System.err.println("❌ 修改密码异常: " + e.getMessage());
-            e.printStackTrace();
+            // 9. 记录密码修改日志（可选）
+            System.out.println("📝 密码修改记录: " + user.getUsername() + 
+                             " 于 " + new java.util.Date() + " 修改密码");
+            return true;
+        } else {
+            System.out.println("❌ 密码更新失败");
             return false;
         }
+        
+    } catch (RuntimeException e) {
+        System.err.println("❌ 修改密码业务异常: " + e.getMessage());
+        throw e;
+    } catch (Exception e) {
+        System.err.println("❌ 修改密码系统异常: " + e.getMessage());
+        e.printStackTrace();
+        throw new RuntimeException("修改密码失败，请稍后重试");
     }
+}
     
     /**
      * 检查用户名是否可用

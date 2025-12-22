@@ -47,6 +47,7 @@ public interface UserMapper {
     @Select("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'user'")
     int checkUserTableExists();
     
+
     /**
      * 获取数据库名称
      */

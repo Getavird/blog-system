@@ -1,6 +1,7 @@
 package com.blog.service.impl;
 
 import com.blog.dao.CommentMapper;
+import com.blog.dao.UserLikeMapper;
 import com.blog.entity.Comment;
 import com.blog.service.CommentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,9 @@ public class CommentServiceImpl implements CommentService {
     
     @Autowired
     private CommentMapper commentMapper;
+    
+    @Autowired
+    private UserLikeMapper userLikeMapper;
     
     @Override
     public Comment getCommentById(Integer id) {
@@ -160,39 +164,29 @@ public class CommentServiceImpl implements CommentService {
     }
     
     @Override
-    public boolean likeComment(Integer commentId) {
-        try {
-            Comment comment = commentMapper.findById(commentId);
-            if (comment == null) {
-                throw new RuntimeException("评论不存在");
-            }
-            
-            int result = commentMapper.incrementLikeCount(commentId);
-            return result > 0;
-            
-        } catch (Exception e) {
-            System.err.println("❌ 点赞评论异常: " + e.getMessage());
-            e.printStackTrace();
-            return false;
+    public boolean likeComment(Integer commentId, Integer userId) {
+        if (userLikeMapper.exists(userId, commentId) > 0) {
+            throw new RuntimeException("您已点赞过该评论");
         }
+        int inserted = userLikeMapper.insert(userId, commentId);
+        if (inserted > 0) {
+            commentMapper.incrementLikeCount(commentId);
+            return true;
+        }
+        return false;
     }
     
     @Override
-    public boolean unlikeComment(Integer commentId) {
-        try {
-            Comment comment = commentMapper.findById(commentId);
-            if (comment == null) {
-                throw new RuntimeException("评论不存在");
-            }
-            
-            int result = commentMapper.decrementLikeCount(commentId);
-            return result > 0;
-            
-        } catch (Exception e) {
-            System.err.println("❌ 取消点赞评论异常: " + e.getMessage());
-            e.printStackTrace();
-            return false;
+    public boolean unlikeComment(Integer commentId, Integer userId) {
+        if (userLikeMapper.exists(userId, commentId) == 0) {
+            throw new RuntimeException("您还未点赞该评论");
         }
+        int deleted = userLikeMapper.delete(userId, commentId);
+        if (deleted > 0) {
+            commentMapper.decrementLikeCount(commentId);
+            return true;
+        }
+        return false;
     }
     
     @Override
