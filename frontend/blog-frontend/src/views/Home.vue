@@ -445,11 +445,7 @@ const viewArticle = (id) => {
 }
 
 const viewCategory = (categoryId) => {
-  // 这里可以跳转到分类页面或筛选该分类的文章
-  console.log('查看分类:', categoryId)
-  // 简单实现：在当前页面筛选该分类的文章
-  // 实际项目中可以跳转到分类页面
-  ElMessage.info(`查看分类 ${categories.value.find(c => c.id === categoryId)?.name || categoryId} 的文章`)
+  router.push(`/category/${categoryId}`)
 }
 
 const viewTag = (tagId) => {

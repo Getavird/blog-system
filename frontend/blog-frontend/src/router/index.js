@@ -6,6 +6,12 @@ import UserArticles from '../views/UserArticles.vue'
 import UserProfile from '../views/UserProfile.vue'
 import NotFound from '../views/NotFound.vue'
 import TestApi from '../views/TestApi.vue'
+import Category from'../views/Category.vue'
+import Search from '../views/Search.vue'
+import Archives from '../views/Archives.vue'
+import Categories from '../views/Categories.vue'
+import Tags from '../views/Tags.vue'
+import Tag from '../views/Tag.vue'
 import { ElMessage } from 'element-plus'
 
 const routes = [
@@ -43,7 +49,7 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/user/profile',  // 新增路由
+    path: '/user/profile', 
     name: 'UserProfile',
     component: UserProfile,
     meta: { requiresAuth: true }
@@ -52,7 +58,37 @@ const routes = [
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: NotFound
-  }
+  },
+  {
+    path: '/category/:id',
+    name: 'Category',
+    component: Category
+  },
+  {
+    path: '/categories',
+    name: 'Categories',
+    component: Categories
+  },
+  {
+    path: '/search',
+    name: 'Search',
+    component: Search
+  },
+  {
+    path: '/archives',
+    name: 'Archives',
+    component: Archives
+  },
+  {
+    path: '/tags',
+    name: 'Tags',
+    component: Tags
+  },
+  {
+    path: '/tag/:name',
+    name: 'Tag',
+    component: Tag
+  },
 ]
 
 const router = createRouter({
