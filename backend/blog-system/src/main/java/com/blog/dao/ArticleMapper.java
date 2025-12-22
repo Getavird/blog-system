@@ -1,9 +1,12 @@
 package com.blog.dao;
 
 import com.blog.entity.Article;
+import com.blog.entity.vo.ArticleArchiveVO;
+
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface ArticleMapper {
@@ -171,4 +174,33 @@ public interface ArticleMapper {
                         @Param("category") String category,
                         @Param("minView") Integer minView,
                         @Param("maxView") Integer maxView);
+
+        // 新增：获取所有归档文章（按年月分组）
+        @Select("SELECT YEAR(create_time) as year, MONTH(create_time) as month, " +
+                        "COUNT(*) as article_count " +
+                        "FROM article " +
+                        "WHERE status = 1 " +
+                        "GROUP BY YEAR(create_time), MONTH(create_time) " +
+                        "ORDER BY year DESC, month DESC")
+        List<Map<String, Object>> getArchiveGroups();
+
+        // 新增：根据年月获取文章列表
+        @Select("SELECT a.id, a.title, a.create_time, a.tags, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE YEAR(a.create_time) = #{year} " +
+                        "AND MONTH(a.create_time) = #{month} " +
+                        "AND a.status = 1 " +
+                        "ORDER BY a.create_time DESC")
+        List<ArticleArchiveVO> getArticlesByYearMonth(@Param("year") Integer year,
+                        @Param("month") Integer month);
+
+        // 新增：获取归档统计信息
+        @Select("SELECT " +
+                        "(SELECT COUNT(*) FROM article WHERE status = 1) as total_articles, " +
+                        "(SELECT COUNT(DISTINCT YEAR(create_time)) FROM article WHERE status = 1) as total_years, " +
+                        "(SELECT COUNT(DISTINCT CONCAT(YEAR(create_time), '-', MONTH(create_time))) " +
+                        "FROM article WHERE status = 1) as total_months")
+        Map<String, Object> getArchiveStats();
 }
