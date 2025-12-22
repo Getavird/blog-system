@@ -1,5 +1,6 @@
 package com.blog.service;
 
+import com.blog.entity.ChangePasswordRequest;
 import com.blog.entity.User;
 
 public interface UserService {
@@ -23,4 +24,14 @@ public interface UserService {
      * 更新用户信息
      */
     boolean updateUser(User user);
+
+    /**
+        修改用户密码
+    */
+    boolean changePassword(Integer userId, ChangePasswordRequest request);
+
+    /**
+     * 更新用户头像
+     */
+    boolean updateUserAvatar(User user);
 }

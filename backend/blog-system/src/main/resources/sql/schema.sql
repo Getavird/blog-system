@@ -77,3 +77,18 @@ CREATE TABLE `user_like` (
   `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY `uk_user_comment` (`user_id`, `comment_id`)
 ) COMMENT='用户点赞记录表';
+
+-- 搜索记录表（可选，用于统计热门搜索）
+CREATE TABLE IF NOT EXISTS `search_record` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `keyword` VARCHAR(100) NOT NULL,
+  `user_id` INT,
+  `search_count` INT DEFAULT 1,
+  `last_search_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
+) ENGINE=InnoDB COMMENT='搜索记录表';
+
+-- 创建索引
+CREATE INDEX idx_keyword ON search_record(keyword);
+CREATE INDEX idx_user_time ON search_record(user_id, last_search_time);

@@ -215,6 +215,42 @@ public class UserServiceImpl implements UserService {
             e.printStackTrace();
             return false;
         }
+        
+    }
+    /**
+     * 更新用户头像
+     */
+    @Override
+    public boolean updateUserAvatar(User user) {
+        try {
+            System.out.println("🖼️ 更新用户头像: ID=" + user.getId());
+            
+            // 1. 检查用户是否存在
+            User existingUser = userMapper.findById(user.getId());
+            if (existingUser == null) {
+                System.out.println("❌ 要更新头像的用户不存在: ID=" + user.getId());
+                return false;
+            }
+            
+            // 2. 更新头像字段
+            existingUser.setAvatar(user.getAvatar());
+            
+            // 3. 保存到数据库
+            int result = userMapper.update(existingUser);
+            if (result > 0) {
+                System.out.println("✅ 用户头像更新成功: ID=" + user.getId() + 
+                                 ", 新头像: " + user.getAvatar());
+                return true;
+            } else {
+                System.out.println("❌ 用户头像更新失败");
+                return false;
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ 更新用户头像异常: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
     
     /**
