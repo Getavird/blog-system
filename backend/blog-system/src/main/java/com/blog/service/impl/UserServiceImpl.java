@@ -3,31 +3,35 @@ package com.blog.service.impl;
 import com.blog.dao.UserMapper;
 import com.blog.entity.ChangePasswordRequest;
 import com.blog.entity.User;
+import com.blog.entity.vo.UserProfileVO;
+import com.blog.entity.vo.UserStatsVO;
 import com.blog.service.UserService;
 import com.blog.utils.PasswordUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
+
 @Service
 @Transactional
 public class UserServiceImpl implements UserService {
-    
+
     @Autowired
     private UserMapper userMapper;
-    
+
     @Override
     public User register(User user) {
         try {
             System.out.println("🔧 开始用户注册: " + user.getUsername());
-            
+
             // 1. 检查用户名是否存在
             User existUser = userMapper.findByUsername(user.getUsername());
             if (existUser != null) {
                 System.out.println("❌ 用户名已存在: " + user.getUsername());
                 throw new RuntimeException("用户名已存在");
             }
-            
+
             // 2. 检查邮箱是否存在
             if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
                 User existEmail = userMapper.findByEmail(user.getEmail());
@@ -35,7 +39,7 @@ public class UserServiceImpl implements UserService {
                     throw new RuntimeException("邮箱已注册");
                 }
             }
-            
+
             // 3. 设置默认值
             if (user.getAvatar() == null || user.getAvatar().trim().isEmpty()) {
                 user.setAvatar("default_avatar.png");
@@ -49,13 +53,13 @@ public class UserServiceImpl implements UserService {
             if (user.getBio() == null) {
                 user.setBio("");
             }
-            
+
             // 4. 密码加密
             String encryptedPassword = PasswordUtil.encrypt(user.getPassword());
             user.setPassword(encryptedPassword);
-            
+
             System.out.println("✅ 用户信息验证通过，准备保存到数据库");
-            
+
             // 5. 保存到数据库
             int result = userMapper.insert(user);
             if (result > 0) {
@@ -66,7 +70,7 @@ public class UserServiceImpl implements UserService {
             } else {
                 throw new RuntimeException("注册失败，请稍后重试");
             }
-            
+
         } catch (RuntimeException e) {
             System.err.println("❌ 用户注册异常: " + e.getMessage());
             throw e;
@@ -76,55 +80,52 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("注册过程发生错误");
         }
     }
-    
+
     @Override
     public User login(String username, String password) {
         try {
             System.out.println("🔍 开始用户登录验证: " + username);
-            
+
             // 1. 根据用户名查询用户
             User user = userMapper.findByUsername(username);
             if (user == null) {
                 System.out.println("❌ 用户不存在: " + username);
                 throw new RuntimeException("用户不存在");
             }
-            
-            System.out.println("✅ 找到用户: ID=" + user.getId() + 
-                             ", 用户名=" + user.getUsername() + 
-                             ", 数据库密码=" + user.getPassword());
-            
+
+            System.out.println("✅ 找到用户: ID=" + user.getId() +
+                    ", 用户名=" + user.getUsername() +
+                    ", 数据库密码=" + user.getPassword());
+
             // 2. 验证密码
             String encryptedPassword = PasswordUtil.encrypt(password);
             System.out.println("🔐 输入密码加密后: " + encryptedPassword);
-            
+
             if (!user.getPassword().equals(encryptedPassword)) {
                 System.out.println("❌ 密码不匹配");
                 System.out.println("   - 数据库密码: " + user.getPassword());
                 System.out.println("   - 输入加密后: " + encryptedPassword);
                 throw new RuntimeException("密码错误");
             }
-            
+
             System.out.println("✅ 密码验证通过");
-            
+
             // 3. 检查用户状态
             if (user.getStatus() != null && user.getStatus() == 0) {
                 System.out.println("❌ 用户已被禁用");
                 throw new RuntimeException("用户已被禁用");
             }
-            
+
             // 4. 记录登录成功日志
-            System.out.println("🎉 用户登录成功: " + username + 
-                             " (ID: " + user.getId() + 
-                             ", 角色: " + user.getRole() + ")");
-            
-            // 5. 更新最后登录时间（需要先在User实体和表中添加lastLoginTime字段）
-            // 暂时跳过，保持简单
-            
-            // 6. 不返回密码（安全考虑）
+            System.out.println("🎉 用户登录成功: " + username +
+                    " (ID: " + user.getId() +
+                    ", 角色: " + user.getRole() + ")");
+
+            // 5. 不返回密码（安全考虑）
             user.setPassword(null);
-            
+
             return user;
-            
+
         } catch (RuntimeException e) {
             System.err.println("💥 登录过程异常: " + e.getMessage());
             throw new RuntimeException("登录失败: " + e.getMessage());
@@ -134,44 +135,44 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("登录过程发生错误");
         }
     }
-    
+
     @Override
     public User getUserById(Integer id) {
         try {
             System.out.println("📋 查询用户信息: ID=" + id);
-            
+
             User user = userMapper.findById(id);
-            
+
             if (user == null) {
                 System.out.println("❌ 用户不存在: ID=" + id);
                 return null;
             }
-            
+
             // 不返回密码
             user.setPassword(null);
-            
+
             System.out.println("✅ 找到用户: " + user.getUsername());
             return user;
-            
+
         } catch (Exception e) {
             System.err.println("❌ 查询用户异常: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
     }
-    
+
     @Override
     public boolean updateUser(User user) {
         try {
             System.out.println("✏️ 更新用户信息: ID=" + user.getId());
-            
+
             // 1. 检查用户是否存在
             User existingUser = userMapper.findById(user.getId());
             if (existingUser == null) {
                 System.out.println("❌ 要更新的用户不存在: ID=" + user.getId());
                 return false;
             }
-            
+
             // 2. 只允许更新部分字段（不允许直接修改密码和角色）
             // 更新邮箱
             if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
@@ -183,20 +184,20 @@ public class UserServiceImpl implements UserService {
                 existingUser.setEmail(user.getEmail());
                 System.out.println("   - 更新邮箱: " + user.getEmail());
             }
-            
+
             // 更新头像
             if (user.getAvatar() != null && !user.getAvatar().trim().isEmpty()) {
                 existingUser.setAvatar(user.getAvatar());
                 System.out.println("   - 更新头像: " + user.getAvatar());
             }
-            
+
             // 更新个人简介
             if (user.getBio() != null) {
                 existingUser.setBio(user.getBio());
-                System.out.println("   - 更新简介: " + (user.getBio().length() > 50 ? 
-                    user.getBio().substring(0, 50) + "..." : user.getBio()));
+                System.out.println("   - 更新简介: "
+                        + (user.getBio().length() > 50 ? user.getBio().substring(0, 50) + "..." : user.getBio()));
             }
-            
+
             // 3. 保存到数据库
             int result = userMapper.update(existingUser);
             if (result > 0) {
@@ -206,7 +207,7 @@ public class UserServiceImpl implements UserService {
                 System.out.println("❌ 用户信息更新失败");
                 return false;
             }
-            
+
         } catch (RuntimeException e) {
             System.err.println("❌ 更新用户异常: " + e.getMessage());
             throw e;
@@ -215,133 +216,127 @@ public class UserServiceImpl implements UserService {
             e.printStackTrace();
             return false;
         }
-        
     }
-    /**
-     * 更新用户头像
-     */
+
     @Override
     public boolean updateUserAvatar(User user) {
         try {
             System.out.println("🖼️ 更新用户头像: ID=" + user.getId());
-            
+
             // 1. 检查用户是否存在
             User existingUser = userMapper.findById(user.getId());
             if (existingUser == null) {
                 System.out.println("❌ 要更新头像的用户不存在: ID=" + user.getId());
                 return false;
             }
-            
+
             // 2. 更新头像字段
             existingUser.setAvatar(user.getAvatar());
-            
+
             // 3. 保存到数据库
             int result = userMapper.update(existingUser);
             if (result > 0) {
-                System.out.println("✅ 用户头像更新成功: ID=" + user.getId() + 
-                                 ", 新头像: " + user.getAvatar());
+                System.out.println("✅ 用户头像更新成功: ID=" + user.getId() +
+                        ", 新头像: " + user.getAvatar());
                 return true;
             } else {
                 System.out.println("❌ 用户头像更新失败");
                 return false;
             }
-            
+
         } catch (Exception e) {
             System.err.println("❌ 更新用户头像异常: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
     }
-    
-    /**
-     * 修改密码（需要旧密码验证）
-     */
-@Override
-public boolean changePassword(Integer userId, ChangePasswordRequest request) {
-    try {
-        System.out.println("🔐 修改密码 - 用户ID: " + userId);
-        
-        // 1. 验证参数
-        if (request == null) {
-            throw new RuntimeException("请求参数不能为空");
+
+    @Override
+    public boolean changePassword(Integer userId, ChangePasswordRequest request) {
+        try {
+            System.out.println("🔐 修改密码 - 用户ID: " + userId);
+
+            // 1. 验证参数
+            if (request == null) {
+                throw new RuntimeException("请求参数不能为空");
+            }
+
+            if (request.getOldPassword() == null || request.getOldPassword().trim().isEmpty()) {
+                throw new RuntimeException("原密码不能为空");
+            }
+
+            if (request.getNewPassword() == null || request.getNewPassword().trim().isEmpty()) {
+                throw new RuntimeException("新密码不能为空");
+            }
+
+            if (request.getConfirmPassword() == null || request.getConfirmPassword().trim().isEmpty()) {
+                throw new RuntimeException("确认密码不能为空");
+            }
+
+            // 2. 验证新密码长度
+            if (request.getNewPassword().length() < 6) {
+                throw new RuntimeException("新密码长度至少6位");
+            }
+
+            // 3. 验证新密码和确认密码是否一致
+            if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+                throw new RuntimeException("新密码和确认密码不一致");
+            }
+
+            // 4. 获取用户信息
+            User user = userMapper.findById(userId);
+            if (user == null) {
+                throw new RuntimeException("用户不存在");
+            }
+
+            System.out.println("👤 用户信息 - 用户名: " + user.getUsername() +
+                    ", 数据库密码: " + user.getPassword());
+
+            // 5. 验证原密码
+            String encryptedOldPassword = PasswordUtil.encrypt(request.getOldPassword());
+            System.out.println("🔍 原密码验证 - 输入加密: " + encryptedOldPassword +
+                    ", 数据库存储: " + user.getPassword());
+
+            if (!user.getPassword().equals(encryptedOldPassword)) {
+                System.out.println("❌ 原密码错误");
+                throw new RuntimeException("原密码错误");
+            }
+
+            // 6. 验证新密码是否与原密码相同
+            String encryptedNewPassword = PasswordUtil.encrypt(request.getNewPassword());
+            if (user.getPassword().equals(encryptedNewPassword)) {
+                throw new RuntimeException("新密码不能与原密码相同");
+            }
+
+            // 7. 检查新密码强度（可选）
+            int strength = PasswordUtil.checkPasswordStrength(request.getNewPassword());
+            System.out.println("📊 新密码强度: " + strength + "级");
+
+            // 8. 更新密码
+            int result = userMapper.updatePassword(userId, encryptedNewPassword);
+
+            if (result > 0) {
+                System.out.println("✅ 密码修改成功 - 用户ID: " + userId);
+
+                // 9. 记录密码修改日志（可选）
+                System.out.println("📝 密码修改记录: " + user.getUsername() +
+                        " 于 " + new java.util.Date() + " 修改密码");
+                return true;
+            } else {
+                System.out.println("❌ 密码更新失败");
+                return false;
+            }
+
+        } catch (RuntimeException e) {
+            System.err.println("❌ 修改密码业务异常: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            System.err.println("❌ 修改密码系统异常: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("修改密码失败，请稍后重试");
         }
-        
-        if (request.getOldPassword() == null || request.getOldPassword().trim().isEmpty()) {
-            throw new RuntimeException("原密码不能为空");
-        }
-        
-        if (request.getNewPassword() == null || request.getNewPassword().trim().isEmpty()) {
-            throw new RuntimeException("新密码不能为空");
-        }
-        
-        if (request.getConfirmPassword() == null || request.getConfirmPassword().trim().isEmpty()) {
-            throw new RuntimeException("确认密码不能为空");
-        }
-        
-        // 2. 验证新密码长度
-        if (request.getNewPassword().length() < 6) {
-            throw new RuntimeException("新密码长度至少6位");
-        }
-        
-        // 3. 验证新密码和确认密码是否一致
-        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new RuntimeException("新密码和确认密码不一致");
-        }
-        
-        // 4. 获取用户信息
-        User user = userMapper.findById(userId);
-        if (user == null) {
-            throw new RuntimeException("用户不存在");
-        }
-        
-        System.out.println("👤 用户信息 - 用户名: " + user.getUsername() + 
-                         ", 数据库密码: " + user.getPassword());
-        
-        // 5. 验证原密码
-        String encryptedOldPassword = PasswordUtil.encrypt(request.getOldPassword());
-        System.out.println("🔍 原密码验证 - 输入加密: " + encryptedOldPassword + 
-                         ", 数据库存储: " + user.getPassword());
-        
-        if (!user.getPassword().equals(encryptedOldPassword)) {
-            System.out.println("❌ 原密码错误");
-            throw new RuntimeException("原密码错误");
-        }
-        
-        // 6. 验证新密码是否与原密码相同
-        String encryptedNewPassword = PasswordUtil.encrypt(request.getNewPassword());
-        if (user.getPassword().equals(encryptedNewPassword)) {
-            throw new RuntimeException("新密码不能与原密码相同");
-        }
-        
-        // 7. 检查新密码强度（可选）
-        int strength = PasswordUtil.checkPasswordStrength(request.getNewPassword());
-        System.out.println("📊 新密码强度: " + strength + "级");
-        
-        // 8. 更新密码
-        int result = userMapper.updatePassword(userId, encryptedNewPassword);
-        
-        if (result > 0) {
-            System.out.println("✅ 密码修改成功 - 用户ID: " + userId);
-            
-            // 9. 记录密码修改日志（可选）
-            System.out.println("📝 密码修改记录: " + user.getUsername() + 
-                             " 于 " + new java.util.Date() + " 修改密码");
-            return true;
-        } else {
-            System.out.println("❌ 密码更新失败");
-            return false;
-        }
-        
-    } catch (RuntimeException e) {
-        System.err.println("❌ 修改密码业务异常: " + e.getMessage());
-        throw e;
-    } catch (Exception e) {
-        System.err.println("❌ 修改密码系统异常: " + e.getMessage());
-        e.printStackTrace();
-        throw new RuntimeException("修改密码失败，请稍后重试");
     }
-}
-    
+
     /**
      * 检查用户名是否可用
      */
@@ -354,7 +349,7 @@ public boolean changePassword(Integer userId, ChangePasswordRequest request) {
             return false;
         }
     }
-    
+
     /**
      * 检查是否是管理员
      */
@@ -367,7 +362,7 @@ public boolean changePassword(Integer userId, ChangePasswordRequest request) {
             return false;
         }
     }
-    
+
     /**
      * 获取用户统计数据
      */
@@ -378,5 +373,165 @@ public boolean changePassword(Integer userId, ChangePasswordRequest request) {
             // 这里可以添加统计信息查询，如文章数、获赞数等
         }
         return user;
+    }
+
+    /**
+     * 获取用户个人中心信息
+     */
+    @Override
+    public UserProfileVO getUserProfile(Integer userId) {
+        try {
+            System.out.println("📋 获取用户个人中心信息: ID=" + userId);
+
+            // 1. 获取用户基本信息
+            User user = userMapper.findById(userId);
+            if (user == null) {
+                System.out.println("❌ 用户不存在: ID=" + userId);
+                throw new RuntimeException("用户不存在");
+            }
+
+            System.out.println("✅ 找到用户: " + user.getUsername());
+
+            // 2. 创建UserProfileVO
+            UserProfileVO profileVO = new UserProfileVO();
+
+            // 3. 设置基本信息
+            profileVO.setId(user.getId());
+            profileVO.setUsername(user.getUsername());
+            profileVO.setEmail(user.getEmail());
+            profileVO.setAvatar(user.getAvatar());
+            profileVO.setBio(user.getBio());
+            profileVO.setCreateTime(user.getCreateTime());
+            profileVO.setLastLoginTime(user.getLastLoginTime());
+            profileVO.setLastLoginIp(user.getLastLoginIp());
+
+            // 4. 判断在线状态（最后活动时间在5分钟内为在线）
+            boolean isOnline = false;
+            if (user.getLastActiveTime() != null) {
+                java.time.Duration duration = java.time.Duration.between(
+                        user.getLastActiveTime(),
+                        java.time.LocalDateTime.now());
+                long diffInMinutes = duration.toMinutes();
+                isOnline = diffInMinutes < 5; // 5分钟内活动算在线
+            }
+            profileVO.setIsOnline(isOnline);
+
+            // 5. 设置统计信息
+            UserStatsVO statsVO = new UserStatsVO();
+            statsVO.setArticleCount(user.getArticleCount() != null ? user.getArticleCount() : 0);
+            statsVO.setLikeCount(user.getLikeCount() != null ? user.getLikeCount() : 0);
+            statsVO.setViewCount(user.getViewCount() != null ? user.getViewCount() : 0);
+            statsVO.setFanCount(0); // 粉丝功能未实现，暂时为0
+
+            profileVO.setStats(statsVO);
+
+            System.out.println("📊 用户统计信息: 文章=" + statsVO.getArticleCount() +
+                    ", 获赞=" + statsVO.getLikeCount() +
+                    ", 阅读=" + statsVO.getViewCount());
+
+            return profileVO;
+
+        } catch (RuntimeException e) {
+            System.err.println("❌ 获取用户个人中心信息异常: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            System.err.println("❌ 获取用户个人中心信息系统异常: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("获取用户信息失败");
+        }
+    }
+
+    /**
+     * 更新个人简介
+     */
+    @Override
+    public boolean updateBio(Integer userId, String bio) {
+        try {
+            System.out.println("✏️ 更新用户个人简介: ID=" + userId);
+
+            // 检查用户是否存在
+            User user = userMapper.findById(userId);
+            if (user == null) {
+                System.out.println("❌ 用户不存在: ID=" + userId);
+                return false;
+            }
+
+            // 更新用户对象
+            user.setBio(bio);
+
+            // 保存到数据库
+            int result = userMapper.update(user);
+            if (result > 0) {
+                System.out.println("✅ 个人简介更新成功: ID=" + userId +
+                        ", 新简介: " + (bio.length() > 50 ? bio.substring(0, 50) + "..." : bio));
+                return true;
+            } else {
+                System.out.println("❌ 个人简介更新失败");
+                return false;
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ 更新个人简介异常: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 更新最后登录信息
+     */
+    @Override
+    public void updateLastLogin(Integer userId, String ip) {
+        try {
+            System.out.println("🔐 更新用户最后登录信息: ID=" + userId + ", IP=" + ip);
+
+            // 检查用户是否存在
+            User user = userMapper.findById(userId);
+            if (user == null) {
+                System.out.println("⚠️ 用户不存在，跳过更新最后登录信息: ID=" + userId);
+                return;
+            }
+
+            // 更新最后登录信息
+            int result = userMapper.updateLastLogin(userId, java.time.LocalDateTime.now(), ip);
+            if (result > 0) {
+                System.out.println("✅ 最后登录信息更新成功");
+            } else {
+                System.out.println("⚠️ 最后登录信息更新失败（可能是字段不存在）");
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ 更新最后登录信息异常: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 更新最后活动时间
+     */
+    @Override
+    public void updateLastActive(Integer userId) {
+        try {
+            // 只在调试时打印，避免日志过多
+            // System.out.println("🔄 更新用户最后活动时间: ID=" + userId);
+
+            // 检查用户是否存在
+            User user = userMapper.findById(userId);
+            if (user == null) {
+                // 调试时打印
+                // System.out.println("⚠️ 用户不存在，跳过更新最后活动时间: ID=" + userId);
+                return;
+            }
+
+            // 更新最后活动时间
+            int result = userMapper.updateLastActive(userId, java.time.LocalDateTime.now());
+            if (result <= 0) {
+                System.out.println("⚠️ 最后活动时间更新失败（可能是字段不存在）");
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ 更新最后活动时间异常: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

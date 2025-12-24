@@ -2,9 +2,13 @@ package com.blog.service.impl;
 
 import com.blog.dao.ArticleMapper;
 import com.blog.dao.UserMapper;
+import com.blog.dao.SearchRecordMapper;  // 新增
+import com.blog.dao.TagMapper;  // 新增
 import com.blog.entity.Article;
+import com.blog.entity.SearchRecord;
 import com.blog.entity.SearchResult;
 import com.blog.entity.User;
+import com.blog.entity.Tag;  // 新增
 import com.blog.service.SearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -12,6 +16,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class SearchServiceImpl implements SearchService {
@@ -22,6 +27,12 @@ public class SearchServiceImpl implements SearchService {
     @Autowired
     private UserMapper userMapper;
     
+    @Autowired
+    private TagMapper tagMapper;  // 新增
+    
+    @Autowired
+    private SearchRecordMapper searchRecordMapper;  // 新增
+    
     @Override
     public SearchResult<Object> fullSearch(String keyword, Integer page, Integer size) {
         if (!StringUtils.hasText(keyword)) {
@@ -29,15 +40,17 @@ public class SearchServiceImpl implements SearchService {
         }
         
         // 分别搜索文章和用户
-        SearchResult<Article> articleResult = searchArticles(keyword, page, size / 2);
-        SearchResult<User> userResult = searchUsers(keyword, page, size / 2);
+        SearchResult<Article> articleResult = searchArticles(keyword, 1, 5);
+        SearchResult<User> userResult = searchUsers(keyword, 1, 3);
+        SearchResult<Tag> tagResult = searchTags(keyword, 1, 2);  // 新增标签搜索
         
         // 合并结果
         List<Object> combinedItems = new ArrayList<>();
         combinedItems.addAll(articleResult.getItems());
         combinedItems.addAll(userResult.getItems());
+        combinedItems.addAll(tagResult.getItems());
         
-        int total = articleResult.getTotal() + userResult.getTotal();
+        int total = articleResult.getTotal() + userResult.getTotal() + tagResult.getTotal();
         
         return new SearchResult<>(keyword, total, page, size, combinedItems);
     }
@@ -50,7 +63,6 @@ public class SearchServiceImpl implements SearchService {
         
         int offset = (page - 1) * size;
         
-        // 使用LIKE进行模糊搜索（支持标题、内容、标签）
         List<Article> articles = articleMapper.searchArticles(
             keyword, offset, size
         );
@@ -68,12 +80,38 @@ public class SearchServiceImpl implements SearchService {
         
         int offset = (page - 1) * size;
         
-        // 搜索用户（用户名、邮箱、简介）
         List<User> users = userMapper.searchUsers(keyword, offset, size);
         
         int total = userMapper.countSearchUsers(keyword);
         
         return new SearchResult<>(keyword, total, page, size, users);
+    }
+    
+    // 新增方法：搜索标签
+    public SearchResult<Tag> searchTags(String keyword, Integer page, Integer size) {
+        if (!StringUtils.hasText(keyword)) {
+            return new SearchResult<>(keyword, 0, page, size, new ArrayList<>());
+        }
+        
+        // 获取所有标签
+        List<Tag> allTags = tagMapper.findAll();
+        
+        // 过滤包含关键词的标签（名称或描述）
+        List<Tag> filteredTags = allTags.stream()
+            .filter(tag -> 
+                (tag.getName() != null && tag.getName().toLowerCase().contains(keyword.toLowerCase())) ||
+                (tag.getDescription() != null && tag.getDescription().toLowerCase().contains(keyword.toLowerCase()))
+            )
+            .collect(Collectors.toList());
+        
+        // 分页
+        int total = filteredTags.size();
+        int offset = (page - 1) * size;
+        int end = Math.min(offset + size, total);
+        
+        List<Tag> pagedTags = filteredTags.subList(offset, end);
+        
+        return new SearchResult<>(keyword, total, page, size, pagedTags);
     }
     
     @Override
@@ -97,28 +135,70 @@ public class SearchServiceImpl implements SearchService {
     
     @Override
     public List<String> getHotKeywords(Integer limit) {
-        // 这里可以查询搜索记录表，返回热门关键词
-        // 暂时返回模拟数据
-        List<String> hotKeywords = new ArrayList<>();
-        hotKeywords.add("Spring Boot");
-        hotKeywords.add("Vue");
-        hotKeywords.add("Java");
-        hotKeywords.add("MySQL");
-        hotKeywords.add("前端");
-        
-        if (limit != null && hotKeywords.size() > limit) {
-            return hotKeywords.subList(0, limit);
+        // 从数据库获取热门关键词
+        try {
+            return searchRecordMapper.getHotKeywords(limit == null ? 10 : limit);
+        } catch (Exception e) {
+            // 如果表不存在或查询失败，返回示例数据
+            List<String> hotKeywords = new ArrayList<>();
+            hotKeywords.add("Spring Boot");
+            hotKeywords.add("Vue");
+            hotKeywords.add("Java");
+            hotKeywords.add("MySQL");
+            hotKeywords.add("前端");
+            
+            if (limit != null && hotKeywords.size() > limit) {
+                return hotKeywords.subList(0, limit);
+            }
+            
+            return hotKeywords;
         }
-        
-        return hotKeywords;
     }
     
     @Override
     public void saveSearchRecord(String keyword, Integer userId) {
-        // 这里可以保存搜索记录到数据库，用于统计热门搜索
-        System.out.println("保存搜索记录: keyword=" + keyword + ", userId=" + userId);
+        try {
+            SearchRecord record = new SearchRecord();
+            record.setKeyword(keyword);
+            record.setUserId(userId);
+            searchRecordMapper.upsert(record);
+        } catch (Exception e) {
+            // 记录日志但不要影响主流程
+            System.err.println("保存搜索记录失败: " + e.getMessage());
+        }
+    }
+    
+    // 新增方法：获取搜索建议
+    public List<String> getSearchSuggestions(String prefix, int limit) {
+        if (!StringUtils.hasText(prefix)) {
+            return new ArrayList<>();
+        }
         
-        // 实际实现需要创建搜索记录表
-        // searchRecordMapper.insert(new SearchRecord(keyword, userId));
+        List<String> suggestions = new ArrayList<>();
+        
+        // 从文章标题获取建议
+        List<Article> articles = articleMapper.searchArticles(prefix, 0, 5);
+        articles.stream()
+            .map(Article::getTitle)
+            .filter(title -> title.toLowerCase().contains(prefix.toLowerCase()))
+            .limit(limit)
+            .forEach(suggestions::add);
+        
+        // 从标签获取建议
+        List<Tag> tags = tagMapper.findAll();
+        tags.stream()
+            .map(Tag::getName)
+            .filter(name -> name != null && name.toLowerCase().contains(prefix.toLowerCase()))
+            .limit(limit - suggestions.size())
+            .forEach(suggestions::add);
+        
+        // 如果还不够，添加通用建议
+        if (suggestions.size() < limit) {
+            suggestions.add(prefix + " 教程");
+            suggestions.add(prefix + " 入门");
+            suggestions.add(prefix + " 基础");
+        }
+        
+        return suggestions;
     }
 }

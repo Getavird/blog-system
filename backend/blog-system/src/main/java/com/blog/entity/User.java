@@ -3,6 +3,8 @@ package com.blog.entity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDateTime;
+
 /**
  * 用户实体类
  */
@@ -48,6 +50,36 @@ public class User extends BaseEntity {
      * 个人简介
      */
     private String bio;
+    
+    /**
+     * 文章数
+     */
+    private Integer articleCount = 0;
+    
+    /**
+     * 获赞数
+     */
+    private Integer likeCount = 0;
+    
+    /**
+     * 浏览数
+     */
+    private Integer viewCount = 0;
+    
+    /**
+     * 最后登录时间
+     */
+    private LocalDateTime lastLoginTime;
+    
+    /**
+     * 最后登录IP
+     */
+    private String lastLoginIp;
+    
+    /**
+     * 最后活动时间
+     */
+    private LocalDateTime lastActiveTime;
     
     /**
      * 默认构造器

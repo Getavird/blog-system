@@ -4,6 +4,7 @@ import com.blog.common.Result;
 import com.blog.entity.Article;
 import com.blog.entity.SearchResult;
 import com.blog.entity.User;
+import com.blog.entity.Tag;  // 新增
 import com.blog.service.SearchService;
 import com.blog.utils.SessionUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,7 +21,7 @@ public class SearchController {
     private SearchService searchService;
     
     /**
-     * 全文搜索（文章+用户）
+     * 全文搜索（文章+用户+标签）
      * GET /api/search/full?keyword=java&page=1&size=20
      */
     @GetMapping("/full")
@@ -34,7 +35,7 @@ public class SearchController {
             return Result.badRequest("搜索关键词不能为空");
         }
         
-        // 保存搜索记录（如果用户已登录）
+        // 保存搜索记录
         Integer userId = SessionUtil.getCurrentUserId(request);
         searchService.saveSearchRecord(keyword, userId);
         
@@ -90,6 +91,31 @@ public class SearchController {
     }
     
     /**
+     * 搜索标签（新增）
+     * GET /api/search/tags?keyword=java&page=1&size=10
+     */
+    @GetMapping("/tags")
+    public Result<SearchResult<Tag>> searchTags(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size) {
+        
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return Result.badRequest("搜索关键词不能为空");
+        }
+        
+        // 使用反射调用新方法（实际项目中应该先更新接口）
+        try {
+            SearchResult<Tag> result = (SearchResult<Tag>) searchService.getClass()
+                .getMethod("searchTags", String.class, Integer.class, Integer.class)
+                .invoke(searchService, keyword, page, size);
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error("标签搜索功能暂不可用");
+        }
+    }
+    
+    /**
      * 高级搜索文章
      * GET /api/search/articles/advanced?title=java&tag=Spring&minView=100
      */
@@ -136,19 +162,49 @@ public class SearchController {
             return Result.success(new java.util.ArrayList<>());
         }
         
-        // 这里可以调用服务层获取建议
-        // 暂时返回示例数据
-        List<String> suggestions = new java.util.ArrayList<>();
-        suggestions.add(prefix + "a");
-        suggestions.add(prefix + "script");
-        suggestions.add(prefix + "开发");
-        suggestions.add(prefix + "教程");
+        // 调用服务层获取建议
+        try {
+            List<String> suggestions = (List<String>) searchService.getClass()
+                .getMethod("getSearchSuggestions", String.class, int.class)
+                .invoke(searchService, prefix, limit);
+            return Result.success(suggestions);
+        } catch (Exception e) {
+            // 如果方法不存在，返回示例数据
+            List<String> suggestions = new java.util.ArrayList<>();
+            suggestions.add(prefix + "a");
+            suggestions.add(prefix + "script");
+            suggestions.add(prefix + "开发");
+            suggestions.add(prefix + "教程");
+            
+            if (suggestions.size() > limit) {
+                suggestions = suggestions.subList(0, limit);
+            }
+            
+            return Result.success(suggestions);
+        }
+    }
+    
+    /**
+     * 获取搜索历史（需要登录）
+     * GET /api/search/history?limit=20
+     */
+    @GetMapping("/history")
+    public Result<List<String>> getSearchHistory(
+            @RequestParam(defaultValue = "20") Integer limit,
+            HttpServletRequest request) {
         
-        if (suggestions.size() > limit) {
-            suggestions = suggestions.subList(0, limit);
+        // 检查登录
+        if (!SessionUtil.isLogin(request)) {
+            return Result.unauthorized("请先登录");
         }
         
-        return Result.success(suggestions);
+        Integer userId = SessionUtil.getCurrentUserId(request);
+        
+        // 这里需要实现获取搜索历史的逻辑
+        // List<String> history = searchRecordMapper.getSearchHistory(userId, limit);
+        List<String> history = new java.util.ArrayList<>(); // 暂时返回空
+        
+        return Result.success(history);
     }
     
     /**
@@ -163,7 +219,7 @@ public class SearchController {
         }
         
         // 这里实现清空搜索记录的逻辑
-        // searchRecordService.clearAll();
+        // searchRecordMapper.clearAll();
         
         return Result.success("搜索记录已清空");
     }

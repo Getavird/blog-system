@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS `search_record` (
   FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB COMMENT='搜索记录表';
 
--- 创建索引
+-- 索引
 CREATE INDEX idx_keyword ON search_record(keyword);
 CREATE INDEX idx_user_time ON search_record(user_id, last_search_time);
 
@@ -126,3 +126,9 @@ CREATE TABLE IF NOT EXISTS `article_tag` (
   FOREIGN KEY (`article_id`) REFERENCES `article`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`tag_id`) REFERENCES `tag`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB COMMENT='文章标签关联表';
+
+ALTER TABLE `user` 
+ADD COLUMN `last_login_time` DATETIME COMMENT '最后登录时间',
+ADD COLUMN `last_login_ip` VARCHAR(45) COMMENT '最后登录IP',
+ADD COLUMN `last_active_time` DATETIME COMMENT '最后活动时间';
+
