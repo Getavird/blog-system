@@ -36,31 +36,21 @@ public class ArchiveController {
     }
     
     /**
-     * 获取归档时间轴（按年份分组）
+     * 获取归档页面概览（包含统计和最近数据）
      */
-    @GetMapping("/timeline")
-    public Result<Map<String, List<ArchiveVO>>> getArchiveTimeline() {
-        if (archiveService instanceof com.blog.service.impl.ArchiveServiceImpl) {
-            com.blog.service.impl.ArchiveServiceImpl impl = 
-                (com.blog.service.impl.ArchiveServiceImpl) archiveService;
-            Map<String, List<ArchiveVO>> timeline = impl.getArchiveTimeline();
-            return Result.success(timeline);
-        }
-        return Result.success(new java.util.HashMap<>());
+    @GetMapping("/overview")
+    public Result<Map<String, Object>> getArchiveOverview() {
+        Map<String, Object> overview = archiveService.getArchiveOverview();
+        return Result.success(overview);
     }
     
     /**
-     * 获取年份列表
+     * 获取可用年份列表
      */
     @GetMapping("/years")
-    public Result<List<String>> getYearList() {
-        if (archiveService instanceof com.blog.service.impl.ArchiveServiceImpl) {
-            com.blog.service.impl.ArchiveServiceImpl impl = 
-                (com.blog.service.impl.ArchiveServiceImpl) archiveService;
-            List<String> years = impl.getYearList();
-            return Result.success(years);
-        }
-        return Result.success(new java.util.ArrayList<>());
+    public Result<List<Integer>> getAvailableYears() {
+        List<Integer> years = archiveService.getAvailableYears();
+        return Result.success(years);
     }
     
     /**
@@ -70,6 +60,15 @@ public class ArchiveController {
     public Result<List<ArchiveVO>> getArchivesByYear(@PathVariable Integer year) {
         List<ArchiveVO> archives = archiveService.getArchivesByYear(year);
         return Result.success(archives);
+    }
+    
+    /**
+     * 获取某年份的详细统计
+     */
+    @GetMapping("/year/{year}/stats")
+    public Result<Map<String, Object>> getYearStats(@PathVariable Integer year) {
+        Map<String, Object> stats = archiveService.getYearStats(year);
+        return Result.success(stats);
     }
     
     /**
@@ -85,44 +84,79 @@ public class ArchiveController {
     }
     
     /**
-     * 获取最近N个月的归档数据
+     * 获取归档详情（某年某月）
      */
-    @GetMapping("/recent")
-    public Result<List<ArchiveVO>> getRecentArchives(
-            @RequestParam(defaultValue = "6") Integer limit) {
+    @GetMapping("/{year}/{month}/detail")
+    public Result<ArchiveVO> getArchiveDetail(
+            @PathVariable Integer year, 
+            @PathVariable Integer month) {
+        
+        ArchiveVO archive = archiveService.getArchiveDetail(year, month);
+        if (archive == null) {
+            return Result.notFound("该月没有文章");
+        }
+        return Result.success(archive);
+    }
+    
+    /**
+     * 获取最活跃年份
+     */
+    @GetMapping("/most-active-year")
+    public Result<Map<String, Object>> getMostActiveYear() {
+        Map<String, Object> stats = archiveService.getArchiveStats();
+        Integer mostActiveYear = (Integer) stats.get("most_active_year");
+        
+        if (mostActiveYear != null) {
+            Map<String, Object> result = archiveService.getYearStats(mostActiveYear);
+            result.put("year", mostActiveYear);
+            result.put("isMostActive", true);
+            return Result.success(result);
+        }
+        
+        return Result.success();
+    }
+    
+    /**
+     * 获取最近几年的统计
+     */
+    @GetMapping("/recent-stats")
+    public Result<List<Map<String, Object>>> getRecentYearStats(
+            @RequestParam(defaultValue = "5") Integer limit) {
         
         if (archiveService instanceof com.blog.service.impl.ArchiveServiceImpl) {
             com.blog.service.impl.ArchiveServiceImpl impl = 
                 (com.blog.service.impl.ArchiveServiceImpl) archiveService;
-            List<ArchiveVO> recentArchives = impl.getRecentArchives(limit);
-            return Result.success(recentArchives);
+            List<Map<String, Object>> stats = impl.getRecentYearStats(limit);
+            return Result.success(stats);
         }
         return Result.success(new java.util.ArrayList<>());
     }
     
     /**
-     * 获取归档数量
+     * 获取年份对比统计
      */
-    @GetMapping("/count")
-    public Result<Map<String, Long>> getArchiveCount() {
-        List<ArchiveVO> archives = archiveService.getAllArchives();
+    @GetMapping("/year-comparison")
+    public Result<Map<String, Object>> getYearComparisonStats() {
+        if (archiveService instanceof com.blog.service.impl.ArchiveServiceImpl) {
+            com.blog.service.impl.ArchiveServiceImpl impl = 
+                (com.blog.service.impl.ArchiveServiceImpl) archiveService;
+            Map<String, Object> comparison = impl.getYearComparisonStats();
+            return Result.success(comparison);
+        }
+        return Result.success(new java.util.HashMap<>());
+    }
+    
+    /**
+     * 搜索归档（按标题或内容）
+     */
+    @GetMapping("/search")
+    public Result<List<ArticleArchiveVO>> searchArchives(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer size) {
         
-        // 计算总文章数
-        long totalArticles = archives.stream()
-                .mapToLong(archive -> archive.getArticleCount())
-                .sum();
-        
-        // 计算年份和月份数量
-        long totalYears = archives.stream()
-                .map(ArchiveVO::getYear)
-                .distinct()
-                .count();
-        
-        Map<String, Long> counts = new java.util.HashMap<>();
-        counts.put("totalArchives", (long) archives.size());
-        counts.put("totalArticles", totalArticles);
-        counts.put("totalYears", totalYears);
-        
-        return Result.success();
+        // 这里需要实现搜索逻辑
+        // 暂时返回空列表
+        return Result.success(new java.util.ArrayList<>());
     }
 }

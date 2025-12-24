@@ -395,4 +395,31 @@ public interface ArticleMapper {
                         ")"
         })
         int countByTagName(@Param("tagName") String tagName);
+
+        // 获取年份统计（每年文章数量）
+        @Select("SELECT YEAR(create_time) as year, COUNT(*) as article_count, " +
+                        "SUM(view_count) as view_count, SUM(like_count) as like_count " +
+                        "FROM article WHERE status = 1 " +
+                        "GROUP BY YEAR(create_time) " +
+                        "ORDER BY year DESC")
+        List<Map<String, Object>> getYearStats();
+
+        // 获取某年所有文章（用于年份筛选）
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE YEAR(a.create_time) = #{year} AND a.status = 1 " +
+                        "ORDER BY a.create_time DESC")
+        List<Article> findByYear(@Param("year") Integer year);
+
+        // 获取某年每月的统计
+        @Select("SELECT MONTH(create_time) as month, COUNT(*) as article_count, " +
+                        "SUM(view_count) as view_count, SUM(like_count) as like_count " +
+                        "FROM article " +
+                        "WHERE YEAR(create_time) = #{year} AND status = 1 " +
+                        "GROUP BY MONTH(create_time) " +
+                        "ORDER BY month DESC")
+        List<Map<String, Object>> getMonthStatsByYear(@Param("year") Integer year);
 }

@@ -3,33 +3,21 @@ package com.blog.entity.vo;
 import lombok.Data;
 import java.time.LocalDateTime;
 
-/**
- * 归档文章简略信息
- */
 @Data
 public class ArticleArchiveVO {
-    /**
-     * 文章ID
-     */
     private Integer id;
-    
-    /**
-     * 文章标题
-     */
     private String title;
-    
-    /**
-     * 文章创建时间
-     */
     private LocalDateTime createTime;
-    
-    /**
-     * 文章分类名称
-     */
     private String categoryName;
-    
-    /**
-     * 文章标签（逗号分隔）
-     */
     private String tags;
+    
+    // 新增字段
+    private Integer viewCount = 0;    // 阅读量
+    private Integer likeCount = 0;    // 点赞数
+    private Integer commentCount = 0; // 评论数
+    private String authorName;        // 作者名
+    
+    // 新增：用于前端显示的格式化字段
+    private String formatDate;        // 格式化日期（如"10-28"）
+    private String formatTime;        // 格式化时间（如"14:30"）
 }

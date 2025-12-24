@@ -7,23 +7,17 @@ import java.util.Map;
 
 public interface ArchiveService {
     
-    /**
-     * 获取所有归档数据（按年月分组）
-     */
     List<ArchiveVO> getAllArchives();
-    
-    /**
-     * 获取归档统计信息
-     */
     Map<String, Object> getArchiveStats();
-    
-    /**
-     * 根据年份获取归档数据
-     */
     List<ArchiveVO> getArchivesByYear(Integer year);
-    
-    /**
-     * 根据年月获取文章列表
-     */
     List<ArticleArchiveVO> getArticlesByYearMonth(Integer year, Integer month);
+    
+    // 新增方法
+    Map<String, Object> getArchiveOverview(); // 归档页面概览
+    
+    List<Integer> getAvailableYears(); // 获取有文章的年份列表
+    
+    Map<String, Object> getYearStats(Integer year); // 获取某年的详细统计
+    
+    ArchiveVO getArchiveDetail(Integer year, Integer month); // 获取某月归档详情
 }
