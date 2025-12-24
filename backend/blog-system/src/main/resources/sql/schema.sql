@@ -92,3 +92,37 @@ CREATE TABLE IF NOT EXISTS `search_record` (
 -- 创建索引
 CREATE INDEX idx_keyword ON search_record(keyword);
 CREATE INDEX idx_user_time ON search_record(user_id, last_search_time);
+
+CREATE TABLE IF NOT EXISTS `article_like` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `user_id` INT NOT NULL COMMENT '用户ID',
+  `article_id` INT NOT NULL COMMENT '文章ID',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间',
+  UNIQUE KEY `uk_user_article` (`user_id`, `article_id`),
+  FOREIGN KEY (`user_id`) REFERENCES `user`(`id`),
+  FOREIGN KEY (`article_id`) REFERENCES `article`(`id`)
+) ENGINE=InnoDB COMMENT='文章点赞表';
+
+CREATE TABLE IF NOT EXISTS `tag` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT COMMENT '标签ID',
+  `name` VARCHAR(50) NOT NULL UNIQUE COMMENT '标签名称',
+  `slug` VARCHAR(50) UNIQUE COMMENT '标签别名',
+  `description` VARCHAR(200) COMMENT '标签描述',
+  `color` VARCHAR(20) DEFAULT '#409eff' COMMENT '标签颜色',
+  `icon` VARCHAR(50) COMMENT '图标',
+  `article_count` INT DEFAULT 0 COMMENT '文章数量',
+  `view_count` INT DEFAULT 0 COMMENT '总阅读量',
+  `like_count` INT DEFAULT 0 COMMENT '总点赞数',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) ENGINE=InnoDB COMMENT='标签表';
+
+CREATE TABLE IF NOT EXISTS `article_tag` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `article_id` INT NOT NULL COMMENT '文章ID',
+  `tag_id` INT NOT NULL COMMENT '标签ID',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  UNIQUE KEY `uk_article_tag` (`article_id`, `tag_id`),
+  FOREIGN KEY (`article_id`) REFERENCES `article`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`tag_id`) REFERENCES `tag`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='文章标签关联表';

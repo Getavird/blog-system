@@ -203,4 +203,196 @@ public interface ArticleMapper {
                         "(SELECT COUNT(DISTINCT CONCAT(YEAR(create_time), '-', MONTH(create_time))) " +
                         "FROM article WHERE status = 1) as total_months")
         Map<String, Object> getArchiveStats();
+
+        /**
+         * 获取热门文章（按浏览量排序）
+         */
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.status = 1 " +
+                        "ORDER BY a.view_count DESC " +
+                        "LIMIT #{limit}")
+        List<Article> findHotArticles(@Param("limit") int limit);
+
+        /**
+         * 获取最新文章（按创建时间排序）
+         */
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.status = 1 " +
+                        "ORDER BY a.create_time DESC " +
+                        "LIMIT #{limit}")
+        List<Article> findLatestArticles(@Param("limit") int limit);
+
+        /**
+         * 根据分类ID获取文章
+         */
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.status = 1 AND a.category_id = #{categoryId} " +
+                        "ORDER BY a.create_time DESC " +
+                        "LIMIT #{offset}, #{size}")
+        List<Article> findByCategoryId(@Param("categoryId") Integer categoryId,
+                        @Param("offset") int offset,
+                        @Param("size") int size);
+
+        /**
+         * 根据标签名称获取文章
+         */
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.status = 1 AND a.tags LIKE CONCAT('%', #{tagName}, '%') " +
+                        "ORDER BY a.create_time DESC " +
+                        "LIMIT #{offset}, #{size}")
+        List<Article> findByTagName(@Param("tagName") String tagName,
+                        @Param("offset") int offset,
+                        @Param("size") int size);
+
+        /**
+         * 统计文章总数
+         */
+        @Select("SELECT COUNT(*) FROM article WHERE status = 1")
+        int count();
+
+        /**
+         * 统计总浏览量
+         */
+        @Select("SELECT SUM(view_count) FROM article WHERE status = 1")
+        int sumViewCount();
+
+        /**
+         * 统计分类文章数量
+         */
+        @Select("SELECT c.id, c.name, COUNT(a.id) as article_count " +
+                        "FROM category c " +
+                        "LEFT JOIN article a ON c.id = a.category_id AND a.status = 1 " +
+                        "GROUP BY c.id, c.name " +
+                        "ORDER BY article_count DESC")
+        List<Map<String, Object>> countArticlesByCategory();
+
+        /**
+         * 统计热门标签
+         */
+        @Select("SELECT tag_name, COUNT(*) as article_count FROM ( " +
+                        "  SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(tags, ',', n.digit+1), ',', -1) as tag_name " +
+                        "  FROM article " +
+                        "  CROSS JOIN (SELECT 0 digit UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) n " +
+                        "  WHERE LENGTH(tags) - LENGTH(REPLACE(tags, ',', '')) >= n.digit " +
+                        "    AND status = 1 " +
+                        "    AND tags IS NOT NULL " +
+                        "    AND tags != '' " +
+                        ") t " +
+                        "WHERE tag_name != '' " +
+                        "GROUP BY tag_name " +
+                        "ORDER BY article_count DESC " +
+                        "LIMIT #{limit}")
+        List<Map<String, Object>> countArticlesByTag(@Param("limit") int limit);
+
+        // 根据分类ID获取最新文章
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.status = 1 AND a.category_id = #{categoryId} " +
+                        "ORDER BY a.create_time DESC " +
+                        "LIMIT #{offset}, #{size}")
+        List<Article> findLatestByCategory(@Param("categoryId") Integer categoryId,
+                        @Param("offset") int offset,
+                        @Param("size") int size);
+
+        // 根据分类ID获取热门文章（按浏览量）
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.status = 1 AND a.category_id = #{categoryId} " +
+                        "ORDER BY a.view_count DESC " +
+                        "LIMIT #{offset}, #{size}")
+        List<Article> findHotByCategory(@Param("categoryId") Integer categoryId,
+                        @Param("offset") int offset,
+                        @Param("size") int size);
+
+        // 根据分类ID获取按点赞排序的文章
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.status = 1 AND a.category_id = #{categoryId} " +
+                        "ORDER BY a.like_count DESC " +
+                        "LIMIT #{offset}, #{size}")
+        List<Article> findLikesByCategory(@Param("categoryId") Integer categoryId,
+                        @Param("offset") int offset,
+                        @Param("size") int size);
+
+        // 统计分类下的总阅读量
+        @Select("SELECT SUM(view_count) FROM article WHERE category_id = #{categoryId} AND status = 1")
+        Integer sumViewCountByCategory(@Param("categoryId") Integer categoryId);
+
+        // 统计分类下的总点赞数
+        @Select("SELECT SUM(like_count) FROM article WHERE category_id = #{categoryId} AND status = 1")
+        Integer sumLikeCountByCategory(@Param("categoryId") Integer categoryId);
+
+        // 根据标签名称搜索文章（用于标签页面）
+        @Select({
+                        "<script>",
+                        "SELECT DISTINCT a.*, u.username as author_name, u.avatar as author_avatar, ",
+                        "c.name as category_name ",
+                        "FROM article a ",
+                        "LEFT JOIN user u ON a.user_id = u.id ",
+                        "LEFT JOIN category c ON a.category_id = c.id ",
+                        "WHERE a.status = 1 ",
+                        "AND (",
+                        "  a.tags LIKE CONCAT('%', #{tagName}, '%') ",
+                        "  OR EXISTS (",
+                        "    SELECT 1 FROM article_tag at ",
+                        "    INNER JOIN tag t ON at.tag_id = t.id ",
+                        "    WHERE at.article_id = a.id AND t.name = #{tagName}",
+                        "  )",
+                        ") ",
+                        "<if test='sortType == \"hot\"'>",
+                        "  ORDER BY a.view_count DESC ",
+                        "</if>",
+                        "<if test='sortType == \"likes\"'>",
+                        "  ORDER BY a.like_count DESC ",
+                        "</if>",
+                        "<if test='sortType == \"latest\" or sortType == null'>",
+                        "  ORDER BY a.create_time DESC ",
+                        "</if>",
+                        "LIMIT #{offset}, #{size}",
+                        "</script>"
+        })
+        List<Article> findByTagName(@Param("tagName") String tagName,
+                        @Param("sortType") String sortType,
+                        @Param("offset") int offset,
+                        @Param("size") int size);
+
+        // 统计标签下的文章数量
+        @Select({
+                        "SELECT COUNT(DISTINCT a.id) FROM article a ",
+                        "WHERE a.status = 1 ",
+                        "AND (",
+                        "  a.tags LIKE CONCAT('%', #{tagName}, '%') ",
+                        "  OR EXISTS (",
+                        "    SELECT 1 FROM article_tag at ",
+                        "    INNER JOIN tag t ON at.tag_id = t.id ",
+                        "    WHERE at.article_id = a.id AND t.name = #{tagName}",
+                        "  )",
+                        ")"
+        })
+        int countByTagName(@Param("tagName") String tagName);
 }
