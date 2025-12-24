@@ -14,3 +14,16 @@ INSERT INTO `category` (name, slug, description, icon, color) VALUES  -- 添加 
 INSERT INTO `article` (title, slug, content, summary, tags, user_id, category_id) VALUES  -- 添加 tags
 ('Spring Boot入门教程', 'spring-boot-tutorial', 'Spring Boot 是...', 'Spring Boot快速入门指南', 'Java,Spring Boot', 1, 1),
 ('Vue 3新特性介绍', 'vue3-new-features', 'Vue 3带来了...', 'Vue 3 Composition API详解', 'Vue,前端', 1, 1);
+
+-- 用户关注关系表
+CREATE TABLE IF NOT EXISTS `user_follow` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT COMMENT '关注关系ID',
+  `follower_id` INT NOT NULL COMMENT '粉丝ID（关注者）',
+  `following_id` INT NOT NULL COMMENT '被关注者ID',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '关注时间',
+  `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `status` TINYINT DEFAULT 1 COMMENT '状态：1-关注，0-取消关注',
+  UNIQUE KEY `uk_follower_following` (`follower_id`, `following_id`),
+  FOREIGN KEY (`follower_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`following_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='用户关注关系表';

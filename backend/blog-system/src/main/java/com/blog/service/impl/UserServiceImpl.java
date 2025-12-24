@@ -5,6 +5,7 @@ import com.blog.entity.ChangePasswordRequest;
 import com.blog.entity.User;
 import com.blog.entity.vo.UserProfileVO;
 import com.blog.entity.vo.UserStatsVO;
+import com.blog.service.FollowService;
 import com.blog.service.UserService;
 import com.blog.utils.PasswordUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private FollowService followService;
 
     @Override
     public User register(User user) {
@@ -421,13 +425,25 @@ public class UserServiceImpl implements UserService {
             statsVO.setArticleCount(user.getArticleCount() != null ? user.getArticleCount() : 0);
             statsVO.setLikeCount(user.getLikeCount() != null ? user.getLikeCount() : 0);
             statsVO.setViewCount(user.getViewCount() != null ? user.getViewCount() : 0);
-            statsVO.setFanCount(0); // 粉丝功能未实现，暂时为0
+
+            // 6. 获取关注和粉丝数量
+            try {
+                statsVO.setFollowingCount(followService.getFollowingCount(userId));
+                statsVO.setFollowerCount(followService.getFollowerCount(userId));
+            } catch (Exception e) {
+                System.err.println("❌ 获取关注数量异常: " + e.getMessage());
+                // 如果获取失败，设置为0
+                statsVO.setFollowingCount(0);
+                statsVO.setFollowerCount(0);
+            }
 
             profileVO.setStats(statsVO);
 
             System.out.println("📊 用户统计信息: 文章=" + statsVO.getArticleCount() +
                     ", 获赞=" + statsVO.getLikeCount() +
-                    ", 阅读=" + statsVO.getViewCount());
+                    ", 阅读=" + statsVO.getViewCount() +
+                    ", 关注=" + statsVO.getFollowingCount() +
+                    ", 粉丝=" + statsVO.getFollowerCount());
 
             return profileVO;
 
