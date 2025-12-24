@@ -45,7 +45,6 @@ CREATE TABLE IF NOT EXISTS `article` (
   `comment_count` INT DEFAULT 0 COMMENT '评论数',
   `allow_comment` TINYINT DEFAULT 1 COMMENT '允许评论：0否，1是',
   `is_top` TINYINT DEFAULT 0 COMMENT '是否置顶：0否，1是',
-  `tags` VARCHAR(255) COMMENT '文章标签，多个用逗号分隔',
   `user_id` INT NOT NULL COMMENT '作者ID',
   `category_id` INT COMMENT '分类ID',
   `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

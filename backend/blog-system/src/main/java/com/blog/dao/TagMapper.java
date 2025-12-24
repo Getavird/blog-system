@@ -87,4 +87,40 @@ public interface TagMapper {
                         "</script>"
         })
         List<Tag> findByIds(@Param("ids") List<Integer> ids);
+<<<<<<< Updated upstream
+=======
+
+        /**
+         * 更新标签的文章数量
+         */
+        @Update("UPDATE tag SET article_count = article_count + #{delta} WHERE id = #{tagId}")
+        int updateArticleCount(@Param("tagId") Integer tagId, @Param("delta") Integer delta);
+
+        /**
+         * 批量插入标签（去重）
+         */
+        @Insert({
+                        "<script>",
+                        "INSERT INTO tag (name, slug, create_time) VALUES ",
+                        "<foreach collection='tags' item='tag' separator=','>",
+                        "(#{tag.name}, LOWER(REPLACE(#{tag.name}, ' ', '-')), NOW())",
+                        "</foreach>",
+                        "ON DUPLICATE KEY UPDATE name = name",
+                        "</script>"
+        })
+        int batchInsertTags(@Param("tags") List<Tag> tags);
+
+        /**
+         * 根据名称列表查询标签
+         */
+        @Select({
+                        "<script>",
+                        "SELECT * FROM tag WHERE name IN ",
+                        "<foreach collection='tagNames' item='tagName' open='(' separator=',' close=')'>",
+                        "#{tagName}",
+                        "</foreach>",
+                        "</script>"
+        })
+        List<Tag> findByNames(@Param("tagNames") List<String> tagNames);
+>>>>>>> Stashed changes
 }

@@ -3,6 +3,10 @@ package com.blog.entity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 /**
  * 文章实体类
  */
@@ -65,7 +69,7 @@ public class Article extends BaseEntity {
     private Integer categoryId;
     
     /**
-     * 关联字段：作者用户名（查询时使用）
+     * 关联字段：作者用户名
      */
     private String authorName;
     
@@ -93,4 +97,40 @@ public class Article extends BaseEntity {
      * 文章标签，多个用逗号分隔
      */
     private String tags;
+    
+    /**
+     * 是否已点赞（查询时使用，非数据库字段）
+     */
+    private Boolean isLiked = false;
+    
+    /**
+     * 是否已关注作者（查询时使用，非数据库字段）
+     */
+    private Boolean isFollowing = false;
+    
+    /**
+     * 作者统计信息（查询时使用，非数据库字段）
+     */
+    private Map<String, Object> authorStats;
+
+    /**
+     * 标签列表（查询时使用）
+     */
+    private List<Tag> tagList;
+    
+    /**
+     * 标签ID列表（用于编辑时传递）
+     */
+    private List<Integer> tagIds;
+    
+    // ... 其他字段不变 ...
+    
+    /**
+     * 获取标签名称列表
+     */
+    public List<String> getTagNames() {
+        return tagList.stream()
+            .map(Tag::getName)
+            .collect(Collectors.toList());
+    }
 }
