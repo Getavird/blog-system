@@ -8,63 +8,63 @@ import java.util.List;
 @Mapper
 public interface CommentMapper {
 
-        /**
-         * 根据ID查询评论
-         */
-        @Select("SELECT c.*, u.username, u.avatar as user_avatar, " +
-                        "ru.username as reply_username " +
-                        "FROM comment c " +
-                        "LEFT JOIN user u ON c.user_id = u.id " +
-                        "LEFT JOIN user ru ON c.reply_to = ru.id " +
-                        "WHERE c.id = #{id} AND c.status = 1")
-        Comment findById(Integer id);
+ /**
+     * 根据ID查询评论
+     */
+    @Select("SELECT c.*, u.username, u.avatar as user_avatar, " +
+            "ru.username as reply_username " +
+            "FROM comment c " +
+            "LEFT JOIN user u ON c.user_id = u.id " +
+            "LEFT JOIN user ru ON c.reply_user_id = ru.id " +  // 修复：reply_user_id
+            "WHERE c.id = #{id} AND c.status = 1")
+    Comment findById(Integer id);
 
-        /**
-         * 根据文章ID查询评论（分页）
-         */
-        @Select("SELECT c.*, u.username, u.avatar as user_avatar, " +
-                        "ru.username as reply_username " +
-                        "FROM comment c " +
-                        "LEFT JOIN user u ON c.user_id = u.id " +
-                        "LEFT JOIN user ru ON c.reply_to = ru.id " +
-                        "WHERE c.article_id = #{articleId} AND c.status = 1 " +
-                        "ORDER BY c.create_time ASC " +
-                        "LIMIT #{offset}, #{size}")
-        List<Comment> findByArticleId(@Param("articleId") Integer articleId,
-                        @Param("offset") int offset,
-                        @Param("size") int size);
+    /**
+     * 根据文章ID查询评论（分页）
+     */
+    @Select("SELECT c.*, u.username, u.avatar as user_avatar, " +
+            "ru.username as reply_username " +
+            "FROM comment c " +
+            "LEFT JOIN user u ON c.user_id = u.id " +
+            "LEFT JOIN user ru ON c.reply_user_id = ru.id " +  // 修复：reply_user_id
+            "WHERE c.article_id = #{articleId} AND c.status = 1 " +
+            "ORDER BY c.create_time ASC " +
+            "LIMIT #{offset}, #{size}")
+    List<Comment> findByArticleId(@Param("articleId") Integer articleId,
+                                  @Param("offset") int offset,
+                                  @Param("size") int size);
 
-        /**
-         * 查询顶级评论（parent_id=0）
-         */
-        @Select("SELECT c.*, u.username, u.avatar as user_avatar " +
-                        "FROM comment c " +
-                        "LEFT JOIN user u ON c.user_id = u.id " +
-                        "WHERE c.article_id = #{articleId} AND c.parent_id = 0 AND c.status = 1 " +
-                        "ORDER BY c.create_time ASC")
-        List<Comment> findTopLevelComments(Integer articleId);
+    /**
+     * 查询顶级评论（parent_id=0）
+     */
+    @Select("SELECT c.*, u.username, u.avatar as user_avatar " +
+            "FROM comment c " +
+            "LEFT JOIN user u ON c.user_id = u.id " +
+            "WHERE c.article_id = #{articleId} AND c.parent_id = 0 AND c.status = 1 " +
+            "ORDER BY c.create_time ASC")
+    List<Comment> findTopLevelComments(Integer articleId);
 
-        /**
-         * 查询子评论
-         */
-        @Select("SELECT c.*, u.username, u.avatar as user_avatar, " +
-                        "ru.username as reply_username " +
-                        "FROM comment c " +
-                        "LEFT JOIN user u ON c.user_id = u.id " +
-                        "LEFT JOIN user ru ON c.reply_to = ru.id " +
-                        "WHERE c.parent_id = #{parentId} AND c.status = 1 " +
-                        "ORDER BY c.create_time ASC")
-        List<Comment> findChildComments(Integer parentId);
+    /**
+     * 查询子评论
+     */
+    @Select("SELECT c.*, u.username, u.avatar as user_avatar, " +
+            "ru.username as reply_username " +
+            "FROM comment c " +
+            "LEFT JOIN user u ON c.user_id = u.id " +
+            "LEFT JOIN user ru ON c.reply_user_id = ru.id " +  // 修复：reply_user_id
+            "WHERE c.parent_id = #{parentId} AND c.status = 1 " +
+            "ORDER BY c.create_time ASC")
+    List<Comment> findChildComments(Integer parentId);
 
-        /**
-         * 插入评论
-         */
-        @Insert("INSERT INTO comment(content, article_id, user_id, parent_id, " +
-                        "reply_to, like_count, status, ip_address, user_agent, create_time) " +
-                        "VALUES(#{content}, #{articleId}, #{userId}, #{parentId}, " +
-                        "#{replyUserId}, #{likeCount}, #{status}, #{ipAddress}, #{userAgent}, NOW())")
-        @Options(useGeneratedKeys = true, keyProperty = "id")
-        int insert(Comment comment);
+    /**
+     * 插入评论
+     */
+    @Insert("INSERT INTO comment(content, article_id, user_id, parent_id, " +
+            "reply_user_id, like_count, status, ip_address, user_agent, create_time) " +  // 修复：reply_user_id
+            "VALUES(#{content}, #{articleId}, #{userId}, #{parentId}, " +
+            "#{replyUserId}, #{likeCount}, #{status}, #{ipAddress}, #{userAgent}, NOW())")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(Comment comment);
 
         /**
          * 更新评论
@@ -114,4 +114,10 @@ public interface CommentMapper {
                         "LIMIT #{limit}")
         List<Comment> findRecentByUserId(@Param("userId") Integer userId,
                         @Param("limit") int limit);
+
+                        /**
+ * 获取最后插入的ID（用于调试）
+ */
+        @Select("SELECT LAST_INSERT_ID()")
+        Integer getLastInsertId();
 }

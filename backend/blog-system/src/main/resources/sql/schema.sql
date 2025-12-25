@@ -132,29 +132,33 @@ ADD COLUMN `last_login_time` DATETIME COMMENT '最后登录时间',
 ADD COLUMN `last_login_ip` VARCHAR(45) COMMENT '最后登录IP',
 ADD COLUMN `last_active_time` DATETIME COMMENT '最后活动时间';
 
--- 创建评论表（在 user_like 表之前）
+
+-- 4. 重新创建comment表（简化版，先不加外键约束）
 CREATE TABLE IF NOT EXISTS `comment` (
     `id` INT PRIMARY KEY AUTO_INCREMENT COMMENT '评论ID',
     `content` TEXT NOT NULL COMMENT '评论内容',
     `user_id` INT NOT NULL COMMENT '评论用户ID',
     `article_id` INT NOT NULL COMMENT '文章ID',
     `parent_id` INT DEFAULT 0 COMMENT '父评论ID（0表示顶级评论）',
+    `reply_user_id` INT NULL COMMENT '回复的用户ID',
     `like_count` INT DEFAULT 0 COMMENT '点赞数',
     `status` TINYINT DEFAULT 1 COMMENT '状态：0删除，1正常',
+    `ip_address` VARCHAR(100) NULL COMMENT 'IP地址',
+    `user_agent` VARCHAR(500) NULL COMMENT 'User-Agent',
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`),
-    FOREIGN KEY (`article_id`) REFERENCES `article`(`id`),
-    FOREIGN KEY (`parent_id`) REFERENCES `comment`(`id`)
-) ENGINE=InnoDB COMMENT='评论表';
+    INDEX idx_article_id (article_id),
+    INDEX idx_parent_id (parent_id),
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评论表';
 
--- 然后创建 user_like 表
-CREATE TABLE IF NOT EXISTS `user_like` ( 
-    `id` INT PRIMARY KEY AUTO_INCREMENT, 
-    `user_id` INT NOT NULL, 
-    `comment_id` INT NOT NULL, 
-    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP, 
-    UNIQUE KEY `uk_user_comment` (`user_id`, `comment_id`), 
-    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`), 
-    FOREIGN KEY (`comment_id`) REFERENCES `comment`(`id`) ON DELETE CASCADE 
-) ENGINE=InnoDB COMMENT='用户点赞评论表';
+-- 5. 重新创建user_like表
+CREATE TABLE IF NOT EXISTS `user_like` (
+    `id` INT PRIMARY KEY AUTO_INCREMENT,
+    `user_id` INT NOT NULL,
+    `comment_id` INT NOT NULL,
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_user_comment` (`user_id`, `comment_id`),
+    INDEX idx_user_id (user_id),
+    INDEX idx_comment_id (comment_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户点赞评论表';
