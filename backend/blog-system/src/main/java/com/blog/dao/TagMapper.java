@@ -88,9 +88,4 @@ public interface TagMapper {
         })
         List<Tag> findByIds(@Param("ids") List<Integer> ids);
 
-        /**
-         * 更新标签的文章数量
-         */
-        @Update("UPDATE tag SET article_count = article_count + #{delta} WHERE id = #{tagId}")
-        int updateArticleCount(@Param("tagId") Integer tagId, @Param("delta") Integer delta);
 }

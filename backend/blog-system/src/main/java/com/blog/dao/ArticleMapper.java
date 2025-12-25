@@ -347,52 +347,52 @@ public interface ArticleMapper {
         @Select("SELECT SUM(like_count) FROM article WHERE category_id = #{categoryId} AND status = 1")
         Integer sumLikeCountByCategory(@Param("categoryId") Integer categoryId);
 
-        // 根据标签名称搜索文章（用于标签页面）
+        // 根据标签名称搜索文章（用于标签页面，带排序）
         @Select({
-                        "<script>",
-                        "SELECT DISTINCT a.*, u.username as author_name, u.avatar as author_avatar, ",
-                        "c.name as category_name ",
-                        "FROM article a ",
-                        "LEFT JOIN user u ON a.user_id = u.id ",
-                        "LEFT JOIN category c ON a.category_id = c.id ",
-                        "WHERE a.status = 1 ",
-                        "AND (",
-                        "  a.tags LIKE CONCAT('%', #{tagName}, '%') ",
-                        "  OR EXISTS (",
-                        "    SELECT 1 FROM article_tag at ",
-                        "    INNER JOIN tag t ON at.tag_id = t.id ",
-                        "    WHERE at.article_id = a.id AND t.name = #{tagName}",
-                        "  )",
-                        ") ",
-                        "<if test='sortType == \"hot\"'>",
-                        "  ORDER BY a.view_count DESC ",
-                        "</if>",
-                        "<if test='sortType == \"likes\"'>",
-                        "  ORDER BY a.like_count DESC ",
-                        "</if>",
-                        "<if test='sortType == \"latest\" or sortType == null'>",
-                        "  ORDER BY a.create_time DESC ",
-                        "</if>",
-                        "LIMIT #{offset}, #{size}",
-                        "</script>"
+                "<script>",
+                "SELECT DISTINCT a.*, u.username as author_name, u.avatar as author_avatar, ",
+                "c.name as category_name ",
+                "FROM article a ",
+                "LEFT JOIN user u ON a.user_id = u.id ",
+                "LEFT JOIN category c ON a.category_id = c.id ",
+                "WHERE a.status = 1 ",
+                "AND (",
+                "  a.tags LIKE CONCAT('%', #{tagName}, '%') ",
+                "  OR EXISTS (",
+                "    SELECT 1 FROM article_tag at ",
+                "    INNER JOIN tag t ON at.tag_id = t.id ",
+                "    WHERE at.article_id = a.id AND t.name = #{tagName}",
+                "  )",
+                ") ",
+                "<if test='sortType != null and sortType == \"hot\"'>",
+                "  ORDER BY a.view_count DESC ",
+                "</if>",
+                "<if test='sortType != null and sortType == \"likes\"'>",
+                "  ORDER BY a.like_count DESC ",
+                "</if>",
+                "<if test='sortType == null or sortType == \"latest\"'>",
+                "  ORDER BY a.create_time DESC ",
+                "</if>",
+                "LIMIT #{offset}, #{size}",
+                "</script>"
         })
-        List<Article> findByTagName(@Param("tagName") String tagName,
-                        @Param("sortType") String sortType,
-                        @Param("offset") int offset,
-                        @Param("size") int size);
+        List<Article> findByTagNameWithSort(@Param("tagName") String tagName,
+                                           @Param("sortType") String sortType,
+                                           @Param("offset") int offset,
+                                           @Param("size") int size);
 
         // 统计标签下的文章数量
         @Select({
-                        "SELECT COUNT(DISTINCT a.id) FROM article a ",
-                        "WHERE a.status = 1 ",
-                        "AND (",
-                        "  a.tags LIKE CONCAT('%', #{tagName}, '%') ",
-                        "  OR EXISTS (",
-                        "    SELECT 1 FROM article_tag at ",
-                        "    INNER JOIN tag t ON at.tag_id = t.id ",
-                        "    WHERE at.article_id = a.id AND t.name = #{tagName}",
-                        "  )",
-                        ")"
+                "SELECT COUNT(DISTINCT a.id) FROM article a ",
+                "WHERE a.status = 1 ",
+                "AND (",
+                "  a.tags LIKE CONCAT('%', #{tagName}, '%') ",
+                "  OR EXISTS (",
+                "    SELECT 1 FROM article_tag at ",
+                "    INNER JOIN tag t ON at.tag_id = t.id ",
+                "    WHERE at.article_id = a.id AND t.name = #{tagName}",
+                "  )",
+                ")"
         })
         int countByTagName(@Param("tagName") String tagName);
 
