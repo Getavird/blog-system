@@ -77,4 +77,24 @@ public interface ArticleService {
      * 获取热门标签统计
      */
     List<Map<String, Object>> getHotTags(int limit);
+
+    /**
+     * 创建草稿
+     */
+    boolean createDraft(Article article);
+    
+    /**
+     * 发布草稿
+     */
+    boolean publishDraft(Integer articleId);
+    
+    /**
+     * 获取用户的草稿列表
+     */
+    List<Article> getUserDrafts(Integer userId, int page, int size);
+    
+    /**
+     * 获取用户的发布文章列表
+     */
+    List<Article> getUserPublishedArticles(Integer userId, int page, int size);
 }

@@ -27,3 +27,21 @@ CREATE TABLE IF NOT EXISTS `user_follow` (
   FOREIGN KEY (`follower_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`following_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB COMMENT='用户关注关系表';
+
+-- 插入初始分类数据
+INSERT INTO `category` (name, slug, description, icon, color, order_num) VALUES
+('技术分享', 'technology', '编程技术相关文章', 'code', '#409eff', 1),
+('生活随笔', 'life', '日常生活分享', 'coffee', '#67c23a', 2),
+('学习笔记', 'study', '学习心得记录', 'book', '#5cdbd3', 3),
+('工作心得', 'work', '工作经验总结', 'briefcase', '#ff9c6e', 4),
+('读书笔记', 'reading', '读书感悟分享', 'book-open', '#ff85c0', 5)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- 插入初始标签数据
+INSERT INTO `tag` (name, slug, description, color) VALUES
+('Java', 'java', 'Java编程语言', '#f44336'),
+('Spring Boot', 'spring-boot', 'Spring Boot框架', '#4caf50'),
+('Vue', 'vue', 'Vue.js前端框架', '#42b983'),
+('MySQL', 'mysql', 'MySQL数据库', '#00758f'),
+('Docker', 'docker', '容器化技术', '#2496ed')
+ON DUPLICATE KEY UPDATE name=VALUES(name);

@@ -50,13 +50,13 @@ public class TagController {
     }
 
     /**
-     * 创建标签（需要管理员权限）
+     * 创建标签（普通用户也可以创建，用于文章编写）
      */
     @PostMapping
     public Result<Tag> createTag(@RequestBody Tag tag, HttpServletRequest request) {
-        // 检查管理员权限
-        if (!SessionUtil.isAdmin(request)) {
-            return Result.forbidden("需要管理员权限");
+        // 改为：检查登录即可，不需要管理员权限
+        if (!SessionUtil.isLogin(request)) {
+            return Result.unauthorized("请先登录");
         }
 
         try {
