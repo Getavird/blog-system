@@ -111,7 +111,7 @@ import {
 const emit = defineEmits(['showLogin'])
 const router = useRouter()
 const authStore = useAuthStore()
-const userStore = useUserStore()  
+const userStore = useUserStore()
 
 // 搜索相关
 const searchKeyword = ref('')
@@ -122,15 +122,22 @@ const isMobile = ref(false)
 
 // 从Pinia获取用户状态
 const isLoggedIn = computed(() => {
-  // 从userStore的token属性判断是否登录
-  return !!userStore.token
+  return userStore.isLoggedIn()
 })
 const username = computed(() => userStore.user?.username || '')
 
 // 生命周期
 onMounted(() => {
-  // 初始化用户状态 - 使用 userStore
+  // 初始化用户状态
   userStore.initFromStorage()
+
+  // 监听全局登录事件
+  window.addEventListener('showLogin', () => {
+    showLoginDialog()
+  })
+  
+  // 检查登录状态
+  checkLoginStatus()
   
   // 检测屏幕尺寸
   checkScreenSize()
@@ -140,6 +147,19 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', checkScreenSize)
 })
+
+// 检查登录状态
+const checkLoginStatus = async () => {
+  try {
+    // 如果有用户信息但没有从API验证过，可以调用验证
+    if (userStore.user && !userStore.verified) {
+      const currentUser = await authStore.fetchCurrentUser()
+      console.log('验证登录状态:', currentUser)
+    }
+  } catch (error) {
+    console.log('登录验证失败，可能已过期:', error)
+  }
+}
 
 // 方法
 const checkScreenSize = () => {
@@ -205,21 +225,32 @@ const toWrite = () => {
 }
 
 const toProfile = () => {
+  if (!isLoggedIn.value) {
+    ElMessage.warning('请先登录')
+    showLoginDialog()
+    return
+  }
   router.push('/user/profile')
 }
 
 const toMyArticles = () => {
+  if (!isLoggedIn.value) {
+    ElMessage.warning('请先登录')
+    showLoginDialog()
+    return
+  }
   router.push('/user/articles')
 }
 
 const logout = async () => {
   try {
-    await authStore.logout()  // 使用 authStore 的 logout 方法
+    await authStore.logout()
     ElMessage.success('已退出登录')
-    // 刷新页面以更新状态
-    window.location.reload()
+    // 跳转到首页
+    router.push('/')
   } catch (error) {
     console.error('退出登录失败:', error)
+    ElMessage.error('退出登录失败')
   }
 }
 </script>

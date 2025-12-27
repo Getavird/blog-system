@@ -362,8 +362,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useArticleStore } from '@/stores/article'
 import { useCommentStore } from '@/stores/comment'
-import { useUserStore } from '@/stores/user'
-import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'  // ✅ 改为 userStore
 import { useCategoryStore } from '@/stores/category'
 import { useTagStore } from '@/stores/tag'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -390,8 +389,7 @@ const router = useRouter()
 // Pinia Store
 const articleStore = useArticleStore()
 const commentStore = useCommentStore()
-const userStore = useUserStore()
-const authStore = useAuthStore()
+const userStore = useUserStore()  // ✅ 改为 userStore
 const categoryStore = useCategoryStore()
 const tagStore = useTagStore()
 
@@ -432,6 +430,11 @@ onMounted(async () => {
   // 初始化用户状态
   userStore.initFromStorage()
   
+  console.log('文章详情页面 - 用户状态:', {
+    isLoggedIn: userStore.isLoggedIn(),
+    user: userStore.user
+  })
+  
   // 加载文章详情
   if (articleId.value) {
     await loadArticleDetail()
@@ -454,6 +457,8 @@ const loadArticleDetail = async () => {
   try {
     loading.value = true
     
+    console.log('开始加载文章详情，文章ID:', articleId.value)
+    
     // 1. 加载文章详情
     await articleStore.fetchArticleDetail(articleId.value)
     
@@ -466,6 +471,8 @@ const loadArticleDetail = async () => {
     // 4. 生成目录
     generateToc()
     
+    console.log('文章详情加载完成:', articleStore.currentArticle)
+    
   } catch (error) {
     console.error('加载文章详情失败:', error)
     ElMessage.error('文章加载失败')
@@ -477,10 +484,12 @@ const loadArticleDetail = async () => {
 // 加载文章评论
 const loadArticleComments = async () => {
   try {
+    console.log('开始加载文章评论')
     await commentStore.fetchArticleComments(articleId.value, {
       page: 1,
       size: 20
     })
+    console.log('评论加载完成，评论数量:', commentStore.comments?.length)
   } catch (error) {
     console.error('加载评论失败:', error)
   }
@@ -502,6 +511,8 @@ const generateToc = () => {
         level: parseInt(heading.tagName.charAt(1))
       }
     })
+    
+    console.log('生成目录，项目数量:', tocItems.value.length)
   })
 }
 
@@ -538,6 +549,7 @@ const formatTime = (time) => {
 const toggleLike = async () => {
   if (!isLoggedIn.value) {
     showLogin.value = true
+    ElMessage.warning('请先登录')
     return
   }
   
@@ -563,6 +575,7 @@ const toggleLike = async () => {
 const toggleCollect = async () => {
   if (!isLoggedIn.value) {
     showLogin.value = true
+    ElMessage.warning('请先登录')
     return
   }
   
@@ -583,6 +596,7 @@ const toggleCollect = async () => {
 const toggleFollow = async () => {
   if (!isLoggedIn.value) {
     showLogin.value = true
+    ElMessage.warning('请先登录')
     return
   }
   
@@ -601,6 +615,17 @@ const toggleFollow = async () => {
 
 // 编辑文章
 const editArticle = () => {
+  if (!isLoggedIn.value) {
+    showLogin.value = true
+    ElMessage.warning('请先登录')
+    return
+  }
+  
+  if (!isArticleAuthor.value) {
+    ElMessage.error('只有文章作者可以编辑')
+    return
+  }
+  
   router.push(`/article/edit/${articleId.value}`)
 }
 
@@ -626,6 +651,7 @@ const goToTag = (tagId) => {
 const submitComment = async () => {
   if (!isLoggedIn.value) {
     showLogin.value = true
+    ElMessage.warning('请先登录')
     return
   }
   
@@ -637,6 +663,12 @@ const submitComment = async () => {
   
   try {
     commentLoading.value = true
+    
+    console.log('提交评论:', {
+      articleId: articleId.value,
+      content: content,
+      userId: currentUser.value?.id
+    })
     
     await commentStore.createComment({
       articleId: articleId.value,
@@ -666,6 +698,18 @@ const cancelComment = () => {
 
 // 编辑评论
 const editComment = (comment) => {
+  if (!isLoggedIn.value) {
+    showLogin.value = true
+    ElMessage.warning('请先登录')
+    return
+  }
+  
+  // 检查权限
+  if (comment.userId !== currentUser.value?.id && !isArticleAuthor.value) {
+    ElMessage.error('只有评论作者或文章作者可以编辑评论')
+    return
+  }
+  
   // 这里可以打开编辑对话框
   ElMessage.info('编辑评论功能待实现')
 }
@@ -699,6 +743,7 @@ const deleteComment = async (commentId) => {
 const replyToComment = (comment) => {
   if (!isLoggedIn.value) {
     showLogin.value = true
+    ElMessage.warning('请先登录')
     return
   }
   
@@ -716,6 +761,7 @@ const replyToComment = (comment) => {
 const likeComment = async (comment) => {
   if (!isLoggedIn.value) {
     showLogin.value = true
+    ElMessage.warning('请先登录')
     return
   }
   
@@ -755,6 +801,14 @@ const toLoginPage = () => {
   showLogin.value = false
   router.push('/')
   // 这里可以触发父组件的登录弹窗
+}
+
+// 显示登录弹窗（通过Header组件）
+const showLoginDialog = () => {
+  showLogin.value = true
+  // 触发Header组件的登录弹窗
+  const headerEvent = new CustomEvent('showLogin')
+  window.dispatchEvent(headerEvent)
 }
 </script>
 

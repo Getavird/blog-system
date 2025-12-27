@@ -177,7 +177,6 @@ import Footer from '@/components/layout/Footer.vue'
 import ArticleList from '@/components/article/ArticleList.vue'
 import { useUserStore } from '@/stores/user'
 
-
 const router = useRouter()
 
 // Pinia Stores
@@ -193,13 +192,12 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 
 // 计算属性：从Pinia Store获取数据
-const isLoggedIn = computed(() => authStore.isLoggedIn)  // 这里修正
+const isLoggedIn = computed(() => authStore.isLoggedIn)
 const articles = computed(() => articleStore.articles || [])
 const hotArticles = computed(() => articleStore.hotArticles || [])
 const categories = computed(() => categoryStore.categories || [])
 const tags = computed(() => tagStore.tags || [])
 const total = computed(() => articleStore.total || 0)
-
 
 // 标签类型数组（用于标签云样式）
 const tagTypes = ['', 'success', 'info', 'warning', 'danger']
@@ -292,7 +290,10 @@ const registerRules = {
 onMounted(async () => {
   // 初始化用户状态
   userStore.initFromStorage()
-
+  
+  console.log('当前登录状态:', userStore.isLoggedIn())
+  console.log('用户信息:', userStore.user)
+  
   // 加载数据
   await loadData()
 })
@@ -301,6 +302,7 @@ onMounted(async () => {
 const loadData = async () => {
   try {
     loading.value = true
+    console.log('开始加载首页数据...')
 
     // 并行加载所有数据
     await Promise.all([
@@ -319,6 +321,12 @@ const loadData = async () => {
       // 4. 加载标签列表
       tagStore.fetchTags()
     ])
+    
+    console.log('首页数据加载完成')
+    console.log('文章数量:', articles.value.length)
+    console.log('热门文章:', hotArticles.value.length)
+    console.log('分类数量:', categories.value.length)
+    console.log('标签数量:', tags.value.length)
 
   } catch (error) {
     console.error('加载首页数据失败:', error)
@@ -402,7 +410,7 @@ const handleSizeChange = async (size) => {
   }
 }
 
-// 登录方法
+// 登录方法（带详细调试）
 const handleLogin = async () => {
   if (!loginFormRef.value) return
 
@@ -411,23 +419,35 @@ const handleLogin = async () => {
     await loginFormRef.value.validate()
 
     loginLoading.value = true
-
+    
+    console.log('开始登录，用户名:', loginForm.value.username)
+    
     // 使用authStore的login方法
-    await authStore.login(loginForm.value.username, loginForm.value.password)
+    const result = await authStore.login(loginForm.value.username, loginForm.value.password)
+    
+    console.log('登录返回结果:', result)
+    console.log('userStore用户信息:', userStore.user)
+    console.log('localStorage用户信息:', localStorage.getItem('blog_user'))
+    console.log('登录状态:', authStore.isLoggedIn)
 
     ElMessage.success('登录成功')
     showLoginDialog.value = false
     resetForm()
-
+    
+    // 刷新页面数据
+    await loadData()
+    
   } catch (error) {
-    const errorMsg = error.message || '登录失败，请检查用户名和密码'
+    console.error('登录错误完整信息:', error)
+    console.error('错误响应:', error.response)
+    const errorMsg = error.response?.data?.message || error.message || '登录失败，请检查用户名和密码'
     ElMessage.error(errorMsg)
   } finally {
     loginLoading.value = false
   }
 }
 
-// 注册方法
+// 注册方法（带详细调试）
 const handleRegister = async () => {
   if (!registerFormRef.value) return
 
@@ -436,20 +456,27 @@ const handleRegister = async () => {
     await registerFormRef.value.validate()
 
     registerLoading.value = true
-
+    
+    console.log('开始注册，用户名:', registerForm.value.username)
+    
     // 使用authStore的register方法
-    await authStore.register({
+    const result = await authStore.register({
       username: registerForm.value.username,
       email: registerForm.value.email,
       password: registerForm.value.password
     })
+    
+    console.log('注册返回结果:', result)
+    console.log('userStore用户信息:', userStore.user)
 
     ElMessage.success('注册成功')
     activeTab.value = 'login'
     resetForm()
-
+    
   } catch (error) {
-    const errorMsg = error.message || '注册失败，请稍后重试'
+    console.error('注册错误完整信息:', error)
+    console.error('错误响应:', error.response)
+    const errorMsg = error.response?.data?.message || error.message || '注册失败，请稍后重试'
     ElMessage.error(errorMsg)
   } finally {
     registerLoading.value = false

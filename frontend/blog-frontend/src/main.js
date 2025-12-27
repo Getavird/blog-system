@@ -25,6 +25,17 @@ import { useUserStore } from './stores/user'
 const userStore = useUserStore()
 userStore.initFromStorage()
 
+// 全局错误处理
+app.config.errorHandler = (err, instance, info) => {
+  console.error('Vue错误:', err, info)
+}
+
+// 全局网络错误监听
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('未处理的Promise错误:', event.reason)
+})
+
+
 app.use(router)
 app.use(ElementPlus)
 

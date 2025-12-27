@@ -144,7 +144,6 @@ import { useArticleStore } from '@/stores/article'
 import { useCategoryStore } from '@/stores/category'
 import { useTagStore } from '@/stores/tag'
 import { useUserStore } from '@/stores/user'
-import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 
@@ -164,7 +163,6 @@ const articleStore = useArticleStore()
 const categoryStore = useCategoryStore()
 const tagStore = useTagStore()
 const userStore = useUserStore()
-const authStore = useAuthStore()
 
 // 文章ID（编辑模式才有）
 const articleId = ref(parseInt(route.params.id) || 0)

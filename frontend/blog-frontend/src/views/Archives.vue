@@ -182,7 +182,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArchiveStore } from '@/stores/archive'
 import { useArticleStore } from '@/stores/article'
-import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'  // ✅ 改为使用 userStore
 import { ElMessage } from 'element-plus'
 import {
   Calendar,
@@ -202,7 +202,7 @@ const router = useRouter()
 // Pinia Store
 const archiveStore = useArchiveStore()
 const articleStore = useArticleStore()
-const authStore = useAuthStore()
+const userStore = useUserStore()  // ✅ 改为 userStore
 
 // 状态
 const loading = ref(false)
@@ -256,6 +256,9 @@ const filteredArchives = computed(() => {
 
 // 组件挂载
 onMounted(async () => {
+  // ✅ 初始化用户状态
+  userStore.initFromStorage()
+  
   await loadArchives()
 })
 
@@ -319,8 +322,8 @@ const viewArticle = (articleId) => {
 
 // 跳转到写文章页面
 const toWriteArticle = () => {
-  // 检查是否登录
-  if (!authStore.isLoggedIn()) {
+  // 检查是否登录 - 使用 userStore.isLoggedIn()
+  if (!userStore.isLoggedIn()) {
     ElMessage.warning('请先登录后再发布文章')
     router.push('/')
     return

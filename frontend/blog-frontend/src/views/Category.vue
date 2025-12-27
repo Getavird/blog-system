@@ -102,7 +102,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCategoryStore } from '@/stores/category'
 import { useArticleStore } from '@/stores/article'
-import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'  // ✅ 改为使用 userStore
 import { ElMessage } from 'element-plus'
 import Header from '@/components/layout/Header.vue'
 import Footer from '@/components/layout/Footer.vue'
@@ -113,7 +113,7 @@ const route = useRoute()
 const router = useRouter()
 const categoryStore = useCategoryStore()
 const articleStore = useArticleStore()
-const authStore = useAuthStore()
+const userStore = useUserStore()  // ✅ 改为 userStore
 
 // 路由参数：分类ID
 const categoryId = ref(parseInt(route.params.id) || 0)
@@ -205,6 +205,9 @@ watch(
 
 // 组件挂载时加载数据
 onMounted(() => {
+  // ✅ 初始化用户状态
+  userStore.initFromStorage()
+  
   if (categoryId.value) {
     loadCategoryData()
   }
@@ -233,8 +236,8 @@ const handleSizeChange = (size) => {
 
 // 跳转到写文章页面
 const toWriteArticle = () => {
-  // 检查是否登录
-  if (!authStore.isLoggedIn()) {
+  // 检查是否登录 - 使用 userStore.isLoggedIn()
+  if (!userStore.isLoggedIn()) {
     ElMessage.warning('请先登录后再发布文章')
     router.push('/')
     return

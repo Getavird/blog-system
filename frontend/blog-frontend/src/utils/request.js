@@ -1,3 +1,4 @@
+// utils/request.js
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
@@ -9,32 +10,38 @@ const request = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  withCredentials: true // 携带cookie
+  withCredentials: true // 携带cookie，用于Session认证
 })
 
 // 请求拦截器
 request.interceptors.request.use(
   config => {
-    // 从 localStorage 获取 token
-    const token = localStorage.getItem('blog_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
+    // ⚠️ Session认证不需要手动设置Authorization Header
+    // Cookie会自动携带，后端通过Session识别用户
+    
+    // 调试日志
+    console.log(`请求: ${config.method} ${config.url}`)
+    console.log('withCredentials:', config.withCredentials)
+    
     return config
   },
   error => {
+    console.error('请求错误:', error)
     return Promise.reject(error)
   }
 )
 
-// 响应拦截器 - 根据后端格式调整
+// 响应拦截器
 request.interceptors.response.use(
   response => {
+    console.log(`响应: ${response.status} ${response.config.url}`)
+    
     const res = response.data
 
     // 如果是文件上传请求，直接返回原响应
     if (response.config.url.includes('/api/files/upload') || 
-        response.config.url.includes('/api/avatar/upload')) {
+        response.config.url.includes('/api/avatar/upload') ||
+        response.config.url.includes('/api/user/avatar')) {
       return res
     }
     
@@ -49,11 +56,16 @@ request.interceptors.response.use(
     // 业务错误处理
     switch (code) {
       case 401:
-        // 未登录，清除登录状态
-        localStorage.removeItem('blog_token')
+        // Session认证：清除用户信息
         localStorage.removeItem('blog_user')
+        
+        // 显示错误信息
         ElMessage.warning(message || '请先登录')
-        router.push('/')
+        
+        // 跳转到首页
+        if (router.currentRoute.value.path !== '/') {
+          router.push('/')
+        }
         break
       case 403:
         ElMessage.error(message || '权限不足')
@@ -68,22 +80,36 @@ request.interceptors.response.use(
     return Promise.reject(new Error(message || '请求失败'))
   },
   error => {
+    console.error('响应错误:', error)
+    console.error('错误详情:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      headers: error.response?.headers
+    })
+    
     // HTTP错误
     if (error.response) {
-      const { status } = error.response
+      const { status, data } = error.response
       switch (status) {
         case 401:
-          ElMessage.error('未授权，请重新登录')
-          router.push('/')
+          // Session认证：清除用户信息
+          localStorage.removeItem('blog_user')
+          
+          ElMessage.error(data?.message || '未授权，请重新登录')
+          
+          // 跳转到首页
+          if (router.currentRoute.value.path !== '/') {
+            router.push('/')
+          }
           break
         case 403:
-          ElMessage.error('权限不足')
+          ElMessage.error(data?.message || '权限不足')
           break
         case 500:
-          ElMessage.error('服务器内部错误')
+          ElMessage.error(data?.message || '服务器内部错误')
           break
         default:
-          ElMessage.error('请求失败')
+          ElMessage.error(data?.message || `请求失败 (${status})`)
       }
     } else if (error.request) {
       ElMessage.error('网络连接失败，请检查网络')
