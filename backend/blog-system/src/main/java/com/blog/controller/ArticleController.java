@@ -9,8 +9,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/articles")
@@ -186,28 +188,23 @@ public class ArticleController {
         List<Article> articles = articleService.getArticlesByTag(tagName, page, size);
         return Result.success(articles);
     }
+
     /**
      * 创建草稿（需要登录）
      */
     @PostMapping("/draft")
     public Result<Article> createDraft(@RequestBody Article article, HttpServletRequest request) {
-        // 检查登录
         User currentUser = SessionUtil.getCurrentUser(request);
         if (currentUser == null) {
             return Result.unauthorized("请先登录");
         }
 
-        // 设置作者ID
         article.setUserId(currentUser.getId());
-        article.setStatus(0); // 草稿状态
-        
-        // 如果是草稿，允许标题为空，设置默认标题
-        if (article.getTitle() == null || article.getTitle().trim().isEmpty()) {
-            article.setTitle("无标题草稿");
-        }
+        article.setAuthorName(currentUser.getUsername());
+        article.setAuthorAvatar(currentUser.getAvatar());
+        article.setStatus(0);
 
-        // 调用新增的createDraft方法（需要在ArticleService中添加）
-        boolean success = articleService.createArticle(article); // 暂时使用createArticle
+        boolean success = articleService.createDraft(article);
         return success ? Result.created(article) : Result.error("创建草稿失败");
     }
 
@@ -219,19 +216,15 @@ public class ArticleController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             HttpServletRequest request) {
-        
+
         // 检查登录
         User currentUser = SessionUtil.getCurrentUser(request);
         if (currentUser == null) {
             return Result.unauthorized("请先登录");
         }
 
-        // 获取所有文章然后过滤出当前用户的草稿
-        List<Article> allArticles = articleService.getArticles(page, size * 5); // 多取一些
-        List<Article> drafts = allArticles.stream()
-                .filter(article -> article.getUserId().equals(currentUser.getId()) 
-                        && article.getStatus() == 0)
-                .collect(Collectors.toList());
+        // 使用专门的草稿查询方法
+        List<Article> drafts = articleService.getUserDrafts(currentUser.getId(), page, size);
 
         Map<String, Object> result = new HashMap<>();
         result.put("drafts", drafts);
@@ -253,15 +246,10 @@ public class ArticleController {
             return Result.unauthorized("请先登录");
         }
 
-        // 获取文章
-        Article article = articleService.getArticleById(id);
+        // 使用可以查询草稿的方法
+        Article article = articleService.getArticleByIdAndUserId(id, currentUser.getId());
         if (article == null) {
-            return Result.notFound("文章不存在");
-        }
-
-        // 检查权限：只有作者可以发布
-        if (!article.getUserId().equals(currentUser.getId())) {
-            return Result.forbidden("没有权限发布此文章");
+            return Result.notFound("草稿不存在或没有权限");
         }
 
         // 检查是否是草稿
@@ -272,7 +260,7 @@ public class ArticleController {
         // 更新文章状态为发布
         article.setStatus(1);
         boolean success = articleService.updateArticle(article);
-        
+
         return success ? Result.success("发布成功") : Result.error("发布失败");
     }
 
@@ -284,7 +272,7 @@ public class ArticleController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             HttpServletRequest request) {
-        
+
         // 检查登录
         User currentUser = SessionUtil.getCurrentUser(request);
         if (currentUser == null) {
@@ -294,7 +282,7 @@ public class ArticleController {
         // 获取所有文章然后过滤出当前用户的发布文章
         List<Article> allArticles = articleService.getArticles(page, size * 5);
         List<Article> published = allArticles.stream()
-                .filter(article -> article.getUserId().equals(currentUser.getId()) 
+                .filter(article -> article.getUserId().equals(currentUser.getId())
                         && article.getStatus() == 1)
                 .collect(Collectors.toList());
 
@@ -312,23 +300,18 @@ public class ArticleController {
      */
     @PutMapping("/draft/{id}")
     public Result<Article> updateDraft(@PathVariable Integer id,
-                                       @RequestBody Article article,
-                                       HttpServletRequest request) {
+            @RequestBody Article article,
+            HttpServletRequest request) {
         // 检查登录
         User currentUser = SessionUtil.getCurrentUser(request);
         if (currentUser == null) {
             return Result.unauthorized("请先登录");
         }
 
-        // 获取原文章
-        Article existingArticle = articleService.getArticleById(id);
+        // 使用可以查询草稿的方法
+        Article existingArticle = articleService.getArticleByIdAndUserId(id, currentUser.getId());
         if (existingArticle == null) {
-            return Result.notFound("草稿不存在");
-        }
-
-        // 检查权限：只有作者可以更新
-        if (!existingArticle.getUserId().equals(currentUser.getId())) {
-            return Result.forbidden("没有权限更新此草稿");
+            return Result.notFound("草稿不存在或没有权限");
         }
 
         // 确保是草稿
@@ -340,9 +323,14 @@ public class ArticleController {
         article.setId(id);
         article.setStatus(0); // 保持草稿状态
         article.setUserId(currentUser.getId()); // 保持作者不变
-        
+
         boolean success = articleService.updateArticle(article);
-        return success ? Result.success(article) : Result.error("更新草稿失败");
+        if (success) {
+            // 重新获取更新后的文章
+            Article updatedArticle = articleService.getArticleByIdAndUserId(id, currentUser.getId());
+            return Result.success(updatedArticle);
+        }
+        return Result.error("更新草稿失败");
     }
 
     /**
@@ -375,7 +363,7 @@ public class ArticleController {
         // 软删除（设置状态为2）
         article.setStatus(2);
         boolean success = articleService.updateArticle(article);
-        
+
         return success ? Result.success("草稿删除成功") : Result.error("删除失败");
     }
 }

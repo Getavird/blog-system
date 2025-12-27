@@ -82,19 +82,29 @@ public interface ArticleService {
      * 创建草稿
      */
     boolean createDraft(Article article);
-    
+
     /**
      * 发布草稿
      */
     boolean publishDraft(Integer articleId);
-    
+
     /**
      * 获取用户的草稿列表
      */
     List<Article> getUserDrafts(Integer userId, int page, int size);
-    
+
     /**
      * 获取用户的发布文章列表
      */
     List<Article> getUserPublishedArticles(Integer userId, int page, int size);
+
+    /**
+     * 根据ID获取文章（不限制状态）
+     */
+    Article getArticleByIdWithoutStatus(Integer id);
+
+    /**
+     * 根据ID和用户ID获取文章（用于权限验证）
+     */
+    Article getArticleByIdAndUserId(Integer id, Integer userId);
 }

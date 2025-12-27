@@ -52,18 +52,21 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Override
     public boolean createArticle(Article article) {
-        // 处理标签逻辑（在保存文章前）
-        processArticleTags(article);
-        
+        // 先保存文章，获取ID
         int result = articleMapper.insert(article);
-        return result > 0;
+        if (result > 0 && article.getId() != null) {
+            // 然后处理标签
+            processArticleTags(article);
+            return true;
+        }
+        return false;
     }
 
     @Override
     public boolean updateArticle(Article article) {
         // 处理标签逻辑
         processArticleTags(article);
-        
+
         int result = articleMapper.update(article);
         return result > 0;
     }
@@ -157,7 +160,7 @@ public class ArticleServiceImpl implements ArticleService {
 
             // 查找标签是否存在
             Tag tag = tagMapper.findByName(cleanTagName);
-            
+
             if (tag == null) {
                 // 创建新标签
                 tag = new Tag();
@@ -177,7 +180,7 @@ public class ArticleServiceImpl implements ArticleService {
         if (!tagIds.isEmpty()) {
             // 先删除旧的关联
             articleTagMapper.deleteByArticleId(article.getId());
-            
+
             // 创建新的关联
             for (Integer tagId : tagIds) {
                 try {
@@ -187,7 +190,7 @@ public class ArticleServiceImpl implements ArticleService {
                     System.out.println("⚠️ 标签关联已存在: articleId=" + article.getId() + ", tagId=" + tagId);
                 }
             }
-            
+
             // 更新标签的文章数量
             for (Integer tagId : tagIds) {
                 tagMapper.updateArticleCount(tagId);
@@ -223,5 +226,27 @@ public class ArticleServiceImpl implements ArticleService {
             return updateArticle(article);
         }
         return false;
+    }
+
+    @Override
+    public List<Article> getUserDrafts(Integer userId, int page, int size) {
+        int offset = (page - 1) * size;
+        return articleMapper.findByUserIdAndStatus(userId, 0, offset, size);
+    }
+
+    @Override
+    public List<Article> getUserPublishedArticles(Integer userId, int page, int size) {
+        int offset = (page - 1) * size;
+        return articleMapper.findByUserIdAndStatus(userId, 1, offset, size);
+    }
+
+    @Override
+    public Article getArticleByIdWithoutStatus(Integer id) {
+        return articleMapper.findByIdWithoutStatus(id);
+    }
+
+    @Override
+    public Article getArticleByIdAndUserId(Integer id, Integer userId) {
+        return articleMapper.findByIdAndUserId(id, userId);
     }
 }

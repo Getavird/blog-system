@@ -349,50 +349,50 @@ public interface ArticleMapper {
 
         // 根据标签名称搜索文章（用于标签页面，带排序）
         @Select({
-                "<script>",
-                "SELECT DISTINCT a.*, u.username as author_name, u.avatar as author_avatar, ",
-                "c.name as category_name ",
-                "FROM article a ",
-                "LEFT JOIN user u ON a.user_id = u.id ",
-                "LEFT JOIN category c ON a.category_id = c.id ",
-                "WHERE a.status = 1 ",
-                "AND (",
-                "  a.tags LIKE CONCAT('%', #{tagName}, '%') ",
-                "  OR EXISTS (",
-                "    SELECT 1 FROM article_tag at ",
-                "    INNER JOIN tag t ON at.tag_id = t.id ",
-                "    WHERE at.article_id = a.id AND t.name = #{tagName}",
-                "  )",
-                ") ",
-                "<if test='sortType != null and sortType == \"hot\"'>",
-                "  ORDER BY a.view_count DESC ",
-                "</if>",
-                "<if test='sortType != null and sortType == \"likes\"'>",
-                "  ORDER BY a.like_count DESC ",
-                "</if>",
-                "<if test='sortType == null or sortType == \"latest\"'>",
-                "  ORDER BY a.create_time DESC ",
-                "</if>",
-                "LIMIT #{offset}, #{size}",
-                "</script>"
+                        "<script>",
+                        "SELECT DISTINCT a.*, u.username as author_name, u.avatar as author_avatar, ",
+                        "c.name as category_name ",
+                        "FROM article a ",
+                        "LEFT JOIN user u ON a.user_id = u.id ",
+                        "LEFT JOIN category c ON a.category_id = c.id ",
+                        "WHERE a.status = 1 ",
+                        "AND (",
+                        "  a.tags LIKE CONCAT('%', #{tagName}, '%') ",
+                        "  OR EXISTS (",
+                        "    SELECT 1 FROM article_tag at ",
+                        "    INNER JOIN tag t ON at.tag_id = t.id ",
+                        "    WHERE at.article_id = a.id AND t.name = #{tagName}",
+                        "  )",
+                        ") ",
+                        "<if test='sortType != null and sortType == \"hot\"'>",
+                        "  ORDER BY a.view_count DESC ",
+                        "</if>",
+                        "<if test='sortType != null and sortType == \"likes\"'>",
+                        "  ORDER BY a.like_count DESC ",
+                        "</if>",
+                        "<if test='sortType == null or sortType == \"latest\"'>",
+                        "  ORDER BY a.create_time DESC ",
+                        "</if>",
+                        "LIMIT #{offset}, #{size}",
+                        "</script>"
         })
         List<Article> findByTagNameWithSort(@Param("tagName") String tagName,
-                                           @Param("sortType") String sortType,
-                                           @Param("offset") int offset,
-                                           @Param("size") int size);
+                        @Param("sortType") String sortType,
+                        @Param("offset") int offset,
+                        @Param("size") int size);
 
         // 统计标签下的文章数量
         @Select({
-                "SELECT COUNT(DISTINCT a.id) FROM article a ",
-                "WHERE a.status = 1 ",
-                "AND (",
-                "  a.tags LIKE CONCAT('%', #{tagName}, '%') ",
-                "  OR EXISTS (",
-                "    SELECT 1 FROM article_tag at ",
-                "    INNER JOIN tag t ON at.tag_id = t.id ",
-                "    WHERE at.article_id = a.id AND t.name = #{tagName}",
-                "  )",
-                ")"
+                        "SELECT COUNT(DISTINCT a.id) FROM article a ",
+                        "WHERE a.status = 1 ",
+                        "AND (",
+                        "  a.tags LIKE CONCAT('%', #{tagName}, '%') ",
+                        "  OR EXISTS (",
+                        "    SELECT 1 FROM article_tag at ",
+                        "    INNER JOIN tag t ON at.tag_id = t.id ",
+                        "    WHERE at.article_id = a.id AND t.name = #{tagName}",
+                        "  )",
+                        ")"
         })
         int countByTagName(@Param("tagName") String tagName);
 
@@ -422,4 +422,54 @@ public interface ArticleMapper {
                         "GROUP BY MONTH(create_time) " +
                         "ORDER BY month DESC")
         List<Map<String, Object>> getMonthStatsByYear(@Param("year") Integer year);
+
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.user_id = #{userId} AND a.status = #{status} " +
+                        "ORDER BY a.create_time DESC " +
+                        "LIMIT #{offset}, #{size}")
+        List<Article> findByUserIdAndStatus(@Param("userId") Integer userId,
+                        @Param("status") Integer status,
+                        @Param("offset") int offset,
+                        @Param("size") int size);
+
+        /**
+         * 查询用户的草稿列表（status = 0）
+         */
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.user_id = #{userId} AND a.status = 0 " +
+                        "ORDER BY a.create_time DESC " +
+                        "LIMIT #{offset}, #{size}")
+        List<Article> findDraftsByUserId(@Param("userId") Integer userId,
+                        @Param("offset") int offset,
+                        @Param("size") int size);
+
+        /**
+         * 根据ID查询文章（不限制状态，用于作者编辑）
+         */
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.id = #{id}")
+        Article findByIdWithoutStatus(Integer id);
+
+        /**
+         * 根据ID和用户ID查询文章（用于权限验证）
+         */
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.id = #{id} AND a.user_id = #{userId}")
+        Article findByIdAndUserId(@Param("id") Integer id, @Param("userId") Integer userId);
 }

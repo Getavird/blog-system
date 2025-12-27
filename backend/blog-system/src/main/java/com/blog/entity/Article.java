@@ -93,4 +93,9 @@ public class Article extends BaseEntity {
      * 文章标签，多个用逗号分隔
      */
     private String tags;
+
+    public void setCreateTime(String format) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'setCreateTime'");
+    }
 }
