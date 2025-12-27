@@ -31,6 +31,13 @@ request.interceptors.request.use(
 request.interceptors.response.use(
   response => {
     const res = response.data
+
+    // 如果是文件上传请求，直接返回原响应
+    if (response.config.url.includes('/api/files/upload') || 
+        response.config.url.includes('/api/avatar/upload')) {
+      return res
+    }
+    
     const { code, message, data } = res
     
     // 成功状态码：200或201

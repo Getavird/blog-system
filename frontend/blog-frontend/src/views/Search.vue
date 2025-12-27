@@ -48,60 +48,136 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'SearchPage',
-  data() {
-    return {
-      keyword: '',
-      loading: false,
-      results: []
+<script setup>
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useArticleStore } from '@/stores/article'
+import { ElMessage } from 'element-plus'
+
+// 组件导入
+import Header from '@/components/layout/Header.vue'
+import Footer from '@/components/layout/Footer.vue'
+
+const route = useRoute()
+const router = useRouter()
+
+// Pinia Store
+const articleStore = useArticleStore()
+
+// 搜索状态
+const keyword = ref('')
+const loading = ref(false)
+const results = ref([]) // 修复：统一使用 results 变量名
+
+// 分页参数
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+
+// 从路由参数获取搜索关键词
+onMounted(() => {
+  const queryKeyword = route.query.q || ''
+  if (queryKeyword) {
+    keyword.value = queryKeyword
+    doSearch()
+  }
+})
+
+// 监听路由参数变化
+watch(
+  () => route.query.q,
+  (newKeyword) => {
+    if (newKeyword && newKeyword !== keyword.value) {
+      keyword.value = newKeyword
+      doSearch()
     }
-  },
-  mounted() {
-    // 从URL获取搜索关键词
-    const query = this.$route.query.q || ''
-    this.keyword = query
-    if (query) {
-      this.doSearch()
+  }
+)
+
+// 执行搜索
+const doSearch = async () => {
+  const searchKeyword = keyword.value.trim()
+  
+  if (!searchKeyword) {
+    ElMessage.warning('请输入搜索关键词')
+    return
+  }
+  
+  try {
+    loading.value = true
+    
+    // 更新URL参数，不刷新页面
+    router.replace({
+      path: '/search',
+      query: { q: searchKeyword }
+    })
+    
+    // 调用搜索API
+    const result = await articleStore.searchArticles(searchKeyword, {
+      page: currentPage.value,
+      size: pageSize.value
+    })
+    
+    if (result && result.list) {
+      results.value = result.list.map(article => ({
+        id: article.id,
+        title: article.title,
+        content: article.summary || '暂无摘要',
+        author: article.authorName || '匿名',
+        time: formatTime(article.createTime)
+      }))
+      total.value = result.total || 0
+    } else {
+      results.value = []
+      total.value = 0
     }
-  },
-  methods: {
-    doSearch() {
-      if (!this.keyword.trim()) {
-        this.$message.warning('请输入搜索关键词')
-        return
-      }
-      
-      this.loading = true
-      
-      // 更新URL
-      this.$router.push({
-        path: '/search',
-        query: { q: this.keyword }
-      })
-      
-      // 模拟搜索
-      setTimeout(() => {
-        this.results = [
-          {
-            id: 1,
-            title: `关于 ${this.keyword} 的文章`,
-            content: `这是一篇关于 ${this.keyword} 的示例文章内容...`,
-            author: '张三',
-            time: '2024-01-15'
-          },
-          {
-            id: 2,
-            title: `${this.keyword} 入门教程`,
-            content: `学习 ${this.keyword} 的基础知识...`,
-            author: '李四',
-            time: '2024-01-14'
-          }
-        ]
-        this.loading = false
-      }, 800)
+    
+    if (results.value.length === 0) {
+      ElMessage.info('没有找到相关结果')
     }
+    
+  } catch (error) {
+    console.error('搜索失败:', error)
+    ElMessage.error('搜索失败')
+    results.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+// 格式化时间
+const formatTime = (time) => {
+  if (!time) return ''
+  const date = new Date(time)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  
+  if (days === 0) {
+    return '今天'
+  } else if (days === 1) {
+    return '昨天'
+  } else if (days < 7) {
+    return `${days}天前`
+  } else {
+    return date.toLocaleDateString('zh-CN')
+  }
+}
+
+// 分页改变
+const handlePageChange = (page) => {
+  currentPage.value = page
+  if (keyword.value.trim()) {
+    doSearch()
+  }
+}
+
+// 每页数量改变
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  if (keyword.value.trim()) {
+    doSearch()
   }
 }
 </script>

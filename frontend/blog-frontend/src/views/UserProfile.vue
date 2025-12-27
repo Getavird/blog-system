@@ -239,8 +239,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
+import { useArticleStore } from '@/stores/article'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Document,
@@ -248,48 +251,37 @@ import {
   View,
   User,
   Edit,
-  SwitchButton
+  SwitchButton,
+  Search
 } from '@element-plus/icons-vue'
-import Header from '../components/layout/Header.vue'
-import Footer from '../components/layout/Footer.vue'
+
+// 组件导入
+import Header from '@/components/layout/Header.vue'
+import Footer from '@/components/layout/Footer.vue'
 
 const router = useRouter()
 
+// Pinia Store
+const userStore = useUserStore()
+const authStore = useAuthStore()
+const articleStore = useArticleStore()
+
 // 用户信息表单
 const infoFormRef = ref(null)
-const userForm = ref({
+const userForm = reactive({
   username: '',
   email: '',
   bio: '',
   avatar: ''
 })
 
-// 密码表单
-const passwordFormRef = ref(null)
-const passwordForm = ref({
-  oldPassword: '',
-  newPassword: '',
-  confirmPassword: ''
-})
-
-// 用户统计
-const userStats = ref({
-  articleCount: 0,
-  likeCount: 0,
-  viewCount: 0,
-  followerCount: 0
-})
-
-// 状态
-const uploadingAvatar = ref(false)
 const savingInfo = ref(false)
-const changingPassword = ref(false)
 
-// 用户信息验证规则
-const infoRules = {
+// 表单验证规则
+const infoRules = reactive({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+    { min: 2, max: 20, message: '用户名长度为2-20个字符', trigger: 'blur' }
   ],
   email: [
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
@@ -298,120 +290,171 @@ const infoRules = {
   bio: [
     { max: 200, message: '个人简介不能超过200个字符', trigger: 'blur' }
   ]
-}
+})
+
+// 密码表单
+const passwordFormRef = ref(null)
+const passwordForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+const changingPassword = ref(false)
 
 // 密码验证规则
-const validatePassword = (rule, value, callback) => {
-  if (value === '') {
-    callback(new Error('请输入密码'))
-  } else if (value.length < 6) {
-    callback(new Error('密码长度不能小于6位'))
-  } else {
-    callback()
-  }
-}
-
-const validateConfirmPassword = (rule, value, callback) => {
-  if (value === '') {
-    callback(new Error('请再次输入密码'))
-  } else if (value !== passwordForm.value.newPassword) {
-    callback(new Error('两次输入密码不一致'))
-  } else {
-    callback()
-  }
-}
-
-const passwordRules = {
+const passwordRules = reactive({
   oldPassword: [
     { required: true, message: '请输入原密码', trigger: 'blur' },
-    { validator: validatePassword, trigger: 'blur' }
+    { min: 6, message: '密码长度不能少于6个字符', trigger: 'blur' }
   ],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { validator: validatePassword, trigger: 'blur' }
+    { min: 6, message: '密码长度不能少于6个字符', trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请确认新密码', trigger: 'blur' },
-    { validator: validateConfirmPassword, trigger: 'blur' }
+    {
+      validator: (rule, value, callback) => {
+        if (value !== passwordForm.newPassword) {
+          callback(new Error('两次输入的密码不一致'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
   ]
-}
+})
 
-// 模拟数据
-const lastLoginTime = ref('2024-01-16 14:30:00')
-const lastLoginIp = ref('192.168.1.100')
-const registerTime = ref('2024-01-01 10:00:00')
+// 头像上传
+const uploadingAvatar = ref(false)
+
+// 用户统计信息
+const userStats = reactive({
+  articleCount: 0,
+  likeCount: 0,
+  viewCount: 0,
+  followerCount: 0
+})
+
+// 账户安全信息
+const lastLoginTime = ref('')
+const lastLoginIp = ref('')
+const registerTime = ref('')
 
 // 计算属性
 const avatarPlaceholder = computed(() => {
-  return userForm.value.username ? userForm.value.username.charAt(0).toUpperCase() : 'U'
+  return userForm.username ? userForm.username.charAt(0).toUpperCase() : 'U'
 })
 
-// 生命周期
-onMounted(() => {
-  loadUserData()
+// 组件挂载
+onMounted(async () => {
+  // 初始化用户状态
+  userStore.initFromStorage()
+  
+  // 加载用户信息
+  await loadUserInfo()
+  
+  // 加载用户统计
+  await loadUserStats()
 })
 
-// 加载用户数据
-const loadUserData = () => {
-  // 从localStorage获取用户信息
-  const userStr = localStorage.getItem('blog_user')
-  if (userStr) {
-    try {
-      const userData = JSON.parse(userStr)
-      userForm.value = {
-        username: userData.username || '',
-        email: userData.email || '',
-        bio: userData.bio || '',
-        avatar: userData.avatar || ''
-      }
-      
-      // 加载用户统计
-      userStats.value = {
-        articleCount: userData.articleCount || 5,
-        likeCount: userData.likeCount || 23,
-        viewCount: userData.viewCount || 156,
-        followerCount: userData.followerCount || 12
-      }
-    } catch (error) {
-      console.error('解析用户数据失败:', error)
-      ElMessage.error('加载用户数据失败')
+// 加载用户信息
+const loadUserInfo = async () => {
+  try {
+    if (!userStore.user) {
+      // 如果store中没有用户信息，尝试从API获取
+      await authStore.fetchCurrentUser()
     }
+    
+    // 更新表单数据
+    if (userStore.user) {
+      Object.assign(userForm, {
+        username: userStore.user.username || '',
+        email: userStore.user.email || '',
+        bio: userStore.user.bio || '',
+        avatar: userStore.user.avatar || ''
+      })
+      
+      // 设置注册时间
+      registerTime.value = userStore.user.createTime || ''
+    }
+  } catch (error) {
+    console.error('加载用户信息失败:', error)
+    ElMessage.error('加载用户信息失败')
   }
 }
 
-// 头像上传
+// 加载用户统计
+const loadUserStats = async () => {
+  try {
+    // TODO: 这里需要后端提供用户统计接口
+    // 暂时使用默认值
+    userStats.articleCount = 0
+    userStats.likeCount = 0
+    userStats.viewCount = 0
+    userStats.followerCount = 0
+    
+    // 加载用户文章获取文章数
+    const result = await articleStore.fetchMyArticles({ page: 1, size: 1 })
+    if (result) {
+      userStats.articleCount = result.total || 0
+    }
+    
+    // 登录历史（需要后端接口）
+    // lastLoginTime.value = userStore.user?.lastLoginTime || ''
+    // lastLoginIp.value = userStore.user?.lastLoginIp || ''
+    
+  } catch (error) {
+    console.error('加载用户统计失败:', error)
+  }
+}
+
+// 格式化时间
+const formatTime = (time) => {
+  if (!time) return '未知'
+  const date = new Date(time)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+// 头像上传前的验证
 const beforeAvatarUpload = (file) => {
   const isImage = file.type.startsWith('image/')
   const isLt2M = file.size / 1024 / 1024 < 2
   
   if (!isImage) {
-    ElMessage.error('只能上传图片文件！')
+    ElMessage.error('只能上传图片文件!')
     return false
   }
   if (!isLt2M) {
-    ElMessage.error('图片大小不能超过 2MB！')
+    ElMessage.error('图片大小不能超过 2MB!')
     return false
   }
   return true
 }
 
-const uploadAvatar = async (options) => {
-  uploadingAvatar.value = true
-  
+// 上传头像
+const uploadAvatar = async (file) => {
   try {
-    // 模拟上传
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    uploadingAvatar.value = true
     
-    // 模拟上传成功，生成一个占位图
-    const mockAvatarUrl = `https://via.placeholder.com/300x300/409eff/ffffff?text=${userForm.value.username.charAt(0)}`
+    const result = await userStore.uploadAvatar(file.file)
     
-    userForm.value.avatar = mockAvatarUrl
-    
-    // 更新localStorage中的用户信息
-    updateLocalStorage()
-    
-    ElMessage.success('头像上传成功')
+    if (result && result.avatar) {
+      userForm.avatar = result.avatar
+      ElMessage.success('头像上传成功')
+    } else {
+      ElMessage.error('头像上传失败')
+    }
   } catch (error) {
+    console.error('上传头像失败:', error)
     ElMessage.error('头像上传失败')
   } finally {
     uploadingAvatar.value = false
@@ -420,126 +463,111 @@ const uploadAvatar = async (options) => {
 
 // 保存用户信息
 const saveUserInfo = async () => {
-  if (!infoFormRef.value) return
-  
   try {
+    // 表单验证
     await infoFormRef.value.validate()
+    
     savingInfo.value = true
     
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 800))
+    // 调用API更新用户信息
+    await userStore.updateUserInfo(userStore.user.id, {
+      username: userForm.username,
+      email: userForm.email,
+      bio: userForm.bio,
+      avatar: userForm.avatar
+    })
     
-    // 更新localStorage
-    updateLocalStorage()
-    
-    ElMessage.success('用户信息保存成功')
+    ElMessage.success('用户信息更新成功')
   } catch (error) {
-    ElMessage.error('保存失败，请检查表单')
+    if (error instanceof Error) {
+      console.error('保存用户信息失败:', error)
+      ElMessage.error(error.message || '保存失败')
+    }
   } finally {
     savingInfo.value = false
   }
 }
 
-// 重置表单
+// 重置用户信息表单
 const resetInfoForm = () => {
-  loadUserData()
-  if (infoFormRef.value) {
-    infoFormRef.value.clearValidate()
+  if (userStore.user) {
+    Object.assign(userForm, {
+      username: userStore.user.username || '',
+      email: userStore.user.email || '',
+      bio: userStore.user.bio || '',
+      avatar: userStore.user.avatar || ''
+    })
   }
 }
 
 // 修改密码
 const changePassword = async () => {
-  if (!passwordFormRef.value) return
-  
   try {
+    // 表单验证
     await passwordFormRef.value.validate()
+    
     changingPassword.value = true
     
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 800))
-    
-    // 清空密码表单
-    passwordForm.value = {
-      oldPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    }
+    // 调用API修改密码
+    await authStore.changePassword(
+      passwordForm.oldPassword,
+      passwordForm.newPassword
+    )
     
     ElMessage.success('密码修改成功')
+    
+    // 清空表单
+    passwordForm.oldPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
+    
   } catch (error) {
-    ElMessage.error('密码修改失败')
+    console.error('修改密码失败:', error)
+    ElMessage.error(error.message || '修改密码失败')
   } finally {
     changingPassword.value = false
   }
 }
 
-// 更新localStorage中的用户信息
-const updateLocalStorage = () => {
-  const userStr = localStorage.getItem('blog_user')
-  if (userStr) {
-    try {
-      const userData = JSON.parse(userStr)
-      const updatedUser = {
-        ...userData,
-        ...userForm.value,
-        articleCount: userStats.value.articleCount,
-        likeCount: userStats.value.likeCount,
-        viewCount: userStats.value.viewCount,
-        followerCount: userStats.value.followerCount
-      }
-      localStorage.setItem('blog_user', JSON.stringify(updatedUser))
-    } catch (error) {
-      console.error('更新用户数据失败:', error)
-    }
-  }
-}
-
-// 格式化时间
-const formatTime = (time) => {
-  if (!time) return ''
-  const date = new Date(time)
-  return date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-}
-
-// 查看登录历史
+// 查看登录历史（需要后端接口）
 const viewLoginHistory = () => {
-  ElMessageBox.alert('登录历史功能开发中...', '提示', {
-    confirmButtonText: '知道了'
-  })
+  ElMessage.info('登录历史功能待实现')
 }
 
-// 显示账户状态
+// 查看账户状态
 const showAccountStatus = () => {
-  ElMessageBox.alert('账户状态正常，无异常登录记录。', '账户状态', {
-    confirmButtonText: '确定'
-  })
+  ElMessage.info('账户状态功能待实现')
 }
 
-// 导航方法
+// 跳转到我的文章
 const goToArticles = () => {
   router.push('/user/articles')
 }
 
+// 跳转到创建文章
 const goToCreateArticle = () => {
   router.push('/article/create')
 }
 
-const logout = () => {
-  ElMessageBox.confirm(
-    '确定要退出登录吗？',
-    '退出确认',
-    {
+// 退出登录
+const logout = async () => {
+  try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+      type: 'warning',
       confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(() => {
-    localStorage.removeItem('blog_token')
-    localStorage.removeItem('blog_user')
-    ElMessage.success('已退出登录')
+      cancelButtonText: '取消'
+    })
+    
+    await authStore.logout()
+    ElMessage.success('退出登录成功')
     router.push('/')
-  })
+    
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('退出登录失败:', error)
+      ElMessage.error('退出登录失败')
+    }
+  }
 }
 </script>
 

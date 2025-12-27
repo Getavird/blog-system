@@ -222,25 +222,6 @@
                 </div>
               </div>
             </div>
-            
-            <!-- 相关文章 -->
-            <div class="related-articles">
-              <h3><el-icon><Link /></el-icon> 相关文章</h3>
-              <div class="related-list">
-                <div 
-                  v-for="related in relatedArticles" 
-                  :key="related.id"
-                  class="related-item"
-                  @click="viewArticle(related.id)"
-                >
-                  <div class="related-title">{{ related.title }}</div>
-                  <div class="related-meta">
-                    <span>{{ related.authorName }}</span>
-                    <span>{{ formatTime(related.createTime) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </aside>
         </div>
       </div>
@@ -377,9 +358,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { defineAsyncComponent } from 'vue'
+import { useArticleStore } from '@/stores/article'
+import { useCommentStore } from '@/stores/comment'
+import { useUserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
+import { useCategoryStore } from '@/stores/category'
+import { useTagStore } from '@/stores/tag'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowRight,
@@ -391,232 +377,156 @@ import {
   Collection,
   Folder,
   Menu,
-  Link
+  Search
 } from '@element-plus/icons-vue'
 
-const Header = defineAsyncComponent(() => import('../components/layout/Header.vue'))
-const Footer = defineAsyncComponent(() => import('../components/layout/Footer.vue'))
+// 组件导入
+import Header from '@/components/layout/Header.vue'
+import Footer from '@/components/layout/Footer.vue'
 
 const route = useRoute()
 const router = useRouter()
 
-// 状态管理
-const loading = ref(true)
-const article = ref(null)
-const comments = ref([])
-const relatedArticles = ref([])
-const tocItems = ref([])
+// Pinia Store
+const articleStore = useArticleStore()
+const commentStore = useCommentStore()
+const userStore = useUserStore()
+const authStore = useAuthStore()
+const categoryStore = useCategoryStore()
+const tagStore = useTagStore()
+
+// 路由参数
+const articleId = ref(parseInt(route.params.id) || 0)
+
+// 文章数据
+const article = computed(() => articleStore.currentArticle)
+const loading = ref(false)
 const likeLoading = ref(false)
 const collectLoading = ref(false)
 const followLoading = ref(false)
-const commentLoading = ref(false)
+
+// 登录状态
+const isLoggedIn = computed(() => userStore.isLoggedIn())
+const currentUser = computed(() => userStore.user)
+const currentUserName = computed(() => currentUser.value?.username || '')
+const currentUserAvatar = computed(() => currentUser.value?.avatar || '')
+
+// 检查是否为文章作者
+const isArticleAuthor = computed(() => {
+  if (!isLoggedIn.value || !article.value) return false
+  return currentUser.value?.id === article.value.authorId
+})
+
+// 评论相关
+const comments = computed(() => commentStore.comments || [])
 const commentContent = ref('')
+const commentLoading = ref(false)
 const showLogin = ref(false)
 
-// 模拟数据（修复：使用 userId 而不是 isCurrentUser）
-const mockArticle = {
-  id: 1,
-  title: 'Vue 3 新特性详解与实战指南',
-  content: `
-    <h2>Vue 3 的新特性</h2>
-    <p>Vue 3 带来了许多令人兴奋的新特性，其中最重要的包括：</p>
-    
-    <h3>1. Composition API</h3>
-    <p>Composition API 是 Vue 3 的核心特性之一，它提供了更好的代码组织和复用能力。</p>
-    <pre><code>import { ref, computed } from 'vue'
+// 目录相关
+const tocItems = ref([])
+const showToc = computed(() => tocItems.value.length > 0)
 
-export default {
-  setup() {
-    const count = ref(0)
-    const doubleCount = computed(() => count.value * 2)
-    
-    return { count, doubleCount }
-  }
-}</code></pre>
-    
-    <h3>2. 更好的 TypeScript 支持</h3>
-    <p>Vue 3 完全使用 TypeScript 重写，提供了更好的类型推断。</p>
-    
-    <h3>3. 性能优化</h3>
-    <ul>
-      <li>更快的虚拟 DOM</li>
-      <li>更小的包体积</li>
-      <li>更好的 tree-shaking</li>
-    </ul>
-  `,
-  summary: '深入解析 Vue 3 的新特性和使用技巧，带你快速上手 Vue 3 开发...',
-  authorName: '李四',
-  authorId: 2, // 添加作者ID
-  authorAvatar: '',
-  authorBio: '前端开发工程师，专注于 Vue 和 React 技术栈',
-  authorArticleCount: 25,
-  authorLikeCount: 156,
-  authorFansCount: 89,
-  category: { id: 1, name: '技术' },
-  tags: [
-    { id: 1, name: 'Vue' },
-    { id: 2, name: '前端' },
-    { id: 3, name: 'JavaScript' }
-  ],
-  coverImage: '',
-  viewCount: 320,
-  likeCount: 42,
-  collectCount: 18,
-  commentCount: 12,
-  isLiked: false,
-  isCollected: false,
-  isFollowing: false,
-  createTime: '2024-01-14 14:20:00',
-  updateTime: '2024-01-15 09:30:00'
-}
-
-const mockComments = [
-  {
-    id: 1,
-    userId: 1, // 张三的用户ID
-    userName: '张三',
-    userAvatar: '',
-    content: '这篇文章写得很好，特别是 Composition API 的部分，讲得很清楚！',
-    likeCount: 5,
-    isLiked: false,
-    createTime: '2024-01-15 10:30:00'
-  },
-  {
-    id: 2,
-    userId: 2, // 李四的用户ID
-    userName: '李四',
-    userAvatar: '',
-    content: '期待更多关于 Vue 3 实战的文章！',
-    likeCount: 2,
-    isLiked: false,
-    createTime: '2024-01-15 11:45:00'
-  }
-]
-
-const mockRelatedArticles = [
-  {
-    id: 2,
-    title: 'Spring Boot入门教程',
-    authorName: '张三',
-    createTime: '2024-01-15 10:30:00'
-  },
-  {
-    id: 3,
-    title: '数据库设计规范',
-    authorName: '王五',
-    createTime: '2024-01-13 09:15:00'
-  }
-]
-
-// 计算属性
-const isLoggedIn = computed(() => {
-  return !!localStorage.getItem('blog_token')
-})
-
-const currentUser = computed(() => {
-  const userStr = localStorage.getItem('blog_user')
-  return userStr ? JSON.parse(userStr) : null
-})
-
-const currentUserName = computed(() => {
-  return currentUser.value ? currentUser.value.username : ''
-})
-
-const currentUserAvatar = computed(() => {
-  return currentUser.value ? currentUser.value.avatar : ''
-})
-
-const isArticleAuthor = computed(() => {
-  if (!article.value || !currentUser.value) return false
-  return currentUser.value.id === article.value.authorId
-})
-
-const showToc = computed(() => {
-  return tocItems.value.length > 0
-})
-
-// 检查评论是否是当前用户的
-const checkCommentOwnership = (comment) => {
-  if (!isLoggedIn.value || !currentUser.value) return false
-  return comment.userId === currentUser.value.id
-}
-
-// 登录检查方法
-const checkLogin = () => {
-  if (!isLoggedIn.value) {
-    ElMessage.warning('请先登录')
-    showLogin.value = true
-    return false
-  }
-  return true
-}
-
-// 跳转到登录页面
-const toLoginPage = () => {
-  showLogin.value = false
-  // 触发 Header 组件的登录事件
-  const event = new CustomEvent('showLogin')
-  window.dispatchEvent(event)
-}
-
-// 生命周期
-onMounted(() => {
-  loadArticleData()
-})
-
-// 方法
-const loadArticleData = () => {
-  loading.value = true
+// 组件挂载
+onMounted(async () => {
+  // 初始化用户状态
+  userStore.initFromStorage()
   
-  // 模拟 API 调用
-  setTimeout(() => {
-    article.value = mockArticle
-    comments.value = mockComments
-    relatedArticles.value = mockRelatedArticles
+  // 加载文章详情
+  if (articleId.value) {
+    await loadArticleDetail()
+  }
+})
+
+// 监听路由参数变化
+watch(
+  () => route.params.id,
+  async (newId) => {
+    if (newId) {
+      articleId.value = parseInt(newId)
+      await loadArticleDetail()
+    }
+  }
+)
+
+// 加载文章详情
+const loadArticleDetail = async () => {
+  try {
+    loading.value = true
     
-    // 生成目录
+    // 1. 加载文章详情
+    await articleStore.fetchArticleDetail(articleId.value)
+    
+    // 2. 增加阅读量
+    await articleStore.incrementViewCount(articleId.value)
+    
+    // 3. 加载文章评论
+    await loadArticleComments()
+    
+    // 4. 生成目录
     generateToc()
     
-    // 增加阅读量
-    increaseViewCount()
-    
+  } catch (error) {
+    console.error('加载文章详情失败:', error)
+    ElMessage.error('文章加载失败')
+  } finally {
     loading.value = false
-  }, 800)
+  }
 }
 
+// 加载文章评论
+const loadArticleComments = async () => {
+  try {
+    await commentStore.fetchArticleComments(articleId.value, {
+      page: 1,
+      size: 20
+    })
+  } catch (error) {
+    console.error('加载评论失败:', error)
+  }
+}
+
+// 生成目录
 const generateToc = () => {
-  if (!article.value || !article.value.content) return
-  
-  const tempDiv = document.createElement('div')
-  tempDiv.innerHTML = article.value.content
-  
-  const headings = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6')
-  tocItems.value = Array.from(headings)
-    .filter(h => h.id || h.textContent.trim())
-    .map((h, index) => {
-      if (!h.id) h.id = `heading-${index}`
+  nextTick(() => {
+    const contentElement = document.querySelector('.article-content')
+    if (!contentElement) return
+    
+    const headings = contentElement.querySelectorAll('h1, h2, h3, h4, h5, h6')
+    tocItems.value = Array.from(headings).map((heading, index) => {
+      const id = heading.id || `heading-${index}`
+      heading.id = id
       return {
-        id: h.id,
-        text: h.textContent.trim(),
-        level: parseInt(h.tagName.charAt(1))
+        id,
+        text: heading.textContent || '',
+        level: parseInt(heading.tagName.charAt(1))
       }
     })
+  })
 }
 
-const increaseViewCount = () => {
-  console.log('增加阅读量')
+// 滚动到标题
+const scrollToHeading = (id) => {
+  const element = document.getElementById(id)
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth' })
+  }
 }
 
+// 格式化时间
 const formatTime = (time) => {
+  if (!time) return ''
   const date = new Date(time)
   const now = new Date()
   const diff = now.getTime() - date.getTime()
+  const minutes = Math.floor(diff / (1000 * 60))
+  const hours = Math.floor(diff / (1000 * 60 * 60))
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   
-  if (days === 0) {
-    return '今天'
-  } else if (days === 1) {
-    return '昨天'
+  if (minutes < 60) {
+    return `${minutes}分钟前`
+  } else if (hours < 24) {
+    return `${hours}小时前`
   } else if (days < 7) {
     return `${days}天前`
   } else {
@@ -624,216 +534,230 @@ const formatTime = (time) => {
   }
 }
 
-// 编辑文章（只有作者才能编辑）
-const editArticle = () => {
-  if (!checkLogin()) return
-  
-  if (!isArticleAuthor.value) {
-    ElMessage.warning('只有作者才能编辑文章')
+// 点赞文章
+const toggleLike = async () => {
+  if (!isLoggedIn.value) {
+    showLogin.value = true
     return
   }
   
-  router.push(`/article/edit/${article.value.id}`)
-}
-
-// 点赞文章（需要登录）
-const toggleLike = async () => {
-  if (!checkLogin()) return
-  
-  likeLoading.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 300))
+    likeLoading.value = true
+    const isLike = !article.value.isLiked
+    await articleStore.toggleLike(articleId.value, isLike)
     
-    if (article.value.isLiked) {
-      article.value.isLiked = false
-      article.value.likeCount--
-      ElMessage.success('已取消点赞')
-    } else {
-      article.value.isLiked = true
-      article.value.likeCount++
+    if (isLike) {
       ElMessage.success('点赞成功')
+    } else {
+      ElMessage.info('已取消点赞')
     }
   } catch (error) {
+    console.error('操作点赞失败:', error)
     ElMessage.error('操作失败')
   } finally {
     likeLoading.value = false
   }
 }
 
-// 收藏文章（需要登录）
+// 收藏文章（需要后端接口支持）
 const toggleCollect = async () => {
-  if (!checkLogin()) return
+  if (!isLoggedIn.value) {
+    showLogin.value = true
+    return
+  }
   
-  collectLoading.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    if (article.value.isCollected) {
-      article.value.isCollected = false
-      article.value.collectCount--
-      ElMessage.success('已取消收藏')
-    } else {
-      article.value.isCollected = true
-      article.value.collectCount++
-      ElMessage.success('收藏成功')
-    }
+    collectLoading.value = true
+    // 这里需要调用收藏API，暂时模拟
+    ElMessage.info('收藏功能待实现')
+    // TODO: 调用收藏API
   } catch (error) {
+    console.error('操作收藏失败:', error)
     ElMessage.error('操作失败')
   } finally {
     collectLoading.value = false
   }
 }
 
-// 关注作者（不能关注自己，需要登录）
+// 关注作者（需要后端接口支持）
 const toggleFollow = async () => {
-  if (!checkLogin()) return
-  
-  // 不能关注自己
-  if (isArticleAuthor.value) {
-    ElMessage.warning('不能关注自己')
+  if (!isLoggedIn.value) {
+    showLogin.value = true
     return
   }
   
-  followLoading.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    if (article.value.isFollowing) {
-      article.value.isFollowing = false
-      article.value.authorFansCount--
-      ElMessage.success('已取消关注')
-    } else {
-      article.value.isFollowing = true
-      article.value.authorFansCount++
-      ElMessage.success('关注成功')
-    }
+    followLoading.value = true
+    // 这里需要调用关注API，暂时模拟
+    ElMessage.info('关注功能待实现')
+    // TODO: 调用关注API
   } catch (error) {
+    console.error('操作关注失败:', error)
     ElMessage.error('操作失败')
   } finally {
     followLoading.value = false
   }
 }
 
+// 编辑文章
+const editArticle = () => {
+  router.push(`/article/edit/${articleId.value}`)
+}
+
+// 跳转到分类
 const goToCategory = (categoryId) => {
-  router.push(`/category/${categoryId}`)
-}
-
-const goToTag = (tagId) => {
-  router.push(`/tag/${tagId}`)
-}
-
-const viewArticle = (articleId) => {
-  router.push(`/article/${articleId}`)
-}
-
-const scrollToHeading = (headingId) => {
-  const element = document.getElementById(headingId)
-  if (element) {
-    element.scrollIntoView({ behavior: 'smooth' })
+  if (categoryId) {
+    router.push(`/category/${categoryId}`)
   }
 }
 
-// 发表评论（需要登录）
+// 跳转到标签
+const goToTag = (tagId) => {
+  if (tagId) {
+    // 先获取标签名称
+    const tag = tagStore.tags.find(t => t.id === tagId)
+    if (tag) {
+      router.push(`/tag/${encodeURIComponent(tag.name)}`)
+    }
+  }
+}
+
+// 提交评论
 const submitComment = async () => {
-  if (!checkLogin()) return
+  if (!isLoggedIn.value) {
+    showLogin.value = true
+    return
+  }
   
-  if (!commentContent.value.trim()) {
+  const content = commentContent.value.trim()
+  if (!content) {
     ElMessage.warning('请输入评论内容')
     return
   }
   
-  commentLoading.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 500))
+    commentLoading.value = true
     
-    const newComment = {
-      id: Date.now(),
-      userId: currentUser.value.id, // 使用当前用户的ID
-      userName: currentUserName.value,
-      userAvatar: currentUserAvatar.value,
-      content: commentContent.value,
-      likeCount: 0,
-      isLiked: false,
-      createTime: new Date().toISOString()
-    }
+    await commentStore.createComment({
+      articleId: articleId.value,
+      content: content
+    })
     
-    comments.value.unshift(newComment)
-    article.value.commentCount++
+    ElMessage.success('评论成功')
     commentContent.value = ''
     
-    ElMessage.success('评论发表成功')
+    // 更新文章评论数
+    if (article.value) {
+      article.value.commentCount = (article.value.commentCount || 0) + 1
+    }
+    
   } catch (error) {
-    ElMessage.error('评论发表失败')
+    console.error('发表评论失败:', error)
+    ElMessage.error('评论失败')
   } finally {
     commentLoading.value = false
   }
 }
 
+// 取消评论
 const cancelComment = () => {
   commentContent.value = ''
 }
 
-// 编辑评论（只能编辑自己的评论）
+// 编辑评论
 const editComment = (comment) => {
-  if (!checkLogin()) return
-  
-  if (!checkCommentOwnership(comment)) {
-    ElMessage.warning('只能编辑自己的评论')
+  // 这里可以打开编辑对话框
+  ElMessage.info('编辑评论功能待实现')
+}
+
+// 删除评论
+const deleteComment = async (commentId) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这条评论吗？', '提示', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    
+    await commentStore.deleteComment(commentId)
+    ElMessage.success('删除成功')
+    
+    // 更新文章评论数
+    if (article.value) {
+      article.value.commentCount = Math.max(0, (article.value.commentCount || 1) - 1)
+    }
+    
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除评论失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+// 回复评论
+const replyToComment = (comment) => {
+  if (!isLoggedIn.value) {
+    showLogin.value = true
     return
   }
   
-  ElMessageBox.prompt('编辑评论', '编辑', {
-    inputValue: comment.content,
-    confirmButtonText: '保存',
-    cancelButtonText: '取消'
-  }).then(({ value }) => {
-    if (value && value.trim()) {
-      comment.content = value.trim()
-      ElMessage.success('评论已更新')
+  commentContent.value = `@${comment.userName} `
+  // 聚焦到评论框
+  nextTick(() => {
+    const textarea = document.querySelector('.comment-textarea textarea')
+    if (textarea) {
+      textarea.focus()
     }
   })
 }
 
-// 删除评论（只能删除自己的评论）
-const deleteComment = (commentId) => {
-  if (!checkLogin()) return
-  
-  const comment = comments.value.find(c => c.id === commentId)
-  if (!comment) return
-  
-  if (!checkCommentOwnership(comment)) {
-    ElMessage.warning('只能删除自己的评论')
+// 点赞评论
+const likeComment = async (comment) => {
+  if (!isLoggedIn.value) {
+    showLogin.value = true
     return
   }
   
-  ElMessageBox.confirm('确定要删除这条评论吗？', '删除确认', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    comments.value = comments.value.filter(c => c.id !== commentId)
-    article.value.commentCount--
-    ElMessage.success('评论已删除')
-  })
-}
-
-const replyToComment = (comment) => {
-  if (!checkLogin()) return
-  commentContent.value = `@${comment.userName} `
-}
-
-const likeComment = async (comment) => {
-  if (!checkLogin()) return
-  
-  if (comment.isLiked) {
-    comment.isLiked = false
-    comment.likeCount--
-  } else {
-    comment.isLiked = true
-    comment.likeCount++
+  try {
+    const isLike = !comment.isLiked
+    await commentStore.toggleCommentLike(comment.id, isLike)
+    
+    if (isLike) {
+      ElMessage.success('点赞成功')
+    } else {
+      ElMessage.info('已取消点赞')
+    }
+  } catch (error) {
+    console.error('操作评论点赞失败:', error)
+    ElMessage.error('操作失败')
   }
 }
+
+// 检查评论所有权（作者或管理员）
+const checkCommentOwnership = (comment) => {
+  if (!isLoggedIn.value) return false
+  
+  // 1. 评论作者
+  if (comment.userId === currentUser.value?.id) return true
+  
+  // 2. 文章作者
+  if (article.value && article.value.authorId === currentUser.value?.id) return true
+  
+  // 3. 管理员（假设角色1为管理员）
+  if (currentUser.value?.role === 1) return true
+  
+  return false
+}
+
+// 跳转到登录页
+const toLoginPage = () => {
+  showLogin.value = false
+  router.push('/')
+  // 这里可以触发父组件的登录弹窗
+}
 </script>
+
 <style scoped>
 .article-detail-page {
   min-height: 100vh;
@@ -1120,8 +1044,7 @@ const likeComment = async (comment) => {
 
 /* 侧边栏卡片 */
 .author-card,
-.toc-card,
-.related-articles {
+.toc-card{
   background: white;
   border-radius: 8px;
   padding: 24px;
@@ -1240,53 +1163,6 @@ const likeComment = async (comment) => {
 }
 .toc-level-6 {
   padding-left: 80px;
-}
-
-/* 相关文章 */
-.related-articles h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  margin-bottom: 15px;
-  color: #333;
-}
-
-.related-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.related-item {
-  cursor: pointer;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.related-item:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.related-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 6px;
-  line-height: 1.4;
-  transition: color 0.2s;
-}
-
-.related-title:hover {
-  color: #409eff;
-}
-
-.related-meta {
-  display: flex;
-  justify-content: space-between;
-  color: #999;
-  font-size: 12px;
 }
 
 /* 文章不存在 */

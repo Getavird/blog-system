@@ -18,7 +18,7 @@
 
                         <el-select v-model="statusFilter" placeholder="文章状态" @change="handleFilter"
                             class="status-select">
-                            <el-option label="全部" :value="null" />
+                            <el-option label="全部" :value="-1" />
                             <el-option label="已发布" :value="1" />
                             <el-option label="草稿" :value="0" />
                         </el-select>
@@ -147,236 +147,235 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useArticleStore } from '@/stores/article'
+import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-    Search,
-    Plus,
-    Delete,
-    Document
+  Search,
+  Plus,
+  Delete,
+  Document
 } from '@element-plus/icons-vue'
-import Header from '../components/layout/Header.vue'
-import Footer from '../components/layout/Footer.vue'
+
+// 组件导入
+import Header from '@/components/layout/Header.vue'
+import Footer from '@/components/layout/Footer.vue'
 
 const router = useRouter()
 
-// 状态
-const loading = ref(true)
-const articles = ref([])
+// Pinia Store
+const articleStore = useArticleStore()
+const userStore = useUserStore()
+
+// 搜索和筛选
 const searchKeyword = ref('')
-const statusFilter = ref(null)
+const statusFilter = ref(-1)
+
+// 分页参数
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+
+// 状态
+const loading = ref(false)
+
+// 文章列表
+const articles = computed(() => articleStore.articles || [])
+
+// 选中文章
 const selectedArticles = ref([])
 
-// 模拟用户ID（实际应该从登录状态获取）
-const currentUserId = 1
-
-// 模拟文章数据
-const mockArticles = [
-    {
-        id: 1,
-        title: 'Vue 3 新特性详解',
-        summary: '深入解析 Vue 3 的新特性和使用技巧，带你快速上手 Vue 3 开发...',
-        categoryName: '技术',
-        status: 1, // 已发布
-        viewCount: 320,
-        likeCount: 42,
-        commentCount: 12,
-        createTime: '2024-01-14 14:20:00',
-        updateTime: '2024-01-15 09:30:00',
-        authorId: 1
-    },
-    {
-        id: 2,
-        title: 'Spring Boot入门教程',
-        summary: '详细介绍Spring Boot的基本使用和配置，快速上手后端开发...',
-        categoryName: '技术',
-        status: 1,
-        viewCount: 156,
-        likeCount: 25,
-        commentCount: 8,
-        createTime: '2024-01-15 10:30:00',
-        updateTime: '2024-01-15 10:30:00',
-        authorId: 1
-    },
-    {
-        id: 3,
-        title: '数据库设计规范',
-        summary: '分享数据库设计的最佳实践和规范，让你的数据架构更合理...',
-        categoryName: '技术',
-        status: 0, // 草稿
-        viewCount: 0,
-        likeCount: 0,
-        commentCount: 0,
-        createTime: '2024-01-13 09:15:00',
-        updateTime: '2024-01-16 14:45:00',
-        authorId: 1
-    },
-    {
-        id: 4,
-        title: '我的学习笔记',
-        summary: '记录最近学习的一些心得体会和技术要点...',
-        categoryName: '学习',
-        status: 0,
-        viewCount: 0,
-        likeCount: 0,
-        commentCount: 0,
-        createTime: '2024-01-16 16:20:00',
-        updateTime: '2024-01-16 16:20:00',
-        authorId: 1
-    }
-]
-
-// 计算属性
-const filteredArticles = computed(() => {
-    let result = [...articles.value]
-
-    // 状态筛选
-    if (statusFilter.value !== null) {
-        result = result.filter(article => article.status === statusFilter.value)
-    }
-
-    // 搜索筛选
-    if (searchKeyword.value) {
-        const keyword = searchKeyword.value.toLowerCase()
-        result = result.filter(article =>
-            article.title.toLowerCase().includes(keyword) ||
-            (article.summary && article.summary.toLowerCase().includes(keyword))
-        )
-    }
-
-    // 分页
-    const start = (currentPage.value - 1) * pageSize.value
-    const end = start + pageSize.value
-
-    return result.slice(start, end)
+// 组件挂载
+onMounted(async () => {
+  // 初始化用户状态
+  userStore.initFromStorage()
+  
+  // 检查登录状态
+  if (!userStore.isLoggedIn()) {
+    ElMessage.warning('请先登录')
+    router.push('/')
+    return
+  }
+  
+  // 加载用户文章
+  await loadUserArticles()
 })
 
-// 生命周期
-onMounted(() => {
-    loadArticles()
-})
+// 监听分页和筛选变化
+watch(
+  [currentPage, pageSize, statusFilter],
+  () => {
+    loadUserArticles()
+  }
+)
 
-// 方法
-const loadArticles = () => {
+// 加载用户文章
+const loadUserArticles = async () => {
+  try {
     loading.value = true
-
-    // 模拟API调用
-    setTimeout(() => {
-        // 过滤当前用户的文章
-        articles.value = mockArticles.filter(article => article.authorId === currentUserId)
-        total.value = articles.value.length
-        loading.value = false
-    }, 800)
-}
-
-const formatTime = (time) => {
-    if (!time) return ''
-    const date = new Date(time)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-
-    if (days === 0) {
-        return '今天'
-    } else if (days === 1) {
-        return '昨天'
-    } else if (days < 7) {
-        return `${days}天前`
-    } else {
-        return date.toLocaleDateString('zh-CN')
+    
+    const params = {
+      page: currentPage.value,
+      size: pageSize.value
     }
+    
+    // 添加搜索关键词
+    if (searchKeyword.value.trim()) {
+      params.keyword = searchKeyword.value.trim()
+    }
+    
+    // 添加状态筛选
+    if (statusFilter.value !== null) {
+      params.status = statusFilter.value
+    }
+    
+    const result = await articleStore.fetchMyArticles(params)
+    
+    if (result) {
+      total.value = result.total || 0
+    }
+    
+  } catch (error) {
+    console.error('加载用户文章失败:', error)
+    ElMessage.error('加载文章失败')
+  } finally {
+    loading.value = false
+  }
 }
 
+// 搜索文章
 const handleSearch = () => {
-    currentPage.value = 1
-    // 这里可以调用API搜索
-    console.log('搜索关键词:', searchKeyword.value)
+  currentPage.value = 1
+  loadUserArticles()
 }
 
+// 筛选文章
 const handleFilter = () => {
-    currentPage.value = 1
-    // 这里可以调用API筛选
-    console.log('筛选状态:', statusFilter.value)
+  currentPage.value = 1
+  loadUserArticles()
 }
 
-const handleSelectionChange = (selection) => {
-    selectedArticles.value = selection
+// 格式化时间
+const formatTime = (time) => {
+  if (!time) return ''
+  const date = new Date(time)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  
+  if (days === 0) {
+    // 今天，显示时间
+    return date.toLocaleTimeString('zh-CN', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })
+  } else if (days === 1) {
+    return '昨天'
+  } else if (days < 7) {
+    return `${days}天前`
+  } else {
+    return date.toLocaleDateString('zh-CN')
+  }
 }
 
+// 查看文章详情
 const viewArticle = (articleId) => {
-    router.push(`/article/${articleId}`)
+  router.push(`/article/${articleId}`)
 }
 
+// 编辑文章
 const editArticle = (articleId) => {
-    router.push(`/article/edit/${articleId}`)
+  router.push(`/article/edit/${articleId}`)
 }
 
+// 删除文章
 const deleteArticle = async (article) => {
-    try {
-        const confirm = await ElMessageBox.confirm(
-            `确定要删除文章 "${article.title}" 吗？此操作不可恢复。`,
-            '删除确认',
-            {
-                confirmButtonText: '确定删除',
-                cancelButtonText: '取消',
-                type: 'warning'
-            }
-        ).catch(() => false)
-
-        if (!confirm) return
-
-        // 模拟删除
-        const index = articles.value.findIndex(a => a.id === article.id)
-        if (index !== -1) {
-            articles.value.splice(index, 1)
-            total.value = articles.value.length
-            ElMessage.success('文章删除成功')
-        }
-    } catch (error) {
-        ElMessage.error('删除失败')
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除文章 "${article.title}" 吗？删除后不可恢复。`,
+      '提示',
+      {
+        type: 'warning',
+        confirmButtonText: '确定',
+        cancelButtonText: '取消'
+      }
+    )
+    
+    await articleStore.deleteArticle(article.id)
+    ElMessage.success('文章删除成功')
+    
+    // 重新加载文章列表
+    await loadUserArticles()
+    
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除文章失败:', error)
+      ElMessage.error('删除失败')
     }
+  }
 }
 
+// 批量删除文章
 const handleBatchDelete = async () => {
-    if (selectedArticles.value.length === 0) return
-
-    try {
-        const confirm = await ElMessageBox.confirm(
-            `确定要删除选中的 ${selectedArticles.value.length} 篇文章吗？此操作不可恢复。`,
-            '批量删除确认',
-            {
-                confirmButtonText: '确定删除',
-                cancelButtonText: '取消',
-                type: 'warning'
-            }
-        ).catch(() => false)
-
-        if (!confirm) return
-
-        // 模拟批量删除
-        const selectedIds = selectedArticles.value.map(article => article.id)
-        articles.value = articles.value.filter(article => !selectedIds.includes(article.id))
-        total.value = articles.value.length
-        selectedArticles.value = []
-
-        ElMessage.success(`成功删除 ${selectedIds.length} 篇文章`)
-    } catch (error) {
-        ElMessage.error('删除失败')
+  if (selectedArticles.value.length === 0) return
+  
+  try {
+    const articleIds = selectedArticles.value.map(article => article.id)
+    const articleTitles = selectedArticles.value.map(article => article.title).join('、')
+    
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedArticles.value.length} 篇文章吗？删除后不可恢复。\n\n${articleTitles}`,
+      '批量删除确认',
+      {
+        type: 'warning',
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        dangerouslyUseHTMLString: true
+      }
+    )
+    
+    // 批量删除（需要后端支持批量删除接口）
+    // 这里暂时使用循环单个删除
+    for (const articleId of articleIds) {
+      try {
+        await articleStore.deleteArticle(articleId)
+      } catch (error) {
+        console.error(`删除文章 ${articleId} 失败:`, error)
+      }
     }
+    
+    ElMessage.success(`成功删除 ${selectedArticles.value.length} 篇文章`)
+    
+    // 清空选中
+    selectedArticles.value = []
+    
+    // 重新加载文章列表
+    await loadUserArticles()
+    
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败')
+    }
+  }
 }
 
+// 表格选择变化
+const handleSelectionChange = (selection) => {
+  selectedArticles.value = selection
+}
+
+// 分页改变
 const handlePageChange = (page) => {
-    currentPage.value = page
-    // 这里可以调用API获取对应页的数据
+  currentPage.value = page
 }
 
+// 每页数量改变
 const handleSizeChange = (size) => {
-    pageSize.value = size
-    currentPage.value = 1
+  pageSize.value = size
+  currentPage.value = 1 // 重置到第一页
 }
 </script>
 

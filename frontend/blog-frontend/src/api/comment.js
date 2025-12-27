@@ -1,11 +1,13 @@
 import request from '@/utils/request'
 
-// 获取文章评论
-export const getArticleComments = (articleId) => {
-  return request.get(`/api/comments/article/${articleId}`)
+// 文章评论列表
+export const getArticleComments = (articleId, params = {}) => {
+  return request.get(`/api/comments/article/${articleId}`, { 
+    params: { page: 1, size: 20, ...params }
+  })
 }
 
-// 发布评论
+// 新增评论
 export const createComment = (data) => {
   return request.post('/api/comments', data)
 }
@@ -15,12 +17,7 @@ export const deleteComment = (id) => {
   return request.delete(`/api/comments/${id}`)
 }
 
-// 点赞评论
-export const likeComment = (id) => {
-  return request.post(`/api/comments/${id}/like`)
-}
-
-// 取消点赞评论
-export const unlikeComment = (id) => {
-  return request.delete(`/api/comments/${id}/like`)
+// 评论点赞/取消
+export const toggleCommentLike = (id, isLike) => {
+  return request.post(`/api/comments/${id}/like`, { isLike })
 }

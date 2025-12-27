@@ -42,17 +42,6 @@
               </template>
             </el-input>
             
-            <!-- 搜索建议 -->
-            <div v-if="showSearchSuggestions && searchSuggestions.length > 0" class="search-suggestions">
-              <div 
-                v-for="suggestion in searchSuggestions" 
-                :key="suggestion"
-                class="suggestion-item"
-                @click="selectSuggestion(suggestion)"
-              >
-                {{ suggestion }}
-              </div>
-            </div>
           </div>
           
           <!-- 搜索图标（移动端） -->
@@ -105,8 +94,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'  
 import { ElMessage } from 'element-plus'
 import {
   Search,
@@ -117,58 +108,37 @@ import {
   Close
 } from '@element-plus/icons-vue'
 
-// 定义组件发出的事件
 const emit = defineEmits(['showLogin'])
-
 const router = useRouter()
+const authStore = useAuthStore()
+const userStore = useUserStore()  
 
 // 搜索相关
 const searchKeyword = ref('')
 const searching = ref(false)
 const showSearchInput = ref(false)
-const showSearchSuggestions = ref(false)
 const searchInputRef = ref(null)
-
-// 用户状态
-const isLoggedIn = ref(false)
-const username = ref('')
 const isMobile = ref(false)
 
-// 模拟搜索建议
-const searchSuggestions = ref([
-  'Vue 3',
-  'React',
-  'JavaScript',
-  'Spring Boot',
-  '数据库设计',
-  '前端开发',
-  '后端架构',
-  '算法'
-])
+// 从Pinia获取用户状态
+const isLoggedIn = computed(() => {
+  // 从userStore的token属性判断是否登录
+  return !!userStore.token
+})
+const username = computed(() => userStore.user?.username || '')
 
 // 生命周期
 onMounted(() => {
-  // 检查是否登录
-  const token = localStorage.getItem('blog_token')
-  const userStr = localStorage.getItem('blog_user')
-  
-  if (token && userStr) {
-    isLoggedIn.value = true
-    const user = JSON.parse(userStr)
-    username.value = user.username || '用户'
-  }
+  // 初始化用户状态 - 使用 userStore
+  userStore.initFromStorage()
   
   // 检测屏幕尺寸
   checkScreenSize()
   window.addEventListener('resize', checkScreenSize)
-  
-  // 点击页面其他地方关闭搜索建议
-  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkScreenSize)
-  document.removeEventListener('click', handleClickOutside)
 })
 
 // 方法
@@ -179,15 +149,8 @@ const checkScreenSize = () => {
   }
 }
 
-const handleClickOutside = (event) => {
-  const searchArea = document.querySelector('.search-area')
-  if (searchArea && !searchArea.contains(event.target)) {
-    showSearchSuggestions.value = false
-  }
-}
-
 // 搜索方法
-const handleSearch = () => {
+const handleSearch = async () => {
   const keyword = searchKeyword.value.trim()
   if (!keyword) {
     ElMessage.warning('请输入搜索关键词')
@@ -196,30 +159,25 @@ const handleSearch = () => {
   
   searching.value = true
   
-  // 隐藏搜索建议
-  showSearchSuggestions.value = false
-  
   // 如果是移动端，收起搜索框
   if (isMobile.value) {
     showSearchInput.value = false
   }
   
-  // 跳转到搜索页面
-  router.push({
-    path: '/search',
-    query: { q: keyword }
-  })
-  
-  // 模拟搜索延迟
-  setTimeout(() => {
+  try {
+    // 跳转到搜索页面
+    router.push({
+      path: '/search',
+      query: { q: keyword }
+    })
+  } finally {
     searching.value = false
     searchKeyword.value = ''
-  }, 300)
+  }
 }
 
 const clearSearch = () => {
   searchKeyword.value = ''
-  showSearchSuggestions.value = false
 }
 
 const toggleSearchInput = () => {
@@ -232,26 +190,17 @@ const toggleSearchInput = () => {
   }
 }
 
-const selectSuggestion = (suggestion) => {
-  searchKeyword.value = suggestion
-  handleSearch()
-}
-
-// 监听搜索关键词变化，显示搜索建议
-watch(searchKeyword, (newValue) => {
-  if (newValue.trim() && newValue.length > 1) {
-    showSearchSuggestions.value = true
-  } else {
-    showSearchSuggestions.value = false
-  }
-})
-
 // 用户操作
 const showLoginDialog = () => {
   emit('showLogin')
 }
 
 const toWrite = () => {
+  if (!isLoggedIn.value) {
+    ElMessage.warning('请先登录')
+    showLoginDialog()
+    return
+  }
   router.push('/article/create')
 }
 
@@ -263,14 +212,15 @@ const toMyArticles = () => {
   router.push('/user/articles')
 }
 
-const logout = () => {
-  localStorage.removeItem('blog_token')
-  localStorage.removeItem('blog_user')
-  isLoggedIn.value = false
-  username.value = ''
-  ElMessage.success('已退出登录')
-  // 刷新页面以更新状态
-  window.location.reload()
+const logout = async () => {
+  try {
+    await authStore.logout()  // 使用 authStore 的 logout 方法
+    ElMessage.success('已退出登录')
+    // 刷新页面以更新状态
+    window.location.reload()
+  } catch (error) {
+    console.error('退出登录失败:', error)
+  }
 }
 </script>
 

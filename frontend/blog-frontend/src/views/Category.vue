@@ -69,7 +69,7 @@
         <!-- 文章列表 -->
         <div class="category-content">
           <ArticleList
-            :articles="articles"
+            :articles="displayedArticles"  
             :loading="loading"
             :show-cover="false"
             :show-summary="true"
@@ -78,7 +78,7 @@
             :show-views="true"
             :show-likes="true"
             :show-pagination="true"
-            :total="total"
+            :total="total"                
             :current-page="currentPage"
             :page-size="pageSize"
             @article-click="viewArticle"
@@ -88,7 +88,7 @@
             :empty-message="`${categoryName} 分类下还没有文章，快去写一篇吧！`"
             :show-create-button="true"
             @create-click="toWriteArticle"
-          />
+        />
         </div>
       </div>
     </div>
@@ -98,219 +98,149 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useCategoryStore } from '@/stores/category'
+import { useArticleStore } from '@/stores/article'
+import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
-import {
-  ArrowRight,
-  Folder,
-  Clock,
-  View,
-  Star
-} from '@element-plus/icons-vue'
-import Header from '../components/layout/Header.vue'
-import Footer from '../components/layout/Footer.vue'
-import ArticleList from '../components/article/ArticleList.vue'
+import Header from '@/components/layout/Header.vue'
+import Footer from '@/components/layout/Footer.vue'
+import ArticleList from '@/components/article/ArticleList.vue'
 
+// 路由和状态管理
 const route = useRoute()
 const router = useRouter()
+const categoryStore = useCategoryStore()
+const articleStore = useArticleStore()
+const authStore = useAuthStore()
 
-// 分类信息
-const categoryId = ref(route.params.id)
-const categoryName = ref('')
-const categoryDescription = ref('')
-const total = ref(0)
-const viewCount = ref(0)
-const likeCount = ref(0)
+// 路由参数：分类ID
+const categoryId = ref(parseInt(route.params.id) || 0)
 
-// 文章列表相关
-const loading = ref(true)
-const articles = ref([])
-const sortBy = ref('createTime')
+// 分页和排序参数
 const currentPage = ref(1)
 const pageSize = ref(10)
+const sortBy = ref('createTime') // 默认按创建时间排序
 
-// 模拟数据
-const categoriesData = {
-  1: { name: '技术分享', description: '编程、框架、工具等技术相关文章', viewCount: 12500, likeCount: 3200 },
-  2: { name: '生活随笔', description: '记录生活点滴、感悟与思考', viewCount: 8500, likeCount: 2100 },
-  3: { name: '学习笔记', description: '学习过程中的心得体会和总结', viewCount: 9200, likeCount: 1800 },
-  4: { name: '项目实战', description: '实际项目开发经验分享', viewCount: 15600, likeCount: 4200 }
-}
+// 计算属性：从Pinia Store映射数据
+const categoryName = computed(() => categoryStore.currentCategory?.name || '未知分类')
+const categoryDescription = computed(() => categoryStore.currentCategory?.description || '')
+const displayedArticles = computed(() => articleStore.articles || [])
+const loading = computed(() => categoryStore.loading || articleStore.loading)
 
-// 模拟文章数据
-const mockArticles = (categoryId, sortBy) => {
-  const categoryNames = ['技术分享', '生活随笔', '学习笔记', '项目实战']
-  const baseArticles = [
-    {
-      id: 1,
-      title: 'Vue 3 新特性详解与实战指南',
-      summary: '深入解析 Vue 3 的新特性和使用技巧，带你快速上手 Vue 3 开发...',
-      authorName: '张三',
-      viewCount: 320,
-      likeCount: 42,
-      commentCount: 12,
-      categoryName: '技术分享',
-      createTime: '2024-01-14T14:20:00',
-      updateTime: '2024-01-15T09:30:00'
-    },
-    {
-      id: 2,
-      title: 'Spring Boot入门教程',
-      summary: '详细介绍Spring Boot的基本使用和配置，快速上手后端开发...',
-      authorName: '李四',
-      viewCount: 156,
-      likeCount: 25,
-      commentCount: 8,
-      categoryName: '技术分享',
-      createTime: '2024-01-15T10:30:00',
-      updateTime: '2024-01-15T10:30:00'
-    },
-    {
-      id: 3,
-      title: '我的学习笔记：如何高效学习编程',
-      summary: '分享我多年来学习编程的经验和方法，帮助初学者快速入门...',
-      authorName: '王五',
-      viewCount: 89,
-      likeCount: 15,
-      commentCount: 5,
-      categoryName: '学习笔记',
-      createTime: '2024-01-13T09:15:00',
-      updateTime: '2024-01-16T14:45:00'
-    },
-    {
-      id: 4,
-      title: '生活随笔：记录美好的一天',
-      summary: '今天天气很好，去公园散步，看到很多有趣的事情...',
-      authorName: '赵六',
-      viewCount: 45,
-      likeCount: 8,
-      commentCount: 3,
-      categoryName: '生活随笔',
-      createTime: '2024-01-16T16:20:00',
-      updateTime: '2024-01-16T16:20:00'
-    },
-    {
-      id: 5,
-      title: 'React Hooks 使用指南',
-      summary: '详细介绍React Hooks的各种用法和最佳实践...',
-      authorName: '张三',
-      viewCount: 210,
-      likeCount: 36,
-      commentCount: 10,
-      categoryName: '技术分享',
-      createTime: '2024-01-12T11:45:00',
-      updateTime: '2024-01-14T16:30:00'
-    }
-  ]
-  
-  // 按分类筛选
-  let filteredArticles = baseArticles.filter(article => {
-    const categoryName = categoriesData[categoryId]?.name
-    return article.categoryName === categoryName
-  })
-  
-  // 排序
-  filteredArticles.sort((a, b) => {
-    if (sortBy === 'createTime') {
-      return new Date(b.createTime) - new Date(a.createTime)
-    } else if (sortBy === 'viewCount') {
-      return b.viewCount - a.viewCount
-    } else if (sortBy === 'likeCount') {
-      return b.likeCount - a.likeCount
-    }
-    return 0
-  })
-  
-  return filteredArticles
-}
-
-// 生命周期
-onMounted(() => {
-  loadCategoryData()
+// 统计信息（需要后端接口支持，这里使用默认值）
+const total = computed(() => {
+  // 如果分类详情中有文章数量字段，使用它；否则使用文章列表的总数
+  return categoryStore.currentCategory?.articleCount || 0
 })
 
-// 监听路由变化
-watch(() => route.params.id, (newId) => {
-  categoryId.value = newId
-  currentPage.value = 1
-  loadCategoryData()
+const viewCount = computed(() => {
+  // 这里需要后端提供分类下的总浏览量，暂时使用文章列表的浏览量之和
+  return displayedArticles.value.reduce((sum, article) => sum + (article.viewCount || 0), 0)
 })
 
-// 方法
-const loadCategoryData = () => {
-  loading.value = true
-  
-  // 模拟加载延迟
-  setTimeout(() => {
-    const categoryData = categoriesData[categoryId.value]
-    if (categoryData) {
-      categoryName.value = categoryData.name
-      categoryDescription.value = categoryData.description
-      viewCount.value = categoryData.viewCount || 0
-      likeCount.value = categoryData.likeCount || 0
-    } else {
-      categoryName.value = '未找到分类'
-      categoryDescription.value = '该分类不存在或已被删除'
-    }
-    
-    // 加载文章数据
-    articles.value = mockArticles(categoryId.value, sortBy.value)
-    total.value = articles.value.length
-    
-    loading.value = false
-  }, 600)
-}
+const likeCount = computed(() => {
+  // 这里需要后端提供分类下的总点赞数，暂时使用文章列表的点赞数之和
+  return displayedArticles.value.reduce((sum, article) => sum + (article.likeCount || 0), 0)
+})
 
+// 数字格式化函数
 const formatNumber = (num) => {
   if (num >= 10000) {
     return (num / 10000).toFixed(1) + '万'
-  } else if (num >= 1000) {
+  }
+  if (num >= 1000) {
     return (num / 1000).toFixed(1) + '千'
   }
   return num
 }
 
-const changeSort = (type) => {
-  sortBy.value = type
-  articles.value = mockArticles(categoryId.value, sortBy.value)
-  
-  let sortText = ''
-  switch(type) {
-    case 'createTime': sortText = '按最新排序'; break
-    case 'viewCount': sortText = '按热门排序'; break
-    case 'likeCount': sortText = '按点赞排序'; break
+// 加载分类数据
+const loadCategoryData = async () => {
+  try {
+    // 1. 加载分类详情
+    if (categoryId.value) {
+      await categoryStore.fetchCategoryDetail(categoryId.value)
+    }
+    
+    // 2. 加载该分类下的文章
+    const params = {
+      page: currentPage.value,
+      size: pageSize.value,
+      sort: sortBy.value
+    }
+    
+    await categoryStore.fetchCategoryArticles(categoryId.value, params)
+    
+    // 将分类文章同步到文章Store以便其他组件使用
+    articleStore.setArticles(categoryStore.currentCategory?.articles || [])
+  } catch (error) {
+    ElMessage.error('加载分类数据失败')
+    console.error('加载分类数据失败:', error)
   }
-  ElMessage.success(sortText)
 }
 
-const viewArticle = (articleId) => {
-  router.push(`/article/${articleId}`)
-}
-
-const toWriteArticle = () => {
-  // 检查是否登录
-  const token = localStorage.getItem('blog_token')
-  if (!token) {
-    ElMessage.warning('请先登录')
-    // 可以触发Header的登录事件
-    const event = new CustomEvent('showLogin')
-    window.dispatchEvent(event)
-    return
+// 监听路由参数变化（当用户直接改变URL时）
+watch(
+  () => route.params.id,
+  (newId) => {
+    if (newId) {
+      categoryId.value = parseInt(newId)
+      currentPage.value = 1 // 重置到第一页
+      loadCategoryData()
+    }
   }
-  router.push('/article/create')
+)
+
+// 监听分页和排序变化
+watch(
+  [currentPage, pageSize, sortBy],
+  () => {
+    if (categoryId.value) {
+      loadCategoryData()
+    }
+  }
+)
+
+// 组件挂载时加载数据
+onMounted(() => {
+  if (categoryId.value) {
+    loadCategoryData()
+  }
+})
+
+// 排序切换
+const changeSort = (sortField) => {
+  sortBy.value = sortField
 }
 
+// 查看文章详情
+const viewArticle = (article) => {
+  router.push(`/article/${article.id}`)
+}
+
+// 分页改变
 const handlePageChange = (page) => {
   currentPage.value = page
-  // 这里实际应该调用API获取对应页的数据
-  // 由于是模拟数据，我们只做滚动到顶部
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+// 每页数量改变
 const handleSizeChange = (size) => {
   pageSize.value = size
-  currentPage.value = 1
+  currentPage.value = 1 // 重置到第一页
+}
+
+// 跳转到写文章页面
+const toWriteArticle = () => {
+  // 检查是否登录
+  if (!authStore.isLoggedIn()) {
+    ElMessage.warning('请先登录后再发布文章')
+    router.push('/')
+    return
+  }
+  
+  router.push('/article/create')
 }
 </script>
 

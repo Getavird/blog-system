@@ -5,7 +5,6 @@ import ArticleEdit from '../views/ArticleEdit.vue'
 import UserArticles from '../views/UserArticles.vue'
 import UserProfile from '../views/UserProfile.vue'
 import NotFound from '../views/NotFound.vue'
-import TestApi from '../views/TestApi.vue'
 import Category from'../views/Category.vue'
 import Search from '../views/Search.vue'
 import Archives from '../views/Archives.vue'
@@ -19,11 +18,6 @@ const routes = [
     path: '/',
     name: 'Home',
     component: Home
-  },
-  {
-    path: '/test',  // 新增测试页面
-    name: 'TestApi',
-    component: TestApi
   },
   {
     path: '/article/:id',

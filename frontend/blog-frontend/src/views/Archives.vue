@@ -170,20 +170,6 @@
           </div>
         </div>
 
-        <!-- 快速导航 -->
-        <div v-if="!loading && filteredArchives.length > 0" class="quick-nav">
-          <h3>快速导航</h3>
-          <div class="nav-buttons">
-            <el-button 
-              v-for="year in availableYears.slice(0, 5)" 
-              :key="year"
-              type="text"
-              @click="scrollToYear(year)"
-            >
-              {{ year }}年
-            </el-button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -192,8 +178,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import { useArchiveStore } from '@/stores/archive'
+import { useArticleStore } from '@/stores/article'
+import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import {
   Calendar,
@@ -203,216 +192,140 @@ import {
   Star,
   ChatDotRound
 } from '@element-plus/icons-vue'
-import Header from '../components/layout/Header.vue'
-import Footer from '../components/layout/Footer.vue'
+
+// 组件导入
+import Header from '@/components/layout/Header.vue'
+import Footer from '@/components/layout/Footer.vue'
 
 const router = useRouter()
 
+// Pinia Store
+const archiveStore = useArchiveStore()
+const articleStore = useArticleStore()
+const authStore = useAuthStore()
+
 // 状态
-const loading = ref(true)
-const archives = ref([])
+const loading = ref(false)
 const selectedYear = ref('all')
-const expandedYears = ref(new Set([2024])) // 默认展开当前年份
 
-// 模拟归档数据
-const mockArchivesData = () => {
-  const years = [2024, 2023, 2022, 2021, 2020]
-  const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
-  const articleTitles = [
-    'Vue 3 新特性详解与实战指南',
-    'Spring Boot入门教程',
-    '数据库设计规范与实践',
-    '前端工程化建设指南',
-    '微服务架构设计原则',
-    'TypeScript 类型系统深入理解',
-    'React Hooks 最佳实践',
-    'Docker 容器化部署实战',
-    'Redis 高级应用场景',
-    'MySQL 性能优化技巧',
-    'Kubernetes 入门到实战',
-    'Node.js 高并发处理',
-    'Webpack 5 配置指南',
-    'Git 高级使用技巧',
-    'Linux 服务器运维指南',
-    'Python 数据分析实战',
-    '机器学习入门教程',
-    '网络安全基础',
-    '性能监控与优化',
-    'DevOps 实践指南'
-  ]
-
-  const archivesData = []
-
-  years.forEach(year => {
-    const yearData = {
-      year,
-      total: 0,
-      viewCount: 0,
-      likeCount: 0,
-      expanded: expandedYears.value.has(year),
-      months: []
-    }
-
-    // 随机生成月份数据
-    const monthCount = Math.floor(Math.random() * 8) + 4 // 4-11个月有文章
-    const monthIndexes = Array.from({ length: 12 }, (_, i) => i + 1)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, monthCount)
-
-    monthIndexes.forEach(month => {
-      const articleCount = Math.floor(Math.random() * 8) + 2 // 2-9篇文章
-      const articles = []
-
-      for (let i = 0; i < articleCount; i++) {
-        const day = Math.floor(Math.random() * 28) + 1
-        const viewCount = Math.floor(Math.random() * 500) + 100
-        const likeCount = Math.floor(viewCount * 0.15)
-        const commentCount = Math.floor(likeCount * 0.5)
-        
-        const article = {
-          id: parseInt(`${year}${month}${day}${i}`),
-          title: articleTitles[Math.floor(Math.random() * articleTitles.length)],
-          createTime: `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`,
-          viewCount,
-          likeCount,
-          commentCount,
-          status: Math.random() > 0.1 ? 1 : 0 // 90%已发布，10%草稿
-        }
-
-        articles.push(article)
-        yearData.total++
-        yearData.viewCount += viewCount
-        yearData.likeCount += likeCount
-      }
-
-      yearData.months.push({
-        month,
-        monthName: monthNames[month - 1],
-        count: articleCount,
-        articles: articles.sort((a, b) => new Date(b.createTime) - new Date(a.createTime))
-      })
-    })
-
-    // 按月份倒序排列
-    yearData.months.sort((a, b) => b.month - a.month)
-
-    archivesData.push(yearData)
-  })
-
-  // 按年份倒序排列
-  return archivesData.sort((a, b) => b.year - a.year)
-}
+// 归档数据
+const archives = computed(() => archiveStore.archives || [])
+const availableYears = computed(() => archiveStore.archiveYears || [])
 
 // 计算属性
-const filteredArchives = computed(() => {
-  if (selectedYear.value === 'all') {
-    return archives.value
-  }
-  return archives.value.filter(yearData => yearData.year === parseInt(selectedYear.value))
-})
-
 const totalArticles = computed(() => {
-  return archives.value.reduce((sum, year) => sum + year.total, 0)
+  return archives.value.reduce((total, year) => total + (year.total || 0), 0)
 })
 
-const yearsCount = computed(() => {
-  return archives.value.length
-})
+const yearsCount = computed(() => availableYears.value.length || 0)
 
 const totalMonths = computed(() => {
-  return archives.value.reduce((sum, year) => sum + year.months.length, 0)
-})
-
-const availableYears = computed(() => {
-  return archives.value.map(year => year.year)
+  return archives.value.reduce((total, year) => total + (year.months?.length || 0), 0)
 })
 
 const mostActiveYear = computed(() => {
-  if (archives.value.length === 0) return 0
-  const mostActive = archives.value.reduce((prev, current) => 
-    prev.total > current.total ? prev : current
-  )
-  return mostActive.year
-})
-
-// 生命周期
-onMounted(() => {
-  loadArchives()
-})
-
-// 方法
-const loadArchives = () => {
-  loading.value = true
+  if (archives.value.length === 0) return '暂无'
+  let maxYear = archives.value[0].year
+  let maxCount = archives.value[0].total || 0
   
-  // 模拟API调用
-  setTimeout(() => {
-    archives.value = mockArchivesData()
+  for (const year of archives.value) {
+    if (year.total > maxCount) {
+      maxCount = year.total
+      maxYear = year.year
+    }
+  }
+  return maxYear
+})
+
+// 筛选后的归档数据
+const filteredArchives = computed(() => {
+  if (selectedYear.value === 'all') {
+    return archives.value.map(year => ({
+      ...year,
+      expanded: true
+    }))
+  }
+  
+  return archives.value
+    .filter(year => year.year === parseInt(selectedYear.value))
+    .map(year => ({
+      ...year,
+      expanded: true
+    }))
+})
+
+// 组件挂载
+onMounted(async () => {
+  await loadArchives()
+})
+
+// 加载归档数据
+const loadArchives = async () => {
+  try {
+    loading.value = true
+    
+    // 1. 加载所有归档数据
+    await archiveStore.fetchAllArchives()
+    
+    // 2. 加载可用年份
+    await archiveStore.fetchArchiveYears()
+    
+    // 3. 加载归档统计（如果store中有）
+    await archiveStore.fetchArchiveStats()
+    
+  } catch (error) {
+    console.error('加载归档数据失败:', error)
+    ElMessage.error('加载归档数据失败')
+  } finally {
     loading.value = false
-  }, 1000)
+  }
 }
 
+// 选择年份
+const selectYear = (year) => {
+  selectedYear.value = year
+}
+
+// 切换年份展开/收起
+const toggleYear = (year) => {
+  const yearIndex = archives.value.findIndex(y => y.year === year)
+  if (yearIndex !== -1) {
+    archives.value[yearIndex].expanded = !archives.value[yearIndex].expanded
+  }
+}
+
+// 格式化数字
 const formatNumber = (num) => {
   if (num >= 10000) {
     return (num / 10000).toFixed(1) + '万'
-  } else if (num >= 1000) {
+  }
+  if (num >= 1000) {
     return (num / 1000).toFixed(1) + '千'
   }
-  return num
+  return num || 0
 }
 
+// 格式化日期
 const formatDay = (dateString) => {
+  if (!dateString) return ''
   const date = new Date(dateString)
   return date.getDate()
 }
 
-const toggleYear = (year) => {
-  const yearData = archives.value.find(y => y.year === year)
-  if (yearData) {
-    yearData.expanded = !yearData.expanded
-    if (yearData.expanded) {
-      expandedYears.value.add(year)
-    } else {
-      expandedYears.value.delete(year)
-    }
-  }
-}
-
-const selectYear = (year) => {
-  selectedYear.value = year
-  if (year !== 'all') {
-    const yearData = archives.value.find(y => y.year === parseInt(year))
-    if (yearData && !yearData.expanded) {
-      yearData.expanded = true
-      expandedYears.value.add(parseInt(year))
-    }
-    
-    // 滚动到对应的年份
-    setTimeout(() => {
-      const element = document.getElementById(`year-${year}`)
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
-    }, 100)
-  }
-}
-
-const scrollToYear = (year) => {
-  selectYear(year.toString())
-}
-
+// 查看文章
 const viewArticle = (articleId) => {
   router.push(`/article/${articleId}`)
 }
 
+// 跳转到写文章页面
 const toWriteArticle = () => {
   // 检查是否登录
-  const token = localStorage.getItem('blog_token')
-  if (!token) {
-    ElMessage.warning('请先登录')
-    const event = new CustomEvent('showLogin')
-    window.dispatchEvent(event)
+  if (!authStore.isLoggedIn()) {
+    ElMessage.warning('请先登录后再发布文章')
+    router.push('/')
     return
   }
+  
   router.push('/article/create')
 }
 </script>
@@ -759,27 +672,6 @@ const toWriteArticle = () => {
 .article-arrow {
   color: #c0c4cc;
   transition: all 0.3s;
-}
-
-/* 快速导航 */
-.quick-nav {
-  margin-top: 40px;
-  padding: 24px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-.quick-nav h3 {
-  font-size: 16px;
-  color: #333;
-  margin-bottom: 15px;
-}
-
-.nav-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
 }
 
 /* 响应式设计 */

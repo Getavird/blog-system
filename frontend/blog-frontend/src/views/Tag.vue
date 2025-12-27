@@ -40,23 +40,6 @@
           </div>
         </div>
 
-        <!-- 相关标签 -->
-        <div v-if="relatedTags.length > 0" class="related-tags">
-          <h3>相关标签</h3>
-          <div class="related-tags-list">
-            <el-tag
-              v-for="tag in relatedTags"
-              :key="tag.id"
-              :type="getTagType(tag.count)"
-              size="medium"
-              class="related-tag-item"
-              @click="viewRelatedTag(tag.name)"
-            >
-              {{ tag.name }} ({{ tag.count }})
-            </el-tag>
-          </div>
-        </div>
-
         <!-- 文章列表 -->
         <div class="tag-content">
           <ArticleList
@@ -89,228 +72,158 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useTagStore } from '@/stores/tag'
+import { useArticleStore } from '@/stores/article'
 import { ElMessage } from 'element-plus'
-import {
-  ArrowRight,
-  PriceTag
-} from '@element-plus/icons-vue'
-import Header from '../components/layout/Header.vue'
-import Footer from '../components/layout/Footer.vue'
-import ArticleList from '../components/article/ArticleList.vue'
+import { ArrowRight, PriceTag } from '@element-plus/icons-vue'
+
+// 组件导入
+import Header from '@/components/layout/Header.vue'
+import Footer from '@/components/layout/Footer.vue'
+import ArticleList from '@/components/article/ArticleList.vue'
 
 const route = useRoute()
 const router = useRouter()
 
-// 标签信息
-const tagName = ref(route.params.name)
-const tagDescription = ref('')
-const total = ref(0)
-const viewCount = ref(0)
-const likeCount = ref(0)
+// Pinia Store
+const tagStore = useTagStore()
+const articleStore = useArticleStore()
 
-// 相关标签
-const relatedTags = ref([])
+// 路由参数
+const tagName = ref(decodeURIComponent(route.params.name) || '')
 
-// 文章列表相关
-const loading = ref(true)
-const articles = ref([])
+// 分页参数
 const currentPage = ref(1)
 const pageSize = ref(10)
 
-// 标签描述映射
-const tagDescriptions = {
-  'Vue': 'Vue.js 是一套用于构建用户界面的渐进式框架',
-  'React': 'React 是一个用于构建用户界面的 JavaScript 库',
-  'JavaScript': 'JavaScript 是一种高级的、解释型的编程语言',
-  'TypeScript': 'TypeScript 是 JavaScript 的一个超集',
-  'CSS': '层叠样式表，用于描述网页的样式',
-  'HTML': '超文本标记语言，用于创建网页',
-  'Node.js': 'Node.js 是一个基于 Chrome V8 引擎的 JavaScript 运行环境',
-  'Python': 'Python 是一种广泛使用的高级编程语言',
-  'Java': 'Java 是一种面向对象的编程语言',
-  'Spring Boot': 'Spring Boot 简化了基于 Spring 的应用开发',
-  '数据库': '数据库是数据的集合，用于存储和管理数据',
-  'MySQL': 'MySQL 是最流行的关系型数据库管理系统之一',
-  'Redis': 'Redis 是一个开源的内存数据结构存储系统',
-  'MongoDB': 'MongoDB 是一个基于分布式文件存储的数据库',
-  'Docker': 'Docker 是一个开源的应用容器引擎',
-  'Kubernetes': 'Kubernetes 是一个开源的容器编排平台',
-  '算法': '算法是解决问题的一系列明确指令',
-  '数据结构': '数据结构是计算机中存储、组织数据的方式',
-  '设计模式': '设计模式是软件设计中常见问题的解决方案',
-  '前端工程化': '前端工程化是前端开发的标准化和自动化',
-  '微服务': '微服务是一种软件架构风格',
-  '架构设计': '架构设计是软件系统的高级结构',
-  '性能优化': '性能优化是提高软件系统性能的过程',
-  '网络安全': '网络安全是保护网络系统和数据免受攻击的过程'
-}
+// 状态
+const loading = ref(false)
+const tagId = ref(0)
 
-// 标签数据（用于获取相关标签）
-const allTags = [
-  { id: 1, name: 'Vue', count: 156 },
-  { id: 2, name: 'React', count: 128 },
-  { id: 3, name: 'JavaScript', count: 210 },
-  { id: 4, name: 'TypeScript', count: 98 },
-  { id: 5, name: 'CSS', count: 89 },
-  { id: 6, name: 'HTML', count: 76 },
-  { id: 7, name: 'Node.js', count: 142 },
-  { id: 8, name: 'Python', count: 187 },
-  { id: 9, name: 'Java', count: 165 },
-  { id: 10, name: 'Spring Boot', count: 134 },
-  { id: 11, name: '数据库', count: 120 },
-  { id: 12, name: 'MySQL', count: 115 },
-  { id: 13, name: 'Redis', count: 92 },
-  { id: 14, name: 'MongoDB', count: 78 },
-  { id: 15, name: 'Docker', count: 115 },
-  { id: 16, name: 'Kubernetes', count: 95 }
-]
+// 标签详情
+const tagDetail = computed(() => tagStore.currentTag)
+const tagDescription = computed(() => tagDetail.value?.description || '')
 
-// 模拟文章数据
-const mockArticles = (tagName) => {
-  const baseArticles = [
-    {
-      id: 1,
-      title: `深入理解 ${tagName} 核心概念`,
-      summary: `本文将深入探讨 ${tagName} 的核心概念，帮助你更好地理解和应用...`,
-      authorName: '张三',
-      viewCount: 320,
-      likeCount: 42,
-      commentCount: 12,
-      createTime: '2024-01-15T10:30:00',
-      updateTime: '2024-01-15T10:30:00'
-    },
-    {
-      id: 2,
-      title: `${tagName} 最佳实践指南`,
-      summary: `分享使用 ${tagName} 的最佳实践，避免常见错误...`,
-      authorName: '李四',
-      viewCount: 156,
-      likeCount: 25,
-      commentCount: 8,
-      createTime: '2024-01-14T14:20:00',
-      updateTime: '2024-01-14T14:20:00'
-    },
-    {
-      id: 3,
-      title: `${tagName} 项目实战经验分享`,
-      summary: `在实际项目中使用 ${tagName} 的经验总结和技巧分享...`,
-      authorName: '王五',
-      viewCount: 210,
-      likeCount: 36,
-      commentCount: 10,
-      createTime: '2024-01-13T09:15:00',
-      updateTime: '2024-01-13T09:15:00'
-    },
-    {
-      id: 4,
-      title: `${tagName} 常见问题解决方案`,
-      summary: `整理了使用 ${tagName} 过程中遇到的常见问题及其解决方案...`,
-      authorName: '赵六',
-      viewCount: 145,
-      likeCount: 18,
-      commentCount: 5,
-      createTime: '2024-01-12T11:45:00',
-      updateTime: '2024-01-12T11:45:00'
-    },
-    {
-      id: 5,
-      title: `${tagName} 性能优化技巧`,
-      summary: `介绍 ${tagName} 的性能优化方法和实用技巧...`,
-      authorName: '张三',
-      viewCount: 189,
-      likeCount: 29,
-      commentCount: 7,
-      createTime: '2024-01-11T16:30:00',
-      updateTime: '2024-01-11T16:30:00'
-    }
-  ]
-  
-  return baseArticles.slice(0, Math.floor(Math.random() * 3) + 3) // 随机3-5篇文章
-}
+// 文章列表
+const articles = computed(() => articleStore.articles || [])
 
-// 获取相关标签
-const getRelatedTags = (tagName) => {
-  const currentTag = allTags.find(tag => tag.name === tagName)
-  if (!currentTag) return []
-  
-  // 移除当前标签，取其他标签
-  return allTags
-    .filter(tag => tag.name !== tagName)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 6)
-}
+// 统计信息
+const total = computed(() => tagDetail.value?.articleCount || 0)
 
-// 生命周期
-onMounted(() => {
-  loadTagData()
+const viewCount = computed(() => {
+  return articles.value.reduce((sum, article) => sum + (article.viewCount || 0), 0)
 })
 
-// 监听路由变化
-watch(() => route.params.name, (newName) => {
-  tagName.value = newName
-  currentPage.value = 1
-  loadTagData()
+const likeCount = computed(() => {
+  return articles.value.reduce((sum, article) => sum + (article.likeCount || 0), 0)
 })
 
-// 方法
-const loadTagData = () => {
-  loading.value = true
-  
-  // 模拟加载延迟
-  setTimeout(() => {
-    // 设置标签信息
-    tagDescription.value = tagDescriptions[tagName.value] || `关于 ${tagName.value} 的相关文章`
-    
-    // 生成随机统计数据
-    total.value = Math.floor(Math.random() * 50) + 10
-    viewCount.value = Math.floor(Math.random() * 5000) + 1000
-    likeCount.value = Math.floor(viewCount.value * 0.15)
-    
-    // 获取相关标签
-    relatedTags.value = getRelatedTags(tagName.value)
-    
-    // 加载文章数据
-    articles.value = mockArticles(tagName.value)
-    
-    loading.value = false
-  }, 800)
-}
-
+// 数字格式化
 const formatNumber = (num) => {
   if (num >= 10000) {
     return (num / 10000).toFixed(1) + '万'
-  } else if (num >= 1000) {
+  }
+  if (num >= 1000) {
     return (num / 1000).toFixed(1) + '千'
   }
   return num
 }
 
-const getTagType = (count) => {
-  if (count > 100) return 'danger'
-  if (count > 50) return 'warning'
-  if (count > 20) return 'success'
-  if (count > 10) return 'info'
-  return ''
+// 组件挂载
+onMounted(async () => {
+  if (tagName.value) {
+    await loadTagData()
+  }
+})
+
+// 监听路由参数变化
+watch(
+  () => route.params.name,
+  async (newName) => {
+    if (newName) {
+      tagName.value = decodeURIComponent(newName)
+      currentPage.value = 1 // 重置分页
+      await loadTagData()
+    }
+  }
+)
+
+// 加载标签数据
+const loadTagData = async () => {
+  try {
+    loading.value = true
+    
+    // 1. 先获取所有标签，找到匹配的标签ID
+    await tagStore.fetchTags()
+    
+    const foundTag = tagStore.tags.find(tag => 
+      tag.name.toLowerCase() === tagName.value.toLowerCase()
+    )
+    
+    if (!foundTag) {
+      ElMessage.warning('标签不存在')
+      router.push('/tags')
+      return
+    }
+    
+    tagId.value = foundTag.id
+    
+    // 2. 获取标签详情
+    await tagStore.fetchTagDetail(tagId.value)
+    
+    // 3. 获取标签下的文章
+    await loadTagArticles()
+    
+  } catch (error) {
+    console.error('加载标签数据失败:', error)
+    ElMessage.error('加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 
-const viewArticle = (articleId) => {
-  router.push(`/article/${articleId}`)
+// 加载标签文章
+const loadTagArticles = async () => {
+  try {
+    const params = {
+      page: currentPage.value,
+      size: pageSize.value,
+      tagId: tagId.value
+    }
+    
+    await articleStore.fetchArticles(params)
+  } catch (error) {
+    console.error('加载标签文章失败:', error)
+    throw error
+  }
 }
 
-const viewRelatedTag = (tagName) => {
-  router.push(`/tag/${tagName}`)
+// 监听分页变化
+watch(
+  [currentPage, pageSize],
+  () => {
+    if (tagId.value) {
+      loadTagArticles()
+    }
+  }
+)
+
+// 查看文章详情
+const viewArticle = (article) => {
+  router.push(`/article/${article.id}`)
 }
 
+// 分页改变
 const handlePageChange = (page) => {
   currentPage.value = page
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+// 每页数量改变
 const handleSizeChange = (size) => {
   pageSize.value = size
-  currentPage.value = 1
+  currentPage.value = 1 // 重置到第一页
 }
 </script>
 
@@ -423,37 +336,6 @@ const handleSizeChange = (size) => {
 .stat-label {
   color: #666;
   font-size: 14px;
-}
-
-/* 相关标签 */
-.related-tags {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 30px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-.related-tags h3 {
-  font-size: 16px;
-  color: #333;
-  margin-bottom: 15px;
-}
-
-.related-tags-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.related-tag-item {
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.related-tag-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* 标签内容 */

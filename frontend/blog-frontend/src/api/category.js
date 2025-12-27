@@ -1,21 +1,28 @@
 import request from '@/utils/request'
 
-// 获取分类列表
 export const getCategories = () => {
   return request.get('/api/categories')
 }
 
-// 创建分类
+export const getCategoryDetail = (id) => {
+  return request.get(`/api/categories/${id}`)
+}
+
+// 获取分类下的文章
+export const getCategoryArticles = (id, params = {}) => {
+  return request.get(`/api/categories/${id}/articles`, { 
+    params: { page: 1, size: 10, sort: 'createTime', ...params }
+  })
+}
+
 export const createCategory = (data) => {
   return request.post('/api/categories', data)
 }
 
-// 更新分类
 export const updateCategory = (id, data) => {
   return request.put(`/api/categories/${id}`, data)
 }
 
-// 删除分类
 export const deleteCategory = (id) => {
   return request.delete(`/api/categories/${id}`)
 }

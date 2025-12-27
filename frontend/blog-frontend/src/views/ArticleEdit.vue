@@ -35,58 +35,32 @@
               />
             </div>
 
-            <!-- 编辑器切换标签 -->
-            <div class="editor-tabs">
-              <el-tabs v-model="activeTab">
-                <el-tab-pane label="编辑" name="edit" />
-                <el-tab-pane label="预览" name="preview" />
-              </el-tabs>
-            </div>
+            <!-- WangEditor 工具栏 -->
+            <Toolbar
+              v-if="!loading"
+              :editor="editorRef"
+              :defaultConfig="{}"
+              style="border-bottom: 1px solid #ccc;"
+            />
 
-            <!-- 编辑器 -->
-            <div v-show="activeTab === 'edit'" class="editor-wrapper">
-              <el-input
-                v-model="content"
-                type="textarea"
-                :rows="20"
-                placeholder="开始写作...支持 Markdown 语法：
-# 标题
-## 二级标题
-**粗体** *斜体*
-- 列表项
-1. 有序列表
-> 引用
-`代码`"
-                resize="none"
-                class="editor-textarea"
-              />
-            </div>
+            <!-- WangEditor 编辑器 -->
+            <Editor
+              v-if="!loading"
+              v-model="content"
+              :defaultConfig="editorConfig"
+              style="height: 500px; overflow-y: hidden;"
+              @onCreated="handleCreated"
+            />
 
-            <!-- 预览 -->
-            <div v-show="activeTab === 'preview'" class="preview-wrapper">
-              <div class="preview-content" v-html="previewContent"></div>
-              <div v-if="!content" class="preview-empty">
-                <p>还没有内容，请切换到编辑模式开始写作</p>
-              </div>
-            </div>
-
-            <!-- 摘要 -->
-            <div class="summary-section">
-              <h3>文章摘要</h3>
-              <el-input
-                v-model="summary"
-                type="textarea"
-                :rows="3"
-                placeholder="请输入文章摘要，留空将自动生成..."
-                :maxlength="300"
-                show-word-limit
-              />
+            <!-- 加载状态 -->
+            <div v-if="loading" class="editor-loading">
+              加载中...
             </div>
           </div>
 
           <!-- 右侧：设置面板 -->
           <div class="settings-section">
-            <!-- 封面图片（简化版） -->
+            <!-- 封面图片 -->
             <div class="cover-card">
               <h3>封面图片</h3>
               <div class="cover-upload">
@@ -154,19 +128,6 @@
                 </div>
               </div>
             </div>
-
-            <!-- 文章信息 -->
-            <div class="info-card">
-              <h3>文章信息</h3>
-              <div class="info-item">
-                <span class="info-label">字数：</span>
-                <span class="info-value">{{ wordCount }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">预计阅读：</span>
-                <span class="info-value">{{ readingTime }} 分钟</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -177,194 +138,461 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useArticleStore } from '@/stores/article'
+import { useCategoryStore } from '@/stores/category'
+import { useTagStore } from '@/stores/tag'
+import { useUserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { marked } from 'marked'
-import Header from '../components/layout/Header.vue'
-import Footer from '../components/layout/Footer.vue'
+
+// 导入 Vue 3 版本的 WangEditor
+import '@wangeditor/editor/dist/css/style.css'
+import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
+
+// 组件导入
+import Header from '@/components/layout/Header.vue'
+import Footer from '@/components/layout/Footer.vue'
 
 const route = useRoute()
 const router = useRouter()
 
-// 文章ID
-const articleId = ref(route.params.id || null)
+// Pinia Store
+const articleStore = useArticleStore()
+const categoryStore = useCategoryStore()
+const tagStore = useTagStore()
+const userStore = useUserStore()
+const authStore = useAuthStore()
 
-// 文章数据
+// 文章ID（编辑模式才有）
+const articleId = ref(parseInt(route.params.id) || 0)
+const isEditMode = computed(() => !!articleId.value)
+
+// 表单数据
 const title = ref('')
 const content = ref('')
-const summary = ref('')
 const coverImage = ref('')
 const categoryId = ref('')
 const selectedTags = ref([])
-const status = ref(0)
+const status = ref(0) // 0:草稿, 1:发布
 const isPublic = ref(true)
 const allowComment = ref(true)
 
-// 状态
-const activeTab = ref('edit')
+// 加载状态
 const saving = ref(false)
 const publishing = ref(false)
+const loading = ref(false)
 
-// 模拟数据
-const categories = ref([
-  { id: 1, name: '技术' },
-  { id: 2, name: '生活' },
-  { id: 3, name: '学习' }
-])
-
-const allTags = ref(['Vue', 'React', 'JavaScript', 'CSS', 'HTML', 'Node.js', 'Spring Boot', 'Java', 'Python', '数据库'])
-
-// 计算属性
-const wordCount = computed(() => {
-  return content.value ? content.value.length : 0
+// 分类和标签数据
+const categories = computed(() => categoryStore.categories || [])
+const allTags = computed(() => {
+  const existingTags = tagStore.tags?.map(tag => tag.name) || []
+  const currentTags = selectedTags.value || []
+  
+  // 合并现有标签和当前选中的标签（去重）
+  return [...new Set([...existingTags, ...currentTags])]
 })
 
-const readingTime = computed(() => {
-  const words = wordCount.value
-  return Math.ceil(words / 300) || 1
-})
+// WangEditor 相关
+const editorRef = ref(null) // 用于获取 editor 实例
 
-const previewContent = computed(() => {
-  if (!content.value) return ''
-  return marked(content.value)
-})
-
-// 如果是编辑模式，加载文章数据
-if (articleId.value) {
-  // 模拟加载
-  setTimeout(() => {
-    const mockArticle = {
-      title: '我的第一篇文章',
-      content: `# 欢迎使用博客系统
-
-这是一个简单的 Markdown 编辑器示例。
-
-## 功能特点
-- 支持 Markdown 语法
-- 实时预览
-- 草稿保存
-- 文章发布
-
-## 代码示例
-\`\`\`javascript
-console.log('Hello, World!')
-\`\`\`
-
-> 开始写作吧！`,
-      summary: '这是我的第一篇文章，欢迎阅读！',
-      categoryId: 1,
-      tags: ['Vue', 'JavaScript'],
-      coverImage: ''
-    }
-    
-    title.value = mockArticle.title
-    content.value = mockArticle.content
-    summary.value = mockArticle.summary
-    categoryId.value = mockArticle.categoryId
-    selectedTags.value = mockArticle.tags
-    coverImage.value = mockArticle.coverImage
-  }, 500)
-}
-
-// 方法
-const saveDraft = async () => {
-  saving.value = true
-  try {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    const articleData = getArticleData()
-    console.log('保存草稿:', articleData)
-    
-    ElMessage.success('草稿保存成功')
-  } catch (error) {
-    ElMessage.error('保存失败')
-  } finally {
-    saving.value = false
-  }
-}
-
-const publishArticle = async () => {
-  publishing.value = true
-  try {
-    if (!title.value.trim()) {
-      ElMessage.warning('请输入文章标题')
-      return
-    }
-    
-    if (!content.value || content.value.trim().length < 10) {
-      ElMessage.warning('文章内容太短')
-      return
-    }
-    
-    // 确认发布
-    if (status.value === 1) {
-      const confirm = await ElMessageBox.confirm(
-        '确定要发布文章吗？发布后其他人将可以看到这篇文章。',
-        '发布确认',
-        { confirmButtonText: '确定发布', cancelButtonText: '取消', type: 'warning' }
-      ).catch(() => false)
-      
-      if (!confirm) {
-        publishing.value = false
-        return
+// 编辑器配置
+const editorConfig = ref({
+  placeholder: '开始写作...',
+  MENU_CONF: {
+    // 配置上传图片
+    uploadImage: {
+      server: '/api/files/upload', // 文件上传接口
+      fieldName: 'file',
+      maxFileSize: 2 * 1024 * 1024, // 2M
+      allowedFileTypes: ['image/*'],
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      // 自定义上传回调
+      customInsert: (res, insertFn) => {
+        // res 即服务端的返回结果
+        if (res.code === 200) {
+          // 从结果中获取图片 url
+          const url = res.data?.url || res.data
+          if (url) {
+            // 插入图片
+            insertFn(url, '', url)
+            ElMessage.success('图片上传成功')
+          } else {
+            ElMessage.error('图片上传失败：未获取到图片地址')
+          }
+        } else {
+          ElMessage.error(res.msg || '图片上传失败')
+        }
+      },
+      // 上传错误回调
+      onError: (file, err, res) => {
+        console.error('图片上传失败:', err, res)
+        ElMessage.error('图片上传失败')
+      },
+      // 上传进度回调
+      onProgress: (progress) => {
+        // 可以在这里显示上传进度
+        console.log('上传进度:', progress)
+      }
+    },
+    // 禁用视频上传菜单
+    uploadVideo: {
+      disabled: true
+    },
+    // 配置全屏
+    fullScreen: {
+      onFullScreen: (editor, isFull) => {
+        console.log('全屏状态:', isFull)
+        // 全屏时隐藏侧边栏
+        const settingsSection = document.querySelector('.settings-section')
+        if (settingsSection) {
+          if (isFull) {
+            settingsSection.style.display = 'none'
+          } else {
+            setTimeout(() => {
+              settingsSection.style.display = 'block'
+            }, 100)
+          }
+        }
       }
     }
+  }
+})
+
+// 组件挂载
+onMounted(async () => {
+  // 初始化用户状态
+  userStore.initFromStorage()
+  
+  // 检查登录状态
+  if (!userStore.isLoggedIn()) {
+    ElMessage.warning('请先登录')
+    router.push('/')
+    return
+  }
+  
+  // 加载分类和标签数据
+  try {
+    await Promise.all([
+      categoryStore.fetchCategories(),
+      tagStore.fetchTags()
+    ])
+  } catch (error) {
+    console.error('加载分类或标签失败:', error)
+  }
+  
+  // 如果是编辑模式，加载文章数据
+  if (isEditMode.value) {
+    await loadArticleData()
+  }
+  
+  // 添加页面离开提示
+  window.addEventListener('beforeunload', beforeUnloadHandler)
+})
+
+// 加载文章数据
+const loadArticleData = async () => {
+  try {
+    loading.value = true
     
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // 通过 articleStore 获取文章详情
+    const article = await articleStore.fetchArticleDetail(articleId.value)
     
-    const articleData = getArticleData()
-    console.log('发布文章:', articleData)
-    
-    ElMessage.success(status.value === 1 ? '文章发布成功' : '文章保存成功')
-    
-    if (status.value === 1) {
-      router.push('/article/1')
+    if (article) {
+      // 填充表单数据
+      title.value = article.title || ''
+      content.value = article.content || ''
+      coverImage.value = article.coverImage || ''
+      categoryId.value = article.categoryId || ''
+      status.value = article.status || 0
+      isPublic.value = article.isPublic !== false
+      allowComment.value = article.allowComment !== false
+      
+      // 处理标签
+      if (article.tags && Array.isArray(article.tags)) {
+        selectedTags.value = article.tags.map(tag => typeof tag === 'string' ? tag : tag.name)
+      } else {
+        selectedTags.value = []
+      }
+    } else {
+      ElMessage.error('文章不存在或无权访问')
+      router.push('/user/articles')
     }
   } catch (error) {
-    ElMessage.error('操作失败')
+    console.error('加载文章失败:', error)
+    ElMessage.error('加载文章失败')
+    router.push('/user/articles')
   } finally {
-    publishing.value = false
+    loading.value = false
   }
 }
 
-const getArticleData = () => {
-  return {
-    id: articleId.value,
-    title: title.value,
-    content: content.value,
-    summary: summary.value || content.value.substring(0, 100) + '...',
-    coverImage: coverImage.value,
-    categoryId: categoryId.value,
-    tags: selectedTags.value,
-    status: status.value,
-    isPublic: isPublic.value,
-    allowComment: allowComment.value,
-    wordCount: wordCount.value
+// 编辑器创建时的回调
+const handleCreated = (editor) => {
+  editorRef.value = editor // 记录 editor 实例
+  
+  // 如果是从编辑模式加载的文章，设置编辑器内容
+  if (content.value && isEditMode.value && editorRef.value) {
+    editor.setHtml(content.value)
   }
 }
 
+// 组件销毁时，及时销毁编辑器
+onBeforeUnmount(() => {
+  if (editorRef.value) {
+    editorRef.value.destroy()
+    editorRef.value = null
+  }
+  
+  // 移除页面离开提示
+  window.removeEventListener('beforeunload', beforeUnloadHandler)
+})
+
+// 封面图片上传前的验证
 const beforeCoverUpload = (file) => {
   const isImage = file.type.startsWith('image/')
   const isLt2M = file.size / 1024 / 1024 < 2
   
   if (!isImage) {
-    ElMessage.error('只能上传图片文件！')
+    ElMessage.error('只能上传图片文件!')
     return false
   }
   if (!isLt2M) {
-    ElMessage.error('图片大小不能超过 2MB！')
+    ElMessage.error('图片大小不能超过 2MB!')
     return false
   }
   return true
 }
 
-const handleCoverSuccess = (response) => {
-  // 模拟上传成功
-  coverImage.value = 'https://via.placeholder.com/1200x600/409eff/ffffff?text=文章封面'
-  ElMessage.success('封面图片上传成功')
+// 封面图片上传成功
+const handleCoverSuccess = (response, file) => {
+  if (response.code === 200) {
+    // 根据后端返回结构获取图片地址
+    const url = response.data?.url || response.data
+    if (url) {
+      coverImage.value = url
+      ElMessage.success('封面图片上传成功')
+    } else {
+      ElMessage.error('封面图片上传失败：未获取到图片地址')
+    }
+  } else {
+    ElMessage.error(response.msg || '封面图片上传失败')
+  }
 }
+
+// 自定义上传封面图片（处理上传失败的情况）
+const uploadCover = async (options) => {
+  try {
+    const formData = new FormData()
+    formData.append('file', options.file)
+    formData.append('usageType', 'article-cover')
+    
+    // 使用统一的 request 工具上传
+    const { default: request } = await import('@/utils/request')
+    
+    const response = await request.post('/api/files/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    
+    // 注意：request 已经处理了响应拦截器，返回的是 data 字段
+    if (response && response.url) {
+      coverImage.value = response.url
+      ElMessage.success('封面图片上传成功')
+      options.onSuccess({ code: 200, data: response })
+    } else {
+      ElMessage.error('上传失败：未获取到图片地址')
+      options.onError(new Error('上传失败'))
+    }
+  } catch (error) {
+    console.error('上传封面失败:', error)
+    ElMessage.error('封面图片上传失败')
+    options.onError(error)
+  }
+}
+
+// 移除封面图片
+const removeCover = () => {
+  coverImage.value = ''
+}
+
+// 保存草稿
+const saveDraft = async () => {
+  if (!validateForm()) return
+  
+  try {
+    saving.value = true
+    
+    // 准备文章数据
+    const articleData = {
+      title: title.value.trim(),
+      content: getEditorContent(),
+      coverImage: coverImage.value,
+      categoryId: categoryId.value ? parseInt(categoryId.value) : null,
+      tags: selectedTags.value,
+      status: 0, // 草稿状态
+      isPublic: isPublic.value,
+      allowComment: allowComment.value
+    }
+    
+    let result
+    
+    if (isEditMode.value) {
+      // 更新草稿
+      result = await articleStore.updateArticle(articleId.value, articleData)
+      ElMessage.success('草稿保存成功')
+      
+      // 更新文章ID
+      if (result && result.id) {
+        articleId.value = result.id
+      }
+    } else {
+      // 创建草稿
+      result = await articleStore.createArticle(articleData)
+      ElMessage.success('草稿保存成功')
+      
+      // 保存成功后，更新文章ID以便后续编辑
+      if (result && result.id) {
+        articleId.value = result.id
+        // 更新URL但不刷新页面
+        router.replace(`/article/edit/${result.id}`)
+      }
+    }
+    
+  } catch (error) {
+    console.error('保存草稿失败:', error)
+    ElMessage.error(error.message || '保存草稿失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+// 发布文章
+const publishArticle = async () => {
+  if (!validateForm()) return
+  
+  try {
+    publishing.value = true
+    
+    // 准备文章数据
+    const articleData = {
+      title: title.value.trim(),
+      content: getEditorContent(),
+      coverImage: coverImage.value,
+      categoryId: categoryId.value ? parseInt(categoryId.value) : null,
+      tags: selectedTags.value,
+      status: 1, // 发布状态
+      isPublic: isPublic.value,
+      allowComment: allowComment.value
+    }
+    
+    let result
+    
+    if (isEditMode.value) {
+      // 更新并发布文章
+      result = await articleStore.updateArticle(articleId.value, articleData)
+      ElMessage.success('文章发布成功')
+    } else {
+      // 创建并发布文章
+      result = await articleStore.createArticle(articleData)
+      ElMessage.success('文章发布成功')
+    }
+    
+    // 发布成功后跳转到文章详情页
+    if (result && result.id) {
+      setTimeout(() => {
+        router.push(`/article/${result.id}`)
+      }, 500)
+    } else if (articleId.value) {
+      router.push(`/article/${articleId.value}`)
+    }
+    
+  } catch (error) {
+    console.error('发布文章失败:', error)
+    ElMessage.error(error.message || '发布文章失败')
+  } finally {
+    publishing.value = false
+  }
+}
+
+// 验证表单
+const validateForm = () => {
+  // 验证标题
+  if (!title.value.trim()) {
+    ElMessage.warning('请输入文章标题')
+    return false
+  }
+  
+  // 验证内容
+  const editorContent = getEditorContent()
+  if (!editorContent.trim() || editorContent === '<p><br></p>') {
+    ElMessage.warning('请输入文章内容')
+    return false
+  }
+  
+  return true
+}
+
+// 获取编辑器内容
+const getEditorContent = () => {
+  if (editorRef.value) {
+    return editorRef.value.getHtml()
+  }
+  return content.value
+}
+
+// 页面离开提示处理
+const beforeUnloadHandler = (e) => {
+  // 获取编辑器内容
+  const editorContent = getEditorContent()
+  if (editorContent && editorContent !== '<p><br></p>' && title.value) {
+    e.preventDefault()
+    e.returnValue = '文章内容尚未保存，确定要离开吗？'
+  }
+}
+
+// 路由离开前的提示
+const setupRouteGuard = () => {
+  const guardHandler = (to, from, next) => {
+    if (from.path.includes('/article/edit') || from.path === '/article/create') {
+      // 获取编辑器内容
+      const editorContent = getEditorContent()
+      if (editorContent && editorContent !== '<p><br></p>' && title.value) {
+        ElMessageBox.confirm(
+          '文章内容尚未保存，确定要离开吗？',
+          '提示',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        ).then(() => {
+          next()
+        }).catch(() => {
+          next(false)
+        })
+        return
+      }
+    }
+    next()
+  }
+  
+  // 添加路由守卫
+  const originalBeforeEach = router.beforeEach
+  router.beforeEach = (to, from, next) => {
+    guardHandler(to, from, next)
+  }
+}
+
+// 在组件挂载后设置路由守卫
+onMounted(() => {
+  setupRouteGuard()
+})
 </script>
 
 <style scoped>
@@ -410,6 +638,8 @@ const handleCoverSuccess = (response) => {
 .editor-section {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .settings-section {
@@ -421,117 +651,22 @@ const handleCoverSuccess = (response) => {
   margin-bottom: 20px;
 }
 
-.editor-tabs {
-  margin-bottom: 20px;
-}
-
-.editor-wrapper, .preview-wrapper {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-}
-
-.editor-textarea {
-  border: none;
-}
-
-.editor-textarea :deep(.el-textarea__inner) {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  border: none;
-  padding: 20px;
-}
-
-.preview-content {
-  padding: 20px;
-  min-height: 400px;
-  line-height: 1.8;
-}
-
-.preview-content h1 {
-  font-size: 28px;
-  margin: 20px 0 15px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #eee;
-}
-
-.preview-content h2 {
-  font-size: 24px;
-  margin: 18px 0 12px;
-}
-
-.preview-content h3 {
-  font-size: 20px;
-  margin: 16px 0 10px;
-}
-
-.preview-content p {
-  margin: 10px 0;
-}
-
-.preview-content ul, .preview-content ol {
-  padding-left: 2em;
-  margin: 10px 0;
-}
-
-.preview-content li {
-  margin: 5px 0;
-}
-
-.preview-content blockquote {
-  border-left: 4px solid #409eff;
-  padding-left: 16px;
-  margin: 15px 0;
-  color: #666;
-  background: #f8f9fa;
-}
-
-.preview-content pre {
-  background: #2d2d2d;
-  color: #f8f8f2;
-  padding: 15px;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 15px 0;
-}
-
-.preview-content code {
-  background: #f6f8fa;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-size: 0.9em;
-}
-
-.preview-empty {
-  height: 400px;
+.editor-loading {
+  height: 500px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
-}
-
-.summary-section {
   background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-
-.summary-section h3 {
-  margin-bottom: 15px;
-  font-size: 16px;
-  color: #333;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  color: #666;
 }
 
 /* 右侧卡片 */
 .cover-card,
 .category-card,
 .tags-card,
-.publish-card,
-.info-card {
+.publish-card {
   background: white;
   border-radius: 8px;
   padding: 20px;
@@ -542,13 +677,13 @@ const handleCoverSuccess = (response) => {
 .cover-card h3,
 .category-card h3,
 .tags-card h3,
-.publish-card h3,
-.info-card h3 {
+.publish-card h3 {
   margin-bottom: 15px;
   font-size: 16px;
   color: #333;
 }
 
+/* 封面图片上传样式 */
 .cover-uploader {
   width: 100%;
   height: 150px;
@@ -560,6 +695,7 @@ const handleCoverSuccess = (response) => {
   align-items: center;
   justify-content: center;
   color: #8c939d;
+  transition: border-color 0.3s;
 }
 
 .cover-uploader:hover {
@@ -568,6 +704,7 @@ const handleCoverSuccess = (response) => {
 
 .cover-image-preview {
   position: relative;
+  width: 100%;
 }
 
 .cover-image {
@@ -581,6 +718,13 @@ const handleCoverSuccess = (response) => {
   position: absolute;
   top: 10px;
   right: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+}
+
+.remove-cover:hover {
+  background: rgba(0, 0, 0, 0.7);
 }
 
 .upload-text {
@@ -603,28 +747,6 @@ const handleCoverSuccess = (response) => {
   display: flex;
   flex-direction: column;
   gap: 15px;
-}
-
-.info-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid #f5f5f5;
-}
-
-.info-item:last-child {
-  border-bottom: none;
-}
-
-.info-label {
-  color: #666;
-  font-size: 14px;
-}
-
-.info-value {
-  color: #333;
-  font-weight: 500;
 }
 
 /* 响应式设计 */
@@ -654,5 +776,29 @@ const handleCoverSuccess = (response) => {
   .header-right .el-button {
     flex: 1;
   }
+}
+
+/* 调整 WangEditor 样式 */
+:deep(.w-e-bar) {
+  background-color: #fff !important;
+  border-bottom: 1px solid #e8e8e8 !important;
+  flex-wrap: wrap !important;
+}
+
+:deep(.w-e-text-container) {
+  background-color: #fff !important;
+}
+
+:deep(.w-e-text) {
+  padding: 20px !important;
+}
+
+/* 全屏模式下的调整 */
+:deep(.w-e-full-screen-editor) {
+  z-index: 1000 !important;
+}
+
+:deep(.w-e-full-screen-container) {
+  z-index: 1000 !important;
 }
 </style>

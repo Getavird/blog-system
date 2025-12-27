@@ -1,7 +1,7 @@
 <template>
   <div class="home-page">
     <Header @show-login="showLoginDialog = true" />
-    
+
     <main class="main-content">
       <!-- 欢迎横幅 -->
       <section class="hero-banner">
@@ -10,7 +10,8 @@
             <h1 class="hero-title">欢迎来到博客系统</h1>
             <p class="hero-subtitle">分享技术，记录生活，共同成长</p>
             <div class="hero-actions">
-              <el-button v-if="!isLoggedIn" type="primary" size="large" @click="showLoginDialog = true; activeTab = 'login'">
+              <el-button v-if="!isLoggedIn" type="primary" size="large"
+                @click="showLoginDialog = true; activeTab = 'login'">
                 开始使用
               </el-button>
               <el-button v-else type="primary" size="large" @click="toWriteArticle">
@@ -23,38 +24,30 @@
           </div>
         </div>
       </section>
-      
+
       <!-- 主要内容 -->
       <div class="container">
         <div class="home-content">
           <!-- 左侧：文章列表 -->
           <div class="articles-section">
-            <h2><el-icon><Document /></el-icon> 最新文章</h2>
-            
+            <h2><el-icon>
+                <Document />
+              </el-icon> 最新文章</h2>
+
             <!-- 使用 ArticleList 组件 -->
-            <ArticleList
-              :articles="articles"
-              :loading="loading"
-              :show-time="true"
-              :show-views="true"
-              :show-author="true"
-              :show-summary="true"
-              :show-pagination="true"
-              :total="total"
-              :current-page="currentPage"
-              :page-size="pageSize"
-              @article-click="viewArticle"
-              @create-click="toWriteArticle"
-              @size-change="handleSizeChange"
-              @page-change="handlePageChange"
-            />
+            <ArticleList :articles="articles" :loading="loading" :show-time="true" :show-views="true"
+              :show-author="true" :show-summary="true" :show-pagination="true" :total="total"
+              :current-page="currentPage" :page-size="pageSize" @article-click="viewArticle"
+              @create-click="toWriteArticle" @size-change="handleSizeChange" @page-change="handlePageChange" />
           </div>
-          
+
           <!-- 右侧：侧边栏 -->
           <aside class="sidebar">
             <!-- 热门文章 -->
             <div class="hot-articles">
-              <h3><el-icon><Star /></el-icon> 热门文章</h3>
+              <h3><el-icon>
+                  <Star />
+                </el-icon> 热门文章</h3>
               <ul class="hot-list">
                 <li v-for="article in hotArticles" :key="article.id">
                   <a href="javascript:;" class="hot-item" @click="viewArticle(article.id)">
@@ -64,10 +57,12 @@
                 </li>
               </ul>
             </div>
-            
+
             <!-- 分类统计 -->
             <div class="category-card">
-              <h3><el-icon><Folder /></el-icon> 文章分类</h3>
+              <h3><el-icon>
+                  <Folder />
+                </el-icon> 文章分类</h3>
               <ul class="category-list">
                 <li v-for="category in categories" :key="category.id">
                   <a href="javascript:;" class="category-item" @click="viewCategory(category.id)">
@@ -77,20 +72,16 @@
                 </li>
               </ul>
             </div>
-            
+
             <!-- 标签云 -->
             <div class="tags-card">
-              <h3><el-icon><PriceTag /></el-icon> 热门标签</h3>
+              <h3><el-icon>
+                  <PriceTag />
+                </el-icon> 热门标签</h3>
               <div class="tags-cloud">
-                <el-tag
-                  v-for="tag in tags"
-                  :key="tag.id"
-                  :type="tagTypes[tag.id % tagTypes.length]"
-                  size="medium"
-                  class="tag-cloud-item"
-                  @click="viewTag(tag.id)"
-                >
-                  {{ tag.name }} ({{ tag.count }})
+                <el-tag v-for="tag in tags" :key="tag.id" :type="tagTypes[tag.id % tagTypes.length]" size="medium"
+                  class="tag-cloud-item" @click="viewTag(tag)">
+                  {{ tag.name }} ({{ tag.articleCount || 0 }})
                 </el-tag>
               </div>
             </div>
@@ -98,137 +89,72 @@
         </div>
       </div>
     </main>
-    
+
     <Footer />
-    
+
     <!-- 登录/注册弹窗 -->
-    <el-dialog
-      v-model="showLoginDialog"
-      :title="activeTab === 'login' ? '用户登录' : '用户注册'"
-      width="400px"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      @closed="resetForm"
-    >
+    <el-dialog v-model="showLoginDialog" :title="activeTab === 'login' ? '用户登录' : '用户注册'" width="400px"
+      :close-on-click-modal="false" :close-on-press-escape="false" @closed="resetForm">
       <!-- 标签切换 -->
       <div class="dialog-tabs">
-        <div 
-          class="tab-item" 
-          :class="{ active: activeTab === 'login' }"
-          @click="activeTab = 'login'"
-        >
+        <div class="tab-item" :class="{ active: activeTab === 'login' }" @click="activeTab = 'login'">
           登录
         </div>
-        <div 
-          class="tab-item"
-          :class="{ active: activeTab === 'register' }"
-          @click="activeTab = 'register'"
-        >
+        <div class="tab-item" :class="{ active: activeTab === 'register' }" @click="activeTab = 'register'">
           注册
         </div>
       </div>
-      
+
       <!-- 登录表单 -->
       <div v-if="activeTab === 'login'" class="login-form">
-        <el-form
-          ref="loginFormRef"
-          :model="loginForm"
-          :rules="loginRules"
-          @submit.prevent="handleLogin"
-        >
+        <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" @submit.prevent="handleLogin">
           <el-form-item prop="username">
-            <el-input
-              v-model="loginForm.username"
-              placeholder="用户名"
-              size="large"
-            />
+            <el-input v-model="loginForm.username" placeholder="用户名" size="large" />
           </el-form-item>
-          
+
           <el-form-item prop="password">
-            <el-input
-              v-model="loginForm.password"
-              type="password"
-              placeholder="密码"
-              size="large"
-              show-password
-            />
+            <el-input v-model="loginForm.password" type="password" placeholder="密码" size="large" show-password />
           </el-form-item>
-          
+
           <div class="form-options">
             <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
             <a href="javascript:;" class="forgot-link">忘记密码？</a>
           </div>
-          
-          <el-button
-            type="primary"
-            size="large"
-            :loading="loginLoading"
-            @click="handleLogin"
-            class="submit-btn"
-          >
+
+          <el-button type="primary" size="large" :loading="loginLoading" @click="handleLogin" class="submit-btn">
             登录
           </el-button>
         </el-form>
       </div>
-      
+
       <!-- 注册表单 -->
       <div v-else class="register-form">
-        <el-form
-          ref="registerFormRef"
-          :model="registerForm"
-          :rules="registerRules"
-          @submit.prevent="handleRegister"
-        >
+        <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" @submit.prevent="handleRegister">
           <el-form-item prop="username">
-            <el-input
-              v-model="registerForm.username"
-              placeholder="用户名"
-              size="large"
-            />
+            <el-input v-model="registerForm.username" placeholder="用户名" size="large" />
           </el-form-item>
-          
+
           <el-form-item prop="email">
-            <el-input
-              v-model="registerForm.email"
-              placeholder="邮箱"
-              size="large"
-            />
+            <el-input v-model="registerForm.email" placeholder="邮箱" size="large" />
           </el-form-item>
-          
+
           <el-form-item prop="password">
-            <el-input
-              v-model="registerForm.password"
-              type="password"
-              placeholder="密码"
-              size="large"
-              show-password
-            />
+            <el-input v-model="registerForm.password" type="password" placeholder="密码" size="large" show-password />
           </el-form-item>
-          
+
           <el-form-item prop="confirmPassword">
-            <el-input
-              v-model="registerForm.confirmPassword"
-              type="password"
-              placeholder="确认密码"
-              size="large"
-              show-password
-            />
+            <el-input v-model="registerForm.confirmPassword" type="password" placeholder="确认密码" size="large"
+              show-password />
           </el-form-item>
-          
+
           <el-form-item prop="agree">
             <el-checkbox v-model="registerForm.agree">
               我已阅读并同意
               <a href="javascript:;" class="link">服务条款</a>
             </el-checkbox>
           </el-form-item>
-          
-          <el-button
-            type="primary"
-            size="large"
-            :loading="registerLoading"
-            @click="handleRegister"
-            class="submit-btn"
-          >
+
+          <el-button type="primary" size="large" :loading="registerLoading" @click="handleRegister" class="submit-btn">
             注册
           </el-button>
         </el-form>
@@ -238,40 +164,55 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useArticleStore } from '@/stores/article'
+import { useCategoryStore } from '@/stores/category'
+import { useTagStore } from '@/stores/tag'
 import { ElMessage } from 'element-plus'
-import { Document, Star, Folder } from '@element-plus/icons-vue'
+import { Document, Star, Folder, PriceTag } from '@element-plus/icons-vue'
 import Header from '@/components/layout/Header.vue'
 import Footer from '@/components/layout/Footer.vue'
 import ArticleList from '@/components/article/ArticleList.vue'
-import { getArticles } from '@/api/article'
-import { getCategories } from '@/api/category'
-import { transformArticles, transformCategories, formatDateTime } from '@/utils/dataTransform'
+import { useUserStore } from '@/stores/user'
 
 
 const router = useRouter()
 
+// Pinia Stores
+const authStore = useAuthStore()
+const articleStore = useArticleStore()
+const categoryStore = useCategoryStore()
+const tagStore = useTagStore()
+const userStore = useUserStore()
+
 // 状态
-const loading = ref(true)
-const isLoggedIn = ref(false)
-const articles = ref([])
-const hotArticles = ref([])
-const categories = ref([])
+const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
-const total = ref(0)
 
-// 标签类型数组
+// 计算属性：从Pinia Store获取数据
+const isLoggedIn = computed(() => authStore.isLoggedIn)  // 这里修正
+const articles = computed(() => articleStore.articles || [])
+const hotArticles = computed(() => articleStore.hotArticles || [])
+const categories = computed(() => categoryStore.categories || [])
+const tags = computed(() => tagStore.tags || [])
+const total = computed(() => articleStore.total || 0)
+
+
+// 标签类型数组（用于标签云样式）
 const tagTypes = ['', 'success', 'info', 'warning', 'danger']
 
 // 登录/注册弹窗相关
 const showLoginDialog = ref(false)
 const activeTab = ref('login')
+const loginFormRef = ref(null)
+const registerFormRef = ref(null)
+const loginLoading = ref(false)
+const registerLoading = ref(false)
 
 // 登录表单
-const loginFormRef = ref(null)
-const loginLoading = ref(false)
 const loginForm = ref({
   username: '',
   password: '',
@@ -288,8 +229,6 @@ const loginRules = {
 }
 
 // 注册表单
-const registerFormRef = ref(null)
-const registerLoading = ref(false)
 const registerForm = ref({
   username: '',
   email: '',
@@ -350,171 +289,139 @@ const registerRules = {
 }
 
 // 生命周期
-onMounted(() => {
-  // 检查登录状态
-  const token = localStorage.getItem('blog_token')
-  isLoggedIn.value = !!token
-  
-  loadData()
+onMounted(async () => {
+  // 初始化用户状态
+  userStore.initFromStorage()
+
+  // 加载数据
+  await loadData()
 })
 
-// 方法
+// 方法：加载首页数据
 const loadData = async () => {
-  loading.value = true
   try {
-    // 1. 获取文章列表
-    const articlesResponse = await getArticles({
-      page: currentPage.value,
-      size: pageSize.value
-    })
-    
-    // 转换数据格式
-    articles.value = transformArticles(articlesResponse)
-    
-    // 热门文章取前5个（模拟）
-    hotArticles.value = articles.value.slice(0, 5).map(article => ({
-      id: article.id,
-      title: article.title,
-      viewCount: article.viewCount
-    }))
-    
-    // 2. 获取分类列表
-    const categoriesResponse = await getCategories()
-    categories.value = transformCategories(categoriesResponse)
-    
-    // 统计每个分类的文章数量
-    categories.value = categories.value.map(category => ({
-      ...category,
-      count: category.articleCount
-    }))
-    
-    // 3. 更新总数（这里需要后端支持返回总条数）
-    total.value = articlesResponse.length || 0
-    
+    loading.value = true
+
+    // 并行加载所有数据
+    await Promise.all([
+      // 1. 加载文章列表
+      articleStore.fetchArticles({
+        page: currentPage.value,
+        size: pageSize.value
+      }),
+
+      // 2. 加载热门文章
+      articleStore.fetchHotArticles(5),
+
+      // 3. 加载分类列表
+      categoryStore.fetchCategories(),
+
+      // 4. 加载标签列表
+      tagStore.fetchTags()
+    ])
+
   } catch (error) {
-    console.error('加载数据失败:', error)
-    // 使用模拟数据作为回退
-    articles.value = getMockArticles()
-    categories.value = getMockCategories()
-    hotArticles.value = getMockHotArticles()
+    console.error('加载首页数据失败:', error)
+    ElMessage.error('数据加载失败，请刷新重试')
   } finally {
     loading.value = false
   }
 }
 
-// 模拟数据作为回退
-const getMockArticles = () => {
-  return [
-    {
-      id: 1,
-      title: 'Spring Boot入门教程',
-      summary: '详细介绍Spring Boot的基本使用和配置，快速上手后端开发...',
-      authorName: 'admin',
-      viewCount: 156,
-      likeCount: 25,
-      createTime: '2023-10-01T10:30:00'
-    },
-    {
-      id: 2,
-      title: 'Vue 3新特性详解',
-      summary: '深入解析Vue 3的新特性和使用技巧，带你快速上手Vue 3开发...',
-      authorName: 'admin',
-      viewCount: 203,
-      likeCount: 42,
-      createTime: '2023-10-02T14:20:00'
-    }
-  ]
+// 查看文章详情
+const viewArticle = (article) => {
+  if (typeof article === 'object') {
+    router.push(`/article/${article.id}`)
+  } else {
+    // 如果是来自ArticleList的点击事件，传过来的是articleId
+    router.push(`/article/${article}`)
+  }
 }
 
-const getMockCategories = () => {
-  return [
-    { id: 1, name: '技术分享', count: 12 },
-    { id: 2, name: '生活随笔', count: 8 }
-  ]
-}
-
-const getMockHotArticles = () => {
-  return [
-    { id: 1, title: 'Vue 3新特性详解', viewCount: 320 },
-    { id: 2, title: 'Spring Boot入门教程', viewCount: 280 }
-  ]
-}
-
-const viewArticle = (id) => {
-  router.push(`/article/${id}`)
-}
-
+// 查看分类
 const viewCategory = (categoryId) => {
   router.push(`/category/${categoryId}`)
 }
 
-const viewTag = (tagId) => {
-  // 这里可以跳转到标签页面或筛选该标签的文章
-  console.log('查看标签:', tagId)
-  const tagName = tags.value.find(t => t.id === tagId)?.name || tagId
-  ElMessage.info(`查看标签 #${tagName} 的文章`)
+// 查看标签
+const viewTag = (tag) => {
+  if (typeof tag === 'object') {
+    router.push(`/tag/${encodeURIComponent(tag.name)}`)
+  } else {
+    // 如果是模板中的点击，传过来的是tag对象
+    const tagObj = tags.value.find(t => t.id === tag)
+    if (tagObj) {
+      router.push(`/tag/${encodeURIComponent(tagObj.name)}`)
+    }
+  }
 }
 
+// 写文章
 const toWriteArticle = () => {
-  // 检查是否登录
   if (!isLoggedIn.value) {
     ElMessage.warning('请先登录')
     showLoginDialog.value = true
+    activeTab.value = 'login'
     return
   }
   router.push('/article/create')
 }
 
+// 查看文章列表
 const toArticlesList = () => {
   currentPage.value = 1
   loadData()
 }
 
-const handlePageChange = (page) => {
+// 分页处理
+const handlePageChange = async (page) => {
   currentPage.value = page
-  loadData()
+  try {
+    await articleStore.fetchArticles({
+      page: currentPage.value,
+      size: pageSize.value
+    })
+    // 滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } catch (error) {
+    console.error('分页加载失败:', error)
+  }
 }
 
-const handleSizeChange = (size) => {
+// 每页数量改变
+const handleSizeChange = async (size) => {
   pageSize.value = size
   currentPage.value = 1
-  loadData()
+  try {
+    await articleStore.fetchArticles({
+      page: currentPage.value,
+      size: pageSize.value
+    })
+  } catch (error) {
+    console.error('分页大小改变失败:', error)
+  }
 }
 
 // 登录方法
 const handleLogin = async () => {
   if (!loginFormRef.value) return
-  
+
   try {
+    // 表单验证
     await loginFormRef.value.validate()
+
     loginLoading.value = true
-    
-    // 模拟登录
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // 模拟用户数据
-    const userData = {
-      id: 1,
-      username: loginForm.value.username,
-      email: 'test@example.com',
-      role: 1,
-      articleCount: 5,
-      likeCount: 23,
-      viewCount: 156
-    }
-    
-    // 保存到localStorage
-    localStorage.setItem('blog_user', JSON.stringify(userData))
-    localStorage.setItem('blog_token', 'mock_token_123456')
-    
+
+    // 使用authStore的login方法
+    await authStore.login(loginForm.value.username, loginForm.value.password)
+
     ElMessage.success('登录成功')
     showLoginDialog.value = false
-    isLoggedIn.value = true
-    
-    // 刷新页面以更新状态
-    window.location.reload()
+    resetForm()
+
   } catch (error) {
-    ElMessage.error('登录失败')
+    const errorMsg = error.message || '登录失败，请检查用户名和密码'
+    ElMessage.error(errorMsg)
   } finally {
     loginLoading.value = false
   }
@@ -523,28 +430,27 @@ const handleLogin = async () => {
 // 注册方法
 const handleRegister = async () => {
   if (!registerFormRef.value) return
-  
+
   try {
+    // 表单验证
     await registerFormRef.value.validate()
+
     registerLoading.value = true
-    
-    // 模拟注册
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
+
+    // 使用authStore的register方法
+    await authStore.register({
+      username: registerForm.value.username,
+      email: registerForm.value.email,
+      password: registerForm.value.password
+    })
+
     ElMessage.success('注册成功')
-    // 注册成功后切换到登录标签
     activeTab.value = 'login'
-    
-    // 清空注册表单
-    registerForm.value = {
-      username: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      agree: false
-    }
+    resetForm()
+
   } catch (error) {
-    ElMessage.error('注册失败')
+    const errorMsg = error.message || '注册失败，请稍后重试'
+    ElMessage.error(errorMsg)
   } finally {
     registerLoading.value = false
   }
@@ -558,8 +464,18 @@ const resetForm = () => {
   if (registerFormRef.value) {
     registerFormRef.value.resetFields()
   }
-  loginLoading.value = false
-  registerLoading.value = false
+  loginForm.value = {
+    username: '',
+    password: '',
+    remember: false
+  }
+  registerForm.value = {
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    agree: false
+  }
 }
 </script>
 
@@ -651,7 +567,9 @@ const resetForm = () => {
 }
 
 /* 侧边栏卡片样式 */
-.hot-articles, .category-card, .tags-card {
+.hot-articles,
+.category-card,
+.tags-card {
   background: white;
   border-radius: 8px;
   padding: 20px;
@@ -659,7 +577,9 @@ const resetForm = () => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
-.hot-articles h3, .category-card h3, .tags-card h3 {
+.hot-articles h3,
+.category-card h3,
+.tags-card h3 {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -670,17 +590,20 @@ const resetForm = () => {
   border-bottom: 1px solid #eee;
 }
 
-.hot-list, .category-list {
+.hot-list,
+.category-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.hot-list li, .category-list li {
+.hot-list li,
+.category-list li {
   margin-bottom: 10px;
 }
 
-.hot-list li:last-child, .category-list li:last-child {
+.hot-list li:last-child,
+.category-list li:last-child {
   margin-bottom: 0;
 }
 
@@ -789,39 +712,46 @@ const resetForm = () => {
   font-weight: bold;
 }
 
-.login-form .el-form-item, .register-form .el-form-item {
+.login-form .el-form-item,
+.register-form .el-form-item {
   margin-bottom: 20px;
 }
 
-.login-form .form-options, .register-form .form-options {
+.login-form .form-options,
+.register-form .form-options {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
 }
 
-.login-form .form-options .forgot-link, .register-form .form-options .forgot-link {
+.login-form .form-options .forgot-link,
+.register-form .form-options .forgot-link {
   color: #409eff;
   text-decoration: none;
   font-size: 14px;
 }
 
-.login-form .form-options .forgot-link:hover, .register-form .form-options .forgot-link:hover {
+.login-form .form-options .forgot-link:hover,
+.register-form .form-options .forgot-link:hover {
   text-decoration: underline;
 }
 
-.login-form .submit-btn, .register-form .submit-btn {
+.login-form .submit-btn,
+.register-form .submit-btn {
   width: 100%;
   height: 48px;
   font-size: 16px;
 }
 
-.login-form .link, .register-form .link {
+.login-form .link,
+.register-form .link {
   color: #409eff;
   text-decoration: none;
 }
 
-.login-form .link:hover, .register-form .link:hover {
+.login-form .link:hover,
+.register-form .link:hover {
   text-decoration: underline;
 }
 
@@ -830,15 +760,15 @@ const resetForm = () => {
   .home-content .container {
     flex-direction: column;
   }
-  
+
   .home-content .sidebar {
     width: 100%;
   }
-  
+
   .hero-title {
     font-size: 36px !important;
   }
-  
+
   .hero-subtitle {
     font-size: 16px !important;
   }
@@ -848,16 +778,16 @@ const resetForm = () => {
   .hero-banner {
     padding: 60px 0;
   }
-  
+
   .hero-actions {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .hero-actions .el-button {
     width: 200px;
   }
-  
+
   .el-dialog {
     width: 90% !important;
     max-width: 400px !important;

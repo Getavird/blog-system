@@ -156,58 +156,29 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  Search,
-  PriceTag
-} from '@element-plus/icons-vue'
-import Header from '../components/layout/Header.vue'
-import Footer from '../components/layout/Footer.vue'
+import { useTagStore } from '@/stores/tag'
+import { useArticleStore } from '@/stores/article'
+import { ElMessage } from 'element-plus'
+import { Search, PriceTag } from '@element-plus/icons-vue'
+
+// 组件导入 - 路径需要根据你的实际结构调整
+import Header from '@/components/layout/Header.vue'
+import Footer from '@/components/layout/Footer.vue'
 
 const router = useRouter()
+const tagStore = useTagStore()
+const articleStore = useArticleStore()
 
 // 状态
-const loading = ref(true)
-const tags = ref([])
+const tags = ref([])  // 添加 tags 变量定义
+const loading = ref(false)
 const searchKeyword = ref('')
 const viewMode = ref('cloud') // 'cloud' 或 'list'
 
-// 模拟标签数据
-const mockTags = [
-  { id: 1, name: 'Vue', count: 156, lastUpdate: '2024-01-15' },
-  { id: 2, name: 'React', count: 128, lastUpdate: '2024-01-14' },
-  { id: 3, name: 'JavaScript', count: 210, lastUpdate: '2024-01-16' },
-  { id: 4, name: 'TypeScript', count: 98, lastUpdate: '2024-01-13' },
-  { id: 5, name: 'CSS', count: 89, lastUpdate: '2024-01-12' },
-  { id: 6, name: 'HTML', count: 76, lastUpdate: '2024-01-11' },
-  { id: 7, name: 'Node.js', count: 142, lastUpdate: '2024-01-10' },
-  { id: 8, name: 'Python', count: 187, lastUpdate: '2024-01-09' },
-  { id: 9, name: 'Java', count: 165, lastUpdate: '2024-01-08' },
-  { id: 10, name: 'Spring Boot', count: 134, lastUpdate: '2024-01-07' },
-  { id: 11, name: '数据库', count: 120, lastUpdate: '2024-01-06' },
-  { id: 12, name: 'MySQL', count: 115, lastUpdate: '2024-01-05' },
-  { id: 13, name: 'Redis', count: 92, lastUpdate: '2024-01-04' },
-  { id: 14, name: 'MongoDB', count: 78, lastUpdate: '2024-01-03' },
-  { id: 15, name: 'Docker', count: 115, lastUpdate: '2024-01-02' },
-  { id: 16, name: 'Kubernetes', count: 95, lastUpdate: '2024-01-01' },
-  { id: 17, name: '云计算', count: 82, lastUpdate: '2023-12-31' },
-  { id: 18, name: '人工智能', count: 105, lastUpdate: '2023-12-30' },
-  { id: 19, name: '机器学习', count: 98, lastUpdate: '2023-12-29' },
-  { id: 20, name: '深度学习', count: 76, lastUpdate: '2023-12-28' },
-  { id: 21, name: '算法', count: 110, lastUpdate: '2023-12-27' },
-  { id: 22, name: '数据结构', count: 85, lastUpdate: '2023-12-26' },
-  { id: 23, name: '设计模式', count: 85, lastUpdate: '2023-12-25' },
-  { id: 24, name: '前端工程化', count: 92, lastUpdate: '2023-12-24' },
-  { id: 25, name: '微服务', count: 78, lastUpdate: '2023-12-23' },
-  { id: 26, name: '架构设计', count: 88, lastUpdate: '2023-12-22' },
-  { id: 27, name: '性能优化', count: 94, lastUpdate: '2023-12-21' },
-  { id: 28, name: '网络安全', count: 75, lastUpdate: '2023-12-20' },
-  { id: 29, name: '测试', count: 68, lastUpdate: '2023-12-19' },
-  { id: 30, name: '运维', count: 72, lastUpdate: '2023-12-18' }
-]
-
 // 计算属性
+// 过滤后的标签
 const filteredTags = computed(() => {
   if (!searchKeyword.value.trim()) {
     return tags.value
@@ -218,71 +189,76 @@ const filteredTags = computed(() => {
   )
 })
 
+// 总文章数
 const totalArticleCount = computed(() => {
-  return tags.value.reduce((sum, tag) => sum + tag.count, 0)
+  return tags.value.reduce((sum, tag) => sum + (tag.articleCount || 0), 0)
 })
 
+// 最热标签（文章数最多的标签）
 const mostUsedTag = computed(() => {
-  if (tags.value.length === 0) return { name: '无', count: 0 }
-  return tags.value.reduce((prev, current) => 
-    prev.count > current.count ? prev : current
+  if (tags.value.length === 0) return { name: '无' }
+  const tag = tags.value.reduce((prev, current) => 
+    (prev.articleCount || 0) > (current.articleCount || 0) ? prev : current
   )
+  return tag
 })
 
+// 热门标签（前10个）
 const topTags = computed(() => {
   return [...tags.value]
-    .sort((a, b) => b.count - a.count)
+    .sort((a, b) => (b.articleCount || 0) - (a.articleCount || 0))
     .slice(0, 10)
 })
 
 // 生命周期
-onMounted(() => {
-  loadTags()
+onMounted(async () => {
+  await loadTags()
 })
 
 // 方法
-const loadTags = () => {
-  loading.value = true
-  
-  // 模拟API调用
-  setTimeout(() => {
-    tags.value = mockTags
+// 加载标签
+const loadTags = async () => {
+  try {
+    loading.value = true
+    await tagStore.fetchTags()
+    tags.value = tagStore.tags || []
+  } catch (error) {
+    console.error('加载标签失败:', error)
+    ElMessage.error('加载标签失败')
+  } finally {
     loading.value = false
-  }, 800)
+  }
 }
 
+// 搜索标签
 const handleSearch = () => {
-  // 搜索逻辑已经在 computed 中处理
+  // 搜索逻辑由filteredTags计算属性处理
 }
 
+// 切换视图模式
 const toggleViewMode = () => {
   viewMode.value = viewMode.value === 'cloud' ? 'list' : 'cloud'
 }
 
-const getTagType = (count) => {
-  if (count > 150) return 'danger'
-  if (count > 100) return 'warning'
-  if (count > 50) return 'success'
-  if (count > 20) return 'info'
-  return ''
+// 查看标签文章
+const viewTagArticles = (tagId, tagName) => {
+  router.push(`/tag/${encodeURIComponent(tagName)}`)
 }
 
-const formatTime = (timeString) => {
-  const date = new Date(timeString)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  
-  if (days === 0) return '今天'
-  if (days === 1) return '昨天'
-  if (days < 7) return `${days}天前`
-  
+// 格式化时间（示例，根据实际数据结构调整）
+const formatTime = (time) => {
+  if (!time) return '未知'
+  const date = new Date(time)
   return date.toLocaleDateString('zh-CN')
 }
 
-const viewTagArticles = (tagId, tagName) => {
-  // 跳转到标签文章列表页面
-  router.push(`/tag/${tagName}`)
+// 根据文章数量获取标签类型（用于样式）
+const getTagType = (count) => {
+  if (count >= 100) return 'danger'
+  if (count >= 50) return 'warning'
+  if (count >= 20) return 'success'
+  if (count >= 10) return 'primary'
+  return 'info'
 }
 </script>
 

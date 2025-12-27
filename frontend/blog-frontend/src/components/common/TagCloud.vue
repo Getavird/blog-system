@@ -31,14 +31,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { useTagStore } from '@/stores/tag'
 import { ArrowDown } from '@element-plus/icons-vue'
 
 const props = defineProps({
-  tags: {
-    type: Array,
-    default: () => []
-  },
   // 标签云配置
   minFontSize: {
     type: Number,
@@ -72,35 +70,51 @@ const props = defineProps({
 
 const emit = defineEmits(['tag-click'])
 
+const router = useRouter()
+const tagStore = useTagStore()
 const tagCloudRef = ref(null)
 const showAllTags = ref(false)
+const tags = ref([])
+
+// 组件挂载时加载标签数据
+onMounted(async () => {
+  try {
+    await tagStore.fetchTags()
+    tags.value = tagStore.tags || []
+  } catch (error) {
+    console.error('加载标签失败:', error)
+  }
+})
 
 // 计算显示的标签
 const displayedTags = computed(() => {
-  const tagsToShow = showAllTags.value ? props.tags : props.tags.slice(0, props.maxDisplayCount)
+  if (!tags.value || tags.value.length === 0) return []
+  
+  const tagsToShow = showAllTags.value ? tags.value : tags.value.slice(0, props.maxDisplayCount)
   
   if (props.mode === 'cloud') {
     return tagsToShow.map(tag => ({
       ...tag,
-      level: getTagLevel(tag.count),
-      fontSize: calculateFontSize(tag.count),
-      opacity: calculateOpacity(tag.count),
+      level: getTagLevel(tag.articleCount || 0),
+      fontSize: calculateFontSize(tag.articleCount || 0),
+      opacity: calculateOpacity(tag.articleCount || 0),
       scale: 1,
-      position: props.tags.length > 1 ? calculatePosition() : { x: 50, y: 50 }
+      position: tags.value.length > 1 ? calculatePosition() : { x: 50, y: 50 }
     }))
   } else {
     // 列表模式
     return tagsToShow.map(tag => ({
       ...tag,
-      level: getTagLevel(tag.count)
+      level: getTagLevel(tag.articleCount || 0)
     }))
   }
 })
 
 // 计算标签级别（1-5级）
 const getTagLevel = (count) => {
-  const maxCount = Math.max(...props.tags.map(t => t.count))
-  const minCount = Math.min(...props.tags.map(t => t.count))
+  const counts = tags.value.map(t => t.articleCount || 0)
+  const maxCount = Math.max(...counts, 1)
+  const minCount = Math.min(...counts, 0)
   
   if (maxCount === minCount) return 3
   
@@ -114,8 +128,9 @@ const getTagLevel = (count) => {
 
 // 计算字体大小
 const calculateFontSize = (count) => {
-  const maxCount = Math.max(...props.tags.map(t => t.count))
-  const minCount = Math.min(...props.tags.map(t => t.count))
+  const counts = tags.value.map(t => t.articleCount || 0)
+  const maxCount = Math.max(...counts, 1)
+  const minCount = Math.min(...counts, 0)
   
   if (maxCount === minCount) return (props.minFontSize + props.maxFontSize) / 2
   
@@ -125,8 +140,9 @@ const calculateFontSize = (count) => {
 
 // 计算不透明度
 const calculateOpacity = (count) => {
-  const maxCount = Math.max(...props.tags.map(t => t.count))
-  const minCount = Math.min(...props.tags.map(t => t.count))
+  const counts = tags.value.map(t => t.articleCount || 0)
+  const maxCount = Math.max(...counts, 1)
+  const minCount = Math.min(...counts, 0)
   
   if (maxCount === minCount) return 0.8
   
@@ -146,41 +162,9 @@ const calculatePosition = () => {
 // 标签点击事件
 const handleTagClick = (tagId, tagName) => {
   emit('tag-click', tagId, tagName)
+  // 跳转到标签页面
+  router.push(`/tag/${encodeURIComponent(tagName)}`)
 }
-
-// 模拟数据
-const mockTags = [
-  { id: 1, name: 'Vue', count: 156 },
-  { id: 2, name: 'React', count: 128 },
-  { id: 3, name: 'JavaScript', count: 210 },
-  { id: 4, name: 'CSS', count: 89 },
-  { id: 5, name: 'HTML', count: 76 },
-  { id: 6, name: 'Node.js', count: 142 },
-  { id: 7, name: 'TypeScript', count: 98 },
-  { id: 8, name: 'Python', count: 187 },
-  { id: 9, name: 'Java', count: 165 },
-  { id: 10, name: 'Spring Boot', count: 134 },
-  { id: 11, name: '数据库', count: 120 },
-  { id: 12, name: '算法', count: 110 },
-  { id: 13, name: '设计模式', count: 85 },
-  { id: 14, name: '前端工程化', count: 92 },
-  { id: 15, name: '微服务', count: 78 },
-  { id: 16, name: 'Docker', count: 115 },
-  { id: 17, name: 'Kubernetes', count: 95 },
-  { id: 18, name: '云计算', count: 82 },
-  { id: 19, name: '人工智能', count: 105 },
-  { id: 20, name: '机器学习', count: 98 },
-  { id: 21, name: '大数据', count: 76 },
-  { id: 22, name: '物联网', count: 64 },
-  { id: 23, name: '区块链', count: 58 },
-  { id: 24, name: '小程序', count: 112 },
-  { id: 25, name: 'Flutter', count: 89 }
-]
-
-// 如果没有传入标签数据，使用模拟数据
-const tagsData = computed(() => {
-  return props.tags.length > 0 ? props.tags : mockTags
-})
 </script>
 
 <style scoped>
