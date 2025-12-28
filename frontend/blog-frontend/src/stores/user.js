@@ -1,133 +1,225 @@
-// store/user.js
+// stores/user.js
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import * as userApi from '@/api/user'
 
-// 本地存储键名常量（仅保留用户信息）
-const STORAGE_KEYS = {
-  USER: 'blog_user'
-}
-
-// 工具函数：统一处理加载状态和错误捕获
-const withLoading = (loadingRef, fn) => {
-  return async (...args) => {
-    try {
-      loadingRef.value = true
-      return await fn(...args)
-    } catch (error) {
-      console.error(`用户操作失败:`, error)
-      throw error // 继续抛出，供上层组件处理
-    } finally {
-      loadingRef.value = false
-    }
-  }
-}
+// 公开用户信息的数据结构
+const createDefaultPublicUser = () => ({
+  id: null,
+  username: '',
+  avatar: '',
+  bio: '',
+  createTime: '',
+  isFollowed: false  // 当前登录用户是否关注了该用户
+})
 
 export const useUserStore = defineStore('user', () => {
-  // 状态：仅保留用户信息和加载状态
+  // 状态：当前登录用户信息
   const user = ref(null)
   const loading = ref(false)
+  
+  // 状态：公开用户信息（用于用户公开主页）
+  const publicUser = ref(createDefaultPublicUser())
+  const publicUserArticles = ref([])
+  const publicUserStats = ref({
+    articleCount: 0,
+    likeCount: 0,
+    viewCount: 0,
+    followerCount: 0,
+    followingCount: 0
+  })
+  const publicUserTotal = ref(0)
+  const publicUserLoading = ref(false)
 
-  // 从本地存储初始化用户信息
+  // 初始化方法
   const initFromStorage = () => {
-    const storedUser = localStorage.getItem(STORAGE_KEYS.USER)
+    const storedUser = localStorage.getItem('blog_user')
     if (storedUser) {
       try {
         user.value = JSON.parse(storedUser)
       } catch (error) {
-        console.error('解析用户数据失败，已清除无效数据:', error)
-        localStorage.removeItem(STORAGE_KEYS.USER)
-        user.value = null
+        console.error('解析用户数据失败:', error)
+        clearUser()
       }
     }
   }
 
-  // 初始化时自动加载本地数据
-  initFromStorage()
-
-  // 获取用户详情
-  const fetchUserInfo = withLoading(loading, async (id) => {
-    return await userApi.getUserInfo(id)
-  })
-
-  // 更新用户基本信息
-  const updateUserInfo = withLoading(loading, async (id, userData) => {
-    const data = await userApi.updateUserInfo(id, userData)
-    // 同步更新本地用户信息
-    if (user.value && user.value.id === id) {
-      user.value = { ...user.value, ...userData }
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user.value))
-    }
-    return data
-  })
-
-  // 上传用户头像
-  const uploadAvatar = withLoading(loading, async (file) => {
-    const data = await userApi.uploadAvatar(file)
-    // 同步更新本地头像
-    if (user.value && data.avatar) {
-      user.value.avatar = data.avatar
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user.value))
-    }
-    return data
-  })
-
-  // 获取用户发布的文章
-  const fetchUserArticles = withLoading(loading, async (userId, params = {}) => {
-    return await userApi.getUserArticles(userId, params)
-  })
-
-  // 获取用户统计信息
-  const fetchUserStats = withLoading(loading, async (userId) => {
-    return await userApi.getUserStats(userId)
-  })
-
-  // 获取用户登录历史
-  const fetchLoginHistory = withLoading(loading, async (userId, params = {}) => {
-    return await userApi.getLoginHistory(userId, params)
-  })
-
-  // 获取用户点赞的文章
-  const fetchUserLikedArticles = withLoading(loading, async (userId, params = {}) => {
-    return await userApi.getUserLikedArticles(userId, params)
-  })
-
-  // 设置用户信息（同步到本地存储）
-  const setUser = (userData) => {
-    user.value = userData
-    if (userData) {
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData))
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.USER)
-    }
-  }
-
-  // 清除用户信息（退出登录时调用）
+  // 清空用户信息
   const clearUser = () => {
     user.value = null
-    localStorage.removeItem(STORAGE_KEYS.USER)
+    localStorage.removeItem('blog_user')
   }
 
-  // 检查是否登录（基于用户信息是否存在）
+  // 检查是否登录
   const isLoggedIn = () => {
     return !!user.value
   }
 
+  // 设置用户信息
+  const setUser = (userData) => {
+    user.value = userData
+    if (userData) {
+      localStorage.setItem('blog_user', JSON.stringify(userData))
+    } else {
+      clearUser()
+    }
+  }
+
+  // stores/user.js - 修改公开用户相关方法
+
+// 获取公开用户信息
+const fetchPublicUserInfo = async (username) => {
+  try {
+    publicUserLoading.value = true
+    const data = await userApi.getPublicUserInfo(username)
+    
+    // 后端返回的是Result格式，需要处理data字段
+    if (data && typeof data === 'object' && 'id' in data) {
+      publicUser.value = { ...createDefaultPublicUser(), ...data }
+    } else {
+      // 如果后端返回的是Result包装，提取data
+      publicUser.value = { ...createDefaultPublicUser(), ...(data?.data || data) }
+    }
+    
+    return data
+  } catch (error) {
+    console.error('获取公开用户信息失败:', error)
+    throw error
+  } finally {
+    publicUserLoading.value = false
+  }
+}
+
+// 获取用户公开文章
+const fetchPublicUserArticles = async (username, params = {}) => {
+  try {
+    publicUserLoading.value = true
+    const data = await userApi.getPublicUserArticles(username, params)
+    
+    // 处理返回的数据结构
+    const result = data?.data || data
+    publicUserArticles.value = result.list || result.articles || result.data || []
+    publicUserTotal.value = result.total || result.count || 0
+    
+    return data
+  } catch (error) {
+    console.error('获取用户公开文章失败:', error)
+    throw error
+  } finally {
+    publicUserLoading.value = false
+  }
+}
+
+// 获取用户公开统计
+const fetchPublicUserStats = async (username) => {
+  try {
+    const data = await userApi.getPublicUserStats(username)
+    
+    // 处理返回的数据结构
+    const stats = data?.data || data
+    publicUserStats.value = { ...publicUserStats.value, ...stats }
+    
+    return data
+  } catch (error) {
+    console.error('获取用户统计失败:', error)
+    throw error
+  }
+}
+
+  // 检查关注状态
+  const checkFollowStatus = async (userId) => {
+    try {
+      const data = await userApi.checkFollowStatus(userId)
+      return data
+    } catch (error) {
+      console.error('检查关注状态失败:', error)
+      throw error
+    }
+  }
+
+  // 关注用户
+  const followUser = async (userId) => {
+    try {
+      const data = await userApi.followUser(userId)
+      // 更新本地状态
+      if (publicUser.value.id === userId) {
+        publicUser.value.isFollowed = true
+        publicUserStats.value.followerCount = (publicUserStats.value.followerCount || 0) + 1
+      }
+      return data
+    } catch (error) {
+      console.error('关注用户失败:', error)
+      throw error
+    }
+  }
+
+  // 取消关注用户
+  const unfollowUser = async (userId) => {
+    try {
+      const data = await userApi.unfollowUser(userId)
+      // 更新本地状态
+      if (publicUser.value.id === userId) {
+        publicUser.value.isFollowed = false
+        publicUserStats.value.followerCount = Math.max(0, (publicUserStats.value.followerCount || 1) - 1)
+      }
+      return data
+    } catch (error) {
+      console.error('取消关注失败:', error)
+      throw error
+    }
+  }
+
+  // 获取关注数量
+  const fetchFollowCounts = async (userId) => {
+    try {
+      const data = await userApi.getFollowCounts(userId)
+      return data
+    } catch (error) {
+      console.error('获取关注数量失败:', error)
+      throw error
+    }
+  }
+
+  // 清空公开用户数据
+  const clearPublicUserData = () => {
+    publicUser.value = createDefaultPublicUser()
+    publicUserArticles.value = []
+    publicUserStats.value = {
+      articleCount: 0,
+      likeCount: 0,
+      viewCount: 0,
+      followerCount: 0,
+      followingCount: 0
+    }
+    publicUserTotal.value = 0
+  }
+
   return {
-    // 状态
+    // 当前用户状态
     user,
     loading,
+    
+    // 公开用户状态
+    publicUser,
+    publicUserArticles,
+    publicUserStats,
+    publicUserTotal,
+    publicUserLoading,
+    
     // 方法
     initFromStorage,
-    fetchUserInfo,
-    updateUserInfo,
-    uploadAvatar,
-    fetchUserArticles,
-    fetchUserStats,
-    fetchLoginHistory,
-    fetchUserLikedArticles,
-    setUser,
     clearUser,
-    isLoggedIn
+    isLoggedIn,
+    setUser,
+    
+    // 公开用户方法
+    fetchPublicUserInfo,
+    fetchPublicUserArticles,
+    fetchPublicUserStats,
+    checkFollowStatus,
+    followUser,
+    unfollowUser,
+    fetchFollowCounts,
+    clearPublicUserData
   }
 })

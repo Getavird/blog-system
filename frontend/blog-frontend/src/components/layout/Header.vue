@@ -41,7 +41,6 @@
                 </el-button>
               </template>
             </el-input>
-            
           </div>
           
           <!-- 搜索图标（移动端） -->
@@ -61,26 +60,50 @@
             <el-button type="primary" size="small" @click="toWrite" class="write-btn">
               写文章
             </el-button>
+            
+            <!-- 用户头像和下拉菜单 -->
             <el-dropdown>
-              <span class="user-dropdown">
-                {{ username }}
+              <div class="user-info-dropdown">
+                <!-- 点击头像跳转到用户公开主页 -->
+                <div class="user-avatar" @click="goToUserPublicPage">
+                  <img v-if="userStore.user?.avatar" :src="userStore.user.avatar" alt="用户头像" />
+                  <div v-else class="avatar-placeholder">
+                    {{ userStore.user?.username?.charAt(0)?.toUpperCase() || 'U' }}
+                  </div>
+                </div>
+                
+                <span class="user-name">{{ userStore.user?.username || '' }}</span>
                 <el-icon><ArrowDown /></el-icon>
-              </span>
+              </div>
+              
               <template #dropdown>
                 <el-dropdown-menu>
+                  <!-- 点击跳转到用户公开主页 -->
+                  <el-dropdown-item @click="goToUserPublicPage">
+                    <el-icon><User /></el-icon>
+                    我的主页
+                  </el-dropdown-item>
+                  
+                  <!-- 点击跳转到个人中心（编辑个人资料） -->
                   <el-dropdown-item @click="toProfile">
-                    <el-icon><User /></el-icon>个人中心
+                    <el-icon><Setting /></el-icon>
+                    个人中心
                   </el-dropdown-item>
+                  
                   <el-dropdown-item @click="toMyArticles">
-                    <el-icon><Document /></el-icon>我的文章
+                    <el-icon><Document /></el-icon>
+                    我的文章
                   </el-dropdown-item>
+                  
                   <el-dropdown-item divided @click="logout">
-                    <el-icon><SwitchButton /></el-icon>退出登录
+                    <el-icon><SwitchButton /></el-icon>
+                    退出登录
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
           </template>
+          
           <template v-else>
             <el-button link @click="showLoginDialog">登录</el-button>
             <el-button type="primary" size="small" @click="showLoginDialog">
@@ -96,8 +119,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
-import { useUserStore } from '@/stores/user'  
 import { ElMessage } from 'element-plus'
 import {
   Search,
@@ -105,13 +128,14 @@ import {
   User,
   Document,
   SwitchButton,
-  Close
+  Close,
+  Setting
 } from '@element-plus/icons-vue'
 
 const emit = defineEmits(['showLogin'])
 const router = useRouter()
-const authStore = useAuthStore()
 const userStore = useUserStore()
+const authStore = useAuthStore()
 
 // 搜索相关
 const searchKeyword = ref('')
@@ -124,20 +148,11 @@ const isMobile = ref(false)
 const isLoggedIn = computed(() => {
   return userStore.isLoggedIn()
 })
-const username = computed(() => userStore.user?.username || '')
 
 // 生命周期
 onMounted(() => {
   // 初始化用户状态
   userStore.initFromStorage()
-
-  // 监听全局登录事件
-  window.addEventListener('showLogin', () => {
-    showLoginDialog()
-  })
-  
-  // 检查登录状态
-  checkLoginStatus()
   
   // 检测屏幕尺寸
   checkScreenSize()
@@ -147,19 +162,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', checkScreenSize)
 })
-
-// 检查登录状态
-const checkLoginStatus = async () => {
-  try {
-    // 如果有用户信息但没有从API验证过，可以调用验证
-    if (userStore.user && !userStore.verified) {
-      const currentUser = await authStore.fetchCurrentUser()
-      console.log('验证登录状态:', currentUser)
-    }
-  } catch (error) {
-    console.log('登录验证失败，可能已过期:', error)
-  }
-}
 
 // 方法
 const checkScreenSize = () => {
@@ -240,6 +242,22 @@ const toMyArticles = () => {
     return
   }
   router.push('/user/articles')
+}
+
+// 跳转到用户公开主页
+const goToUserPublicPage = () => {
+  if (!isLoggedIn.value) {
+    ElMessage.warning('请先登录')
+    showLoginDialog()
+    return
+  }
+  
+  const username = userStore.user?.username
+  if (username) {
+    router.push(`/user/${encodeURIComponent(username)}`)
+  } else {
+    ElMessage.error('无法获取用户信息')
+  }
 }
 
 const logout = async () => {
@@ -364,39 +382,6 @@ const logout = async () => {
   border: none;
 }
 
-/* 搜索建议 */
-.search-suggestions {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  margin-top: 5px;
-  max-height: 300px;
-  overflow-y: auto;
-  z-index: 1001;
-}
-
-.suggestion-item {
-  padding: 12px 16px;
-  cursor: pointer;
-  color: #333;
-  font-size: 14px;
-  border-bottom: 1px solid #f0f0f0;
-  transition: all 0.2s;
-}
-
-.suggestion-item:hover {
-  background: #f5f7fa;
-  color: #409eff;
-}
-
-.suggestion-item:last-child {
-  border-bottom: none;
-}
-
 /* 移动端搜索图标 */
 .mobile-search-icon,
 .close-search-icon {
@@ -430,20 +415,58 @@ const logout = async () => {
   padding: 8px 16px;
 }
 
-.user-dropdown {
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 4px;
-  color: #333;
-  font-size: 14px;
+/* 用户头像和下拉菜单 */
+.user-info-dropdown {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 20px;
   transition: all 0.3s;
 }
 
-.user-dropdown:hover {
+.user-info-dropdown:hover {
   background: #f5f7fa;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid #e6f7ff;
+  transition: all 0.3s;
+}
+
+.user-avatar:hover {
+  border-color: #409eff;
+  transform: scale(1.05);
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.user-name {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
 }
 
 /* 响应式设计 */
@@ -527,6 +550,15 @@ const logout = async () => {
   .close-search-icon {
     display: flex;
   }
+  
+  /* 移动端隐藏用户名，只显示头像 */
+  .user-name {
+    display: none;
+  }
+  
+  .user-info-dropdown {
+    padding: 4px 8px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -548,6 +580,11 @@ const logout = async () => {
   .write-btn {
     padding: 6px 12px;
     font-size: 12px;
+  }
+  
+  .user-avatar {
+    width: 28px;
+    height: 28px;
   }
 }
 </style>

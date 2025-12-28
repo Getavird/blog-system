@@ -52,3 +52,72 @@ export const getUserLikedArticles = (userId, params = {}) => {
     params: defaultParams
   })
 }
+
+// 用户公开信息相关的API
+// ===============================================
+
+/**
+ * 获取公开用户信息（通过用户名）
+ * 后端路径：GET /api/user/public/{username}
+ * 返回：Result<UserPublicVO>
+ */
+export const getPublicUserInfo = (username) => {
+  return request.get(`/api/user/public/${username}`)  
+}
+
+/**
+ * 获取用户公开文章列表
+ * 后端路径：GET /api/user/public/{username}/articles
+ * 返回：Result<PageResult<ArticlePublicVO>>
+ */
+export const getPublicUserArticles = (username, params = {}) => {
+  const defaultParams = { page: 1, size: 10, ...params }
+  return request.get(`/api/user/public/${username}/articles`, { 
+    params: defaultParams
+  })
+}
+
+/**
+ * 获取用户公开统计
+ * 后端路径：GET /api/user/public/{username}/stats
+ * 返回：Result<UserStatsVO>
+ */
+export const getPublicUserStats = (username) => {
+  return request.get(`/api/user/public/${username}/stats`) 
+}
+
+/**
+ * 检查是否关注用户（需要登录）
+ * @param {string|number} userId - 用户ID
+ * @returns Promise
+ */
+export const checkFollowStatus = (userId) => {
+  return request.get(`/api/follow/check/${userId}`)
+}
+
+/**
+ * 关注用户（需要登录）
+ * @param {string|number} userId - 用户ID
+ * @returns Promise
+ */
+export const followUser = (userId) => {
+  return request.post(`/api/follow/${userId}`)
+}
+
+/**
+ * 取消关注用户（需要登录）
+ * @param {string|number} userId - 用户ID
+ * @returns Promise
+ */
+export const unfollowUser = (userId) => {
+  return request.delete(`/api/follow/${userId}`)
+}
+
+/**
+ * 获取用户关注/粉丝数量（公开）
+ * @param {string|number} userId - 用户ID
+ * @returns Promise
+ */
+export const getFollowCounts = (userId) => {
+  return request.get(`/api/follow/counts/${userId}`)
+}

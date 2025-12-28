@@ -12,31 +12,32 @@ import Archives from '../views/Archives.vue'
 import Categories from '../views/Categories.vue'
 import Tags from '../views/Tags.vue'
 import Tag from '../views/Tag.vue'
+import UserPublic from '../views/UserPublic.vue'
 
 const routes = [
   {
     path: '/',
     name: 'Home',
     component: Home,
-    meta: { 
+    meta: {
       title: '首页',
-      requiresAuth: false 
+      requiresAuth: false
     }
   },
   {
     path: '/article/:id',
     name: 'ArticleDetail',
     component: ArticleDetail,
-    meta: { 
+    meta: {
       title: '文章详情',
-      requiresAuth: false 
+      requiresAuth: false
     }
   },
   {
     path: '/article/create',
     name: 'ArticleCreate',
     component: ArticleEdit,
-    meta: { 
+    meta: {
       requiresAuth: true,
       title: '写文章'
     }
@@ -45,7 +46,7 @@ const routes = [
     path: '/article/edit/:id',
     name: 'ArticleEdit',
     component: ArticleEdit,
-    meta: { 
+    meta: {
       requiresAuth: true,
       title: '编辑文章'
     }
@@ -54,7 +55,7 @@ const routes = [
     path: '/user/articles',
     name: 'UserArticles',
     component: UserArticles,
-    meta: { 
+    meta: {
       requiresAuth: true,
       title: '我的文章'
     }
@@ -63,72 +64,81 @@ const routes = [
     path: '/user/profile',
     name: 'UserProfile',
     component: UserProfile,
-    meta: { 
+    meta: {
       requiresAuth: true,
       title: '个人中心'
+    }
+  },
+  {
+    path: '/user/:username',
+    name: 'UserPublic',
+    component: UserPublic,
+    meta: {
+      title: '用户主页',
+      requiresAuth: false  
     }
   },
   {
     path: '/category/:id',
     name: 'Category',
     component: Category,
-    meta: { 
+    meta: {
       title: '分类文章',
-      requiresAuth: false 
+      requiresAuth: false
     }
   },
   {
     path: '/categories',
     name: 'Categories',
     component: Categories,
-    meta: { 
+    meta: {
       title: '分类',
-      requiresAuth: false 
+      requiresAuth: false
     }
   },
   {
     path: '/search',
     name: 'Search',
     component: Search,
-    meta: { 
+    meta: {
       title: '搜索',
-      requiresAuth: false 
+      requiresAuth: false
     }
   },
   {
     path: '/archives',
     name: 'Archives',
     component: Archives,
-    meta: { 
+    meta: {
       title: '归档',
-      requiresAuth: false 
+      requiresAuth: false
     }
   },
   {
     path: '/tags',
     name: 'Tags',
     component: Tags,
-    meta: { 
+    meta: {
       title: '标签',
-      requiresAuth: false 
+      requiresAuth: false
     }
   },
   {
     path: '/tag/:name',
     name: 'Tag',
     component: Tag,
-    meta: { 
+    meta: {
       title: '标签文章',
-      requiresAuth: false 
+      requiresAuth: false
     }
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: NotFound,
-    meta: { 
+    meta: {
       title: '页面未找到',
-      requiresAuth: false 
+      requiresAuth: false
     }
   }
 ]
@@ -153,16 +163,16 @@ const checkLoginStatus = () => {
     if (!userStr) {
       return false
     }
-    
+
     // 尝试解析用户信息
     const user = JSON.parse(userStr)
-    
+
     // 检查用户信息是否完整
     if (!user || !user.id || !user.username) {
       localStorage.removeItem('blog_user')
       return false
     }
-    
+
     return true
   } catch (error) {
     console.error('检查登录状态失败:', error)
@@ -180,7 +190,7 @@ const showLoginPrompt = (to) => {
       // 跳转到首页并传递showLogin参数
       router.push({
         path: '/',
-        query: { 
+        query: {
           showLogin: true,
           redirect: to.fullPath // 保存要跳转的路径
         }
@@ -192,25 +202,25 @@ const showLoginPrompt = (to) => {
 // 路由守卫
 router.beforeEach((to, from, next) => {
   console.log(`路由跳转: ${from.path} -> ${to.path}`)
-  
+
   // 设置页面标题
   if (to.meta.title) {
     document.title = `${to.meta.title} - 博客系统`
   } else {
     document.title = '博客系统'
   }
-  
+
   // 检查是否需要认证
   if (to.meta.requiresAuth) {
     const isLoggedIn = checkLoginStatus()
-    
+
     if (!isLoggedIn) {
       console.log('未登录，需要登录才能访问:', to.path)
       showLoginPrompt(to)
       return // 阻止路由跳转，showLoginPrompt会处理跳转
     }
   }
-  
+
   next()
 })
 
