@@ -129,10 +129,11 @@ export const useArticleStore = defineStore('article', () => {
   }
 
   // 文章阅读量+1
-  const incrementViewCount = async (id) => {
+ const incrementViewCount = async (id) => {
     try {
-      await articleApi.incrementArticleView(id)
-
+      // 由于后端已经在获取文章详情时更新了阅读量
+      // 我们只需要更新本地状态，不需要调用额外的API
+      
       // 更新本地状态
       if (currentArticle.value && currentArticle.value.id === id) {
         currentArticle.value.viewCount += 1
@@ -143,11 +144,16 @@ export const useArticleStore = defineStore('article', () => {
       if (index !== -1) {
         articles.value[index].viewCount += 1
       }
+      
+      // 注意：这里我们不调用 API，因为后端已经在 GET /api/articles/{id} 中处理了阅读量
+      // 如果你的后端确实需要单独的接口增加阅读量，可以取消下面的注释
+      // await articleApi.incrementArticleView(id)
     } catch (error) {
-      console.error('增加阅读量失败:', error)
+      console.error('更新阅读量状态失败:', error)
+      // 这里不抛出错误，因为只是本地状态更新失败
     }
   }
-
+  
   // 点赞/取消点赞文章
   const toggleLike = async (id, isLike) => {
     try {

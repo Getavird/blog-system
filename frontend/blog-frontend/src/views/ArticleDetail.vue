@@ -29,7 +29,8 @@
           
           <!-- 文章元信息 -->
           <div class="article-meta">
-            <div class="author-info">
+            <!-- 作者信息（可点击） -->
+            <div class="author-info" @click="goToAuthorPage">
               <div class="author-avatar">
                 <img v-if="article.authorAvatar" :src="article.authorAvatar" alt="作者头像">
                 <div v-else class="avatar-placeholder">
@@ -45,11 +46,11 @@
                   </span>
                   <span class="meta-item">
                     <el-icon><View /></el-icon>
-                    阅读 {{ article.viewCount || 0 }}
+                    {{ article.viewCount || 0 }} 阅读
                   </span>
                   <span class="meta-item">
                     <el-icon><ChatDotRound /></el-icon>
-                    评论 {{ article.commentCount || 0 }}
+                    {{ article.commentCount || 0 }} 评论
                   </span>
                 </div>
               </div>
@@ -62,6 +63,7 @@
                 type="primary" 
                 size="small"
                 @click="editArticle"
+                class="edit-btn"
               >
                 <el-icon><Edit /></el-icon>
                 编辑
@@ -72,19 +74,10 @@
                 @click="toggleLike"
                 :loading="likeLoading"
                 :disabled="!isLoggedIn"
+                class="like-btn"
               >
                 <el-icon><Star /></el-icon>
                 {{ article.isLiked ? '已点赞' : '点赞' }} ({{ article.likeCount || 0 }})
-              </el-button>
-              <el-button 
-                :type="article.isCollected ? 'warning' : 'default'" 
-                size="small"
-                @click="toggleCollect"
-                :loading="collectLoading"
-                :disabled="!isLoggedIn"
-              >
-                <el-icon><Collection /></el-icon>
-                {{ article.isCollected ? '已收藏' : '收藏' }} ({{ article.collectCount || 0 }})
               </el-button>
             </div>
           </div>
@@ -127,6 +120,7 @@
             <!-- 文章底部信息 -->
             <div class="article-footer">
               <div class="update-info">
+                <el-icon><Clock /></el-icon>
                 最后更新于 {{ formatTime(article.updateTime || article.createTime) }}
               </div>
               
@@ -138,37 +132,24 @@
             
             <!-- 互动操作 -->
             <div class="interaction-actions">
-              <div class="action-group">
-                <el-button 
-                  :type="article.isLiked ? 'danger' : 'primary'" 
-                  size="large"
-                  @click="toggleLike"
-                  :loading="likeLoading"
-                  class="action-btn"
-                  :disabled="!isLoggedIn"
-                >
-                  <el-icon><Star /></el-icon>
-                  {{ article.isLiked ? '已点赞' : '点赞' }} ({{ article.likeCount || 0 }})
-                </el-button>
-                <el-button 
-                  :type="article.isCollected ? 'warning' : 'primary'" 
-                  size="large"
-                  @click="toggleCollect"
-                  :loading="collectLoading"
-                  class="action-btn"
-                  :disabled="!isLoggedIn"
-                >
-                  <el-icon><Collection /></el-icon>
-                  {{ article.isCollected ? '已收藏' : '收藏' }} ({{ article.collectCount || 0 }})
-                </el-button>
-              </div>
+              <el-button 
+                :type="article.isLiked ? 'danger' : 'primary'" 
+                size="large"
+                @click="toggleLike"
+                :loading="likeLoading"
+                class="action-btn"
+                :disabled="!isLoggedIn"
+              >
+                <el-icon><Star /></el-icon>
+                {{ article.isLiked ? '已点赞' : '点赞' }} ({{ article.likeCount || 0 }})
+              </el-button>
             </div>
           </div>
           
           <!-- 侧边栏 -->
           <aside class="sidebar">
-            <!-- 作者信息卡片 -->
-            <div class="author-card">
+            <!-- 作者信息卡片（可点击） -->
+            <div class="author-card" @click="goToAuthorPage">
               <div class="author-header">
                 <div class="author-avatar-large">
                   <img v-if="article.authorAvatar" :src="article.authorAvatar" alt="作者头像">
@@ -197,7 +178,7 @@
                 v-if="!isArticleAuthor && isLoggedIn"
                 :type="article.isFollowing ? 'default' : 'primary'"
                 size="small"
-                @click="toggleFollow"
+                @click.stop="toggleFollow"
                 :loading="followLoading"
                 class="follow-btn"
               >
@@ -209,7 +190,7 @@
             <div v-if="showToc" class="toc-card">
               <h3 class="toc-title">
                 <el-icon><Menu /></el-icon>
-                目录
+                文章目录
               </h3>
               <div class="toc-content">
                 <div 
@@ -230,6 +211,7 @@
     <!-- 文章不存在 -->
     <div v-else class="not-found-container">
       <div class="error-content">
+        <el-icon size="80" color="#c0c4cc"><DocumentDelete /></el-icon>
         <h1>文章不存在</h1>
         <p>抱歉，您要访问的文章可能已被删除或不存在</p>
         <el-button type="primary" @click="$router.push('/')">
@@ -270,6 +252,8 @@
               placeholder="写下你的评论..."
               resize="none"
               class="comment-textarea"
+              maxlength="500"
+              show-word-limit
             />
             <div class="form-actions">
               <el-button @click="cancelComment">取消</el-button>
@@ -292,7 +276,7 @@
               class="comment-item"
             >
               <div class="comment-header">
-                <div class="comment-author">
+                <div class="comment-author" @click="goToUserPage(comment.userId, comment.userName)">
                   <div class="comment-avatar">
                     <img v-if="comment.userAvatar" :src="comment.userAvatar" alt="用户头像">
                     <div v-else class="avatar-placeholder-small">
@@ -334,6 +318,7 @@
             </div>
           </div>
           <div v-else class="no-comments">
+            <el-icon size="40" color="#c0c4cc"><Comment /></el-icon>
             <p>还没有评论，快来抢沙发吧～</p>
           </div>
         </div>
@@ -362,9 +347,10 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useArticleStore } from '@/stores/article'
 import { useCommentStore } from '@/stores/comment'
-import { useUserStore } from '@/stores/user'  // ✅ 改为 userStore
+import { useUserStore } from '@/stores/user'
 import { useCategoryStore } from '@/stores/category'
 import { useTagStore } from '@/stores/tag'
+import { useFollowStore } from '@/stores/follow'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowRight,
@@ -373,10 +359,11 @@ import {
   ChatDotRound,
   Edit,
   Star,
-  Collection,
   Folder,
   Menu,
-  Search
+  Clock,
+  DocumentDelete,
+  Comment
 } from '@element-plus/icons-vue'
 
 // 组件导入
@@ -389,9 +376,10 @@ const router = useRouter()
 // Pinia Store
 const articleStore = useArticleStore()
 const commentStore = useCommentStore()
-const userStore = useUserStore()  // ✅ 改为 userStore
+const userStore = useUserStore()
 const categoryStore = useCategoryStore()
 const tagStore = useTagStore()
+const followStore = useFollowStore()
 
 // 路由参数
 const articleId = ref(parseInt(route.params.id) || 0)
@@ -400,7 +388,6 @@ const articleId = ref(parseInt(route.params.id) || 0)
 const article = computed(() => articleStore.currentArticle)
 const loading = ref(false)
 const likeLoading = ref(false)
-const collectLoading = ref(false)
 const followLoading = ref(false)
 
 // 登录状态
@@ -462,20 +449,42 @@ const loadArticleDetail = async () => {
     // 1. 加载文章详情
     await articleStore.fetchArticleDetail(articleId.value)
     
-    // 2. 增加阅读量
-    await articleStore.incrementViewCount(articleId.value)
+    // 2. 增加阅读量（使用 try-catch 包装，避免失败影响后续）
+    try {
+      await articleStore.incrementViewCount(articleId.value)
+    } catch (error) {
+      console.warn('增加阅读量失败（可能接口不存在）:', error.message)
+      // 不显示错误提示，避免干扰用户体验
+    }
     
     // 3. 加载文章评论
     await loadArticleComments()
     
-    // 4. 生成目录
+    // 4. 检查当前用户是否关注了作者（如果有作者ID且不是文章作者）
+    if (isLoggedIn.value && article.value && article.value.authorId && !isArticleAuthor.value) {
+      try {
+        const isFollowing = await followStore.checkFollowStatus(article.value.authorId)
+        article.value.isFollowing = isFollowing
+      } catch (error) {
+        console.error('检查关注状态失败:', error)
+        // 忽略关注状态检查失败的错误
+      }
+    }
+    
+    // 5. 生成目录
     generateToc()
     
-    console.log('文章详情加载完成:', articleStore.currentArticle)
+    console.log('文章详情加载完成:', article.value)
     
   } catch (error) {
     console.error('加载文章详情失败:', error)
-    ElMessage.error('文章加载失败')
+    // 区分不同类型的错误
+    if (error.response?.status === 404) {
+      // 文章不存在
+      ElMessage.error('文章不存在或已被删除')
+    } else {
+      ElMessage.error('文章加载失败，请稍后重试')
+    }
   } finally {
     loading.value = false
   }
@@ -565,34 +574,22 @@ const toggleLike = async () => {
     }
   } catch (error) {
     console.error('操作点赞失败:', error)
-    ElMessage.error('操作失败')
+    // 更友好的错误提示
+    if (error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
+      ElMessage.error('网络错误，请检查连接')
+    } else if (error.response?.status === 401) {
+      ElMessage.error('请先登录')
+      showLogin.value = true
+    } else {
+      ElMessage.error(error.message || '操作失败')
+    }
   } finally {
     likeLoading.value = false
   }
 }
 
-// 收藏文章（需要后端接口支持）
-const toggleCollect = async () => {
-  if (!isLoggedIn.value) {
-    showLogin.value = true
-    ElMessage.warning('请先登录')
-    return
-  }
-  
-  try {
-    collectLoading.value = true
-    // 这里需要调用收藏API，暂时模拟
-    ElMessage.info('收藏功能待实现')
-    // TODO: 调用收藏API
-  } catch (error) {
-    console.error('操作收藏失败:', error)
-    ElMessage.error('操作失败')
-  } finally {
-    collectLoading.value = false
-  }
-}
 
-// 关注作者（需要后端接口支持）
+// 关注作者
 const toggleFollow = async () => {
   if (!isLoggedIn.value) {
     showLogin.value = true
@@ -600,11 +597,29 @@ const toggleFollow = async () => {
     return
   }
   
+  if (isArticleAuthor.value) {
+    ElMessage.warning('不能关注自己')
+    return
+  }
+  
   try {
     followLoading.value = true
-    // 这里需要调用关注API，暂时模拟
-    ElMessage.info('关注功能待实现')
-    // TODO: 调用关注API
+    const currentStatus = article.value.isFollowing || false
+    const newStatus = !currentStatus
+    
+    if (newStatus) {
+      await followStore.followUser(article.value.authorId)
+      ElMessage.success('关注成功')
+    } else {
+      await followStore.unfollowUser(article.value.authorId)
+      ElMessage.info('已取消关注')
+    }
+    
+    // 更新本地状态
+    article.value.isFollowing = newStatus
+    article.value.authorFansCount = article.value.authorFansCount || 0
+    article.value.authorFansCount += newStatus ? 1 : -1
+    
   } catch (error) {
     console.error('操作关注失败:', error)
     ElMessage.error('操作失败')
@@ -642,8 +657,44 @@ const goToTag = (tagId) => {
     // 先获取标签名称
     const tag = tagStore.tags.find(t => t.id === tagId)
     if (tag) {
-      router.push(`/tag/${encodeURIComponent(tag.name)}`)
+      router.push({
+        path: '/tag',
+        query: { name: encodeURIComponent(tag.name) }
+      })
     }
+  }
+}
+
+// 跳转到作者主页
+const goToAuthorPage = () => {
+  if (!article.value) return
+  
+  console.log('跳转到作者主页，作者信息:', {
+    username: article.value.authorUsername,
+    authorName: article.value.authorName,
+    authorId: article.value.authorId
+  })
+  
+  // 优先使用 username，因为路由是 /user/:username
+  if (article.value.authorUsername) {
+    router.push(`/user/${encodeURIComponent(article.value.authorUsername)}`)
+  } else {
+    console.warn('无法获取作者信息，无法跳转')
+    ElMessage.warning('无法获取作者信息')
+  }
+}
+
+
+// 跳转到用户主页
+const goToUserPage = (userId, username) => {
+  // 优先使用 username
+  if (username) {
+    router.push(`/user/${encodeURIComponent(username)}`)
+  } else {
+    // 如果评论数据中没有 username，可以尝试通过 userId 获取
+    // 或者显示提示
+    console.warn('无法跳转：缺少用户名')
+    ElMessage.warning('无法跳转到用户主页：缺少用户信息')
   }
 }
 
@@ -666,8 +717,7 @@ const submitComment = async () => {
     
     console.log('提交评论:', {
       articleId: articleId.value,
-      content: content,
-      userId: currentUser.value?.id
+      content: content
     })
     
     await commentStore.createComment({
@@ -685,7 +735,15 @@ const submitComment = async () => {
     
   } catch (error) {
     console.error('发表评论失败:', error)
-    ElMessage.error('评论失败')
+    // 更友好的错误提示
+    if (error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
+      ElMessage.error('网络错误，请检查连接')
+    } else if (error.response?.status === 401) {
+      ElMessage.error('请先登录')
+      showLogin.value = true
+    } else {
+      ElMessage.error(error.message || '评论失败')
+    }
   } finally {
     commentLoading.value = false
   }
@@ -799,16 +857,13 @@ const checkCommentOwnership = (comment) => {
 // 跳转到登录页
 const toLoginPage = () => {
   showLogin.value = false
-  router.push('/')
-  // 这里可以触发父组件的登录弹窗
-}
-
-// 显示登录弹窗（通过Header组件）
-const showLoginDialog = () => {
-  showLogin.value = true
-  // 触发Header组件的登录弹窗
-  const headerEvent = new CustomEvent('showLogin')
-  window.dispatchEvent(headerEvent)
+  router.push({
+    path: '/',
+    query: {
+      showLogin: true,
+      redirect: route.fullPath
+    }
+  })
 }
 </script>
 
@@ -817,7 +872,7 @@ const showLoginDialog = () => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
 }
 
 /* 加载状态 */
@@ -854,11 +909,13 @@ const showLoginDialog = () => {
   color: #666;
   font-size: 14px;
   margin-bottom: 20px;
+  padding: 8px 0;
 }
 
 .breadcrumb a {
   color: #666;
   text-decoration: none;
+  transition: color 0.3s;
 }
 
 .breadcrumb a:hover {
@@ -872,11 +929,13 @@ const showLoginDialog = () => {
 
 /* 文章标题 */
 .article-title {
-  font-size: 32px;
-  font-weight: bold;
-  line-height: 1.4;
-  color: #333;
-  margin-bottom: 24px;
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #1a1a1a;
+  margin-bottom: 1.5rem;
+  text-align: left;
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
 /* 文章元信息 */
@@ -886,13 +945,21 @@ const showLoginDialog = () => {
   align-items: center;
   margin-bottom: 30px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #e8e8e8;
 }
 
 .author-info {
   display: flex;
   align-items: center;
   gap: 15px;
+  cursor: pointer;
+  transition: all 0.3s;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.author-info:hover {
+  background: rgba(64, 158, 255, 0.1);
 }
 
 .author-avatar {
@@ -900,13 +967,16 @@ const showLoginDialog = () => {
   height: 48px;
   border-radius: 50%;
   overflow: hidden;
-  background: #409eff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
   font-weight: bold;
+  flex-shrink: 0;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .author-avatar img {
@@ -921,9 +991,14 @@ const showLoginDialog = () => {
 
 .author-name {
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   color: #333;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  transition: color 0.3s;
+}
+
+.author-info:hover .author-name {
+  color: #409eff;
 }
 
 .meta-items {
@@ -939,22 +1014,38 @@ const showLoginDialog = () => {
   gap: 4px;
 }
 
+.meta-item .el-icon {
+  margin-right: 4px;
+}
+
 .action-buttons {
   display: flex;
   gap: 10px;
 }
 
+.edit-btn, .like-btn {
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-weight: 500;
+}
+
 /* 文章封面 */
 .article-cover {
   margin-bottom: 30px;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .article-cover img {
   width: 100%;
   max-height: 400px;
   object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.article-cover img:hover {
+  transform: scale(1.02);
 }
 
 /* 文章主体 */
@@ -967,6 +1058,10 @@ const showLoginDialog = () => {
 .content-wrapper {
   flex: 1;
   min-width: 0;
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .sidebar {
@@ -980,12 +1075,17 @@ const showLoginDialog = () => {
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .category-tag,
 .tag-item {
   cursor: pointer;
   transition: all 0.3s;
+  border-radius: 16px;
+  padding: 8px 16px;
+  font-weight: 500;
 }
 
 .category-tag:hover,
@@ -998,69 +1098,81 @@ const showLoginDialog = () => {
 .article-content {
   line-height: 1.8;
   color: #333;
-  margin-bottom: 40px;
-}
-
-.article-content :deep(h1),
-.article-content :deep(h2),
-.article-content :deep(h3),
-.article-content :deep(h4),
-.article-content :deep(h5),
-.article-content :deep(h6) {
-  margin: 1.5em 0 0.8em;
-  color: #333;
-  font-weight: 600;
+  font-size: 16px;
+  font-family: 'Georgia', 'Times New Roman', serif;
 }
 
 .article-content :deep(h1) {
-  font-size: 28px;
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 2rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #409eff;
 }
+
 .article-content :deep(h2) {
-  font-size: 24px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  margin: 1.8rem 0 0.8rem;
 }
+
 .article-content :deep(h3) {
-  font-size: 20px;
-}
-.article-content :deep(h4) {
-  font-size: 18px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #555;
+  margin: 1.5rem 0 0.5rem;
 }
 
 .article-content :deep(p) {
-  margin: 1em 0;
+  margin: 1.2rem 0;
+  text-align: justify;
 }
 
 .article-content :deep(ul),
 .article-content :deep(ol) {
-  margin: 1em 0;
+  margin: 1rem 0;
   padding-left: 2em;
 }
 
 .article-content :deep(li) {
-  margin: 0.5em 0;
+  margin: 0.5rem 0;
 }
 
 .article-content :deep(pre) {
-  background: #f6f8fa;
-  border-radius: 6px;
+  background: #f8f9fa;
+  border-radius: 8px;
   padding: 16px;
   overflow: auto;
-  margin: 1.5em 0;
+  margin: 1.5rem 0;
+  border-left: 4px solid #409eff;
 }
 
 .article-content :deep(code) {
   background: #f6f8fa;
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: "Consolas", "Monaco", monospace;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 14px;
+  color: #e83e8c;
 }
 
 .article-content :deep(blockquote) {
   border-left: 4px solid #409eff;
-  padding-left: 16px;
-  margin: 1.5em 0;
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
   color: #666;
   font-style: italic;
+  background: #f8f9fa;
+  border-radius: 0 8px 8px 0;
+}
+
+.article-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1rem 0;
 }
 
 /* 文章底部 */
@@ -1073,37 +1185,66 @@ const showLoginDialog = () => {
 }
 
 .update-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 10px;
+  color: #999;
+}
+
+.copyright {
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  text-align: center;
 }
 
 .copyright p {
   color: #999;
   font-size: 13px;
+  margin: 0;
 }
 
 /* 互动操作 */
 .interaction-actions {
-  margin: 40px 0;
+  margin: 40px 0 20px;
   text-align: center;
 }
 
-.action-group {
-  display: inline-flex;
-  gap: 20px;
-}
-
 .action-btn {
-  min-width: 120px;
+  min-width: 160px;
+  height: 48px;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 500;
 }
 
 /* 侧边栏卡片 */
-.author-card,
-.toc-card{
+.author-card {
   background: white;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 24px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.author-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.author-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
 }
 
 .author-header {
@@ -1112,18 +1253,20 @@ const showLoginDialog = () => {
 }
 
 .author-avatar-large {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   margin: 0 auto 15px;
-  background: #409eff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
+  font-size: 36px;
   font-weight: bold;
   overflow: hidden;
+  border: 4px solid white;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
 .author-avatar-large img {
@@ -1133,10 +1276,15 @@ const showLoginDialog = () => {
 }
 
 .author-name {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   margin-bottom: 8px;
   color: #333;
+  transition: color 0.3s;
+}
+
+.author-card:hover .author-name {
+  color: #409eff;
 }
 
 .author-bio {
@@ -1157,22 +1305,38 @@ const showLoginDialog = () => {
 
 .stat-item {
   text-align: center;
+  cursor: default;
 }
 
 .stat-number {
   font-size: 20px;
-  font-weight: 600;
-  color: #333;
+  font-weight: 700;
+  color: #409eff;
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 12px;
-  color: #666;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .follow-btn {
   width: 100%;
+  height: 40px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.toc-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 80px;
 }
 
 /* 目录导航 */
@@ -1180,43 +1344,44 @@ const showLoginDialog = () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 16px;
+  font-size: 18px;
   margin-bottom: 15px;
   color: #333;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
 }
 
 .toc-content {
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
+  padding-right: 8px;
 }
 
 .toc-item {
-  padding: 8px 0;
+  padding: 10px 0;
   color: #666;
   cursor: pointer;
   transition: all 0.2s;
   line-height: 1.5;
+  border-left: 2px solid transparent;
+  padding-left: 10px;
+  font-size: 14px;
 }
 
 .toc-item:hover {
   color: #409eff;
-  transform: translateX(4px);
+  border-left-color: #409eff;
+  padding-left: 15px;
 }
 
 .toc-level-2 {
-  padding-left: 16px;
+  padding-left: 20px;
 }
 .toc-level-3 {
-  padding-left: 32px;
+  padding-left: 30px;
 }
 .toc-level-4 {
-  padding-left: 48px;
-}
-.toc-level-5 {
-  padding-left: 64px;
-}
-.toc-level-6 {
-  padding-left: 80px;
+  padding-left: 40px;
 }
 
 /* 文章不存在 */
@@ -1226,16 +1391,20 @@ const showLoginDialog = () => {
   align-items: center;
   justify-content: center;
   min-height: 60vh;
+  background: white;
+  border-radius: 12px;
+  margin: 20px;
 }
 
 .error-content {
   text-align: center;
+  padding: 40px;
 }
 
 .error-content h1 {
-  font-size: 48px;
+  font-size: 2rem;
   color: #333;
-  margin-bottom: 20px;
+  margin: 20px 0 10px;
 }
 
 .error-content p {
@@ -1247,8 +1416,9 @@ const showLoginDialog = () => {
 /* 评论区域 */
 .comments-section {
   background: white;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #e8e8e8;
   padding: 40px 0;
+  margin-top: 40px;
 }
 
 .comments-wrapper {
@@ -1263,15 +1433,16 @@ const showLoginDialog = () => {
   font-size: 20px;
   margin-bottom: 30px;
   color: #333;
+  font-weight: 600;
 }
 
 /* 评论表单 */
 .comment-form-card {
   background: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 24px;
   margin-bottom: 30px;
-  border: 1px solid #eee;
+  border: 1px solid #e8e8e8;
 }
 
 .form-header {
@@ -1285,7 +1456,7 @@ const showLoginDialog = () => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #409eff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   display: flex;
   align-items: center;
@@ -1293,6 +1464,9 @@ const showLoginDialog = () => {
   font-size: 16px;
   font-weight: bold;
   overflow: hidden;
+  flex-shrink: 0;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .user-avatar img {
@@ -1311,6 +1485,14 @@ const showLoginDialog = () => {
   margin-bottom: 20px;
 }
 
+.comment-textarea :deep(.el-textarea__inner) {
+  border-radius: 8px;
+  border: 1px solid #dcdfe6;
+  padding: 12px;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -1322,17 +1504,22 @@ const showLoginDialog = () => {
   text-align: center;
   padding: 30px;
   background: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 12px;
   margin-bottom: 30px;
   border: 1px solid #e9ecef;
+}
+
+.login-prompt p {
+  color: #666;
+  margin: 0;
 }
 
 .login-prompt a {
   color: #409eff;
   text-decoration: none;
   font-weight: 500;
+  margin-left: 4px;
 }
-
 
 .login-prompt a:hover {
   text-decoration: underline;
@@ -1346,9 +1533,16 @@ const showLoginDialog = () => {
 }
 
 .comment-item {
-  padding: 20px;
   background: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s;
+  border: 1px solid transparent;
+}
+
+.comment-item:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.1);
 }
 
 .comment-header {
@@ -1362,13 +1556,25 @@ const showLoginDialog = () => {
   display: flex;
   align-items: center;
   gap: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.comment-author:hover {
+  background: rgba(64, 158, 255, 0.1);
+}
+
+.comment-author:hover .comment-author-name {
+  color: #409eff;
 }
 
 .comment-avatar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: #409eff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   display: flex;
   align-items: center;
@@ -1376,6 +1582,8 @@ const showLoginDialog = () => {
   font-size: 14px;
   font-weight: bold;
   overflow: hidden;
+  flex-shrink: 0;
+  border: 2px solid white;
 }
 
 .comment-avatar img {
@@ -1390,9 +1598,10 @@ const showLoginDialog = () => {
 
 .comment-author-name {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: #333;
   margin-bottom: 2px;
+  transition: color 0.3s;
 }
 
 .comment-time {
@@ -1400,65 +1609,69 @@ const showLoginDialog = () => {
   color: #999;
 }
 
-/* 未登录时的按钮样式 */
-.action-buttons .el-button:disabled,
-.comment-footer .el-button:disabled,
-.interaction-actions .el-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.action-buttons .el-button:disabled:hover,
-.comment-footer .el-button:disabled:hover,
-.interaction-actions .el-button:disabled:hover {
-  background: initial;
-  border-color: initial;
-  color: initial;
-}
-
 .comment-actions {
   display: flex;
   gap: 8px;
 }
+
 .comment-actions .el-button {
   font-size: 12px;
   padding: 0 6px;
+  color: #999;
+}
+
+.comment-actions .el-button:hover {
+  color: #409eff;
 }
 
 .comment-content {
   line-height: 1.6;
   color: #333;
   margin-bottom: 15px;
+  font-size: 14px;
+  white-space: pre-wrap;
 }
 
 .comment-footer {
   display: flex;
   gap: 20px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.comment-footer .el-button {
+  color: #999;
+  font-size: 13px;
 }
 
 .comment-footer .liked {
   color: #409eff;
 }
 
-/* 禁用状态的点赞/收藏按钮样式 */
-.liked {
-  color: #409eff;
+/* 未登录时的按钮样式 */
+.action-buttons .el-button:disabled,
+.comment-footer .el-button:disabled,
+.interaction-actions .el-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .comment-footer .el-button:disabled {
   color: #c0c4cc;
-  cursor: not-allowed;
-}
-
-.comment-footer .el-button:disabled:hover {
-  background: transparent;
-  border-color: transparent;
 }
 
 .no-comments {
   text-align: center;
-  padding: 40px 20px;
+  padding: 60px 20px;
   color: #999;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.no-comments p {
+  margin-top: 15px;
+  font-size: 14px;
 }
 
 /* 头像占位符 */
@@ -1475,11 +1688,12 @@ const showLoginDialog = () => {
   font-size: 20px;
 }
 .avatar-placeholder-large {
-  font-size: 32px;
+  font-size: 36px;
 }
 .avatar-placeholder-small {
   font-size: 14px;
 }
+
 /* 登录弹窗样式 */
 :deep(.el-dialog__header) {
   padding: 20px 20px 10px;
@@ -1488,7 +1702,6 @@ const showLoginDialog = () => {
 :deep(.el-dialog__body) {
   padding: 10px 20px 20px;
 }
-
 
 /* 响应式设计 */
 @media (max-width: 992px) {
@@ -1508,15 +1721,29 @@ const showLoginDialog = () => {
   }
 
   .action-buttons {
-    align-self: flex-end;
+    align-self: flex-start;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .toc-card {
+    position: static;
   }
 }
 
 @media (max-width: 768px) {
+  .container {
+    padding: 0 15px;
+  }
+  
   .article-title {
-    font-size: 24px;
+    font-size: 1.8rem;
   }
 
+  .content-wrapper {
+    padding: 25px;
+  }
+  
   .author-stats {
     padding: 15px 0;
   }
@@ -1533,9 +1760,10 @@ const showLoginDialog = () => {
   .comments-title {
     font-size: 18px;
   }
+  
   .comment-actions {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: flex-end;
     gap: 4px;
   }
   
@@ -1543,6 +1771,55 @@ const showLoginDialog = () => {
     font-size: 11px;
     padding: 0 4px;
   }
+  
+  .article-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .action-buttons {
+    align-self: stretch;
+  }
+  
+  .edit-btn, .like-btn {
+    flex: 1;
+  }
+}
 
+@media (max-width: 480px) {
+  .article-title {
+    font-size: 1.5rem;
+  }
+  
+  .content-wrapper {
+    padding: 20px;
+  }
+  
+  .meta-items {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .author-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  
+  .author-avatar-large {
+    width: 80px;
+    height: 80px;
+    font-size: 28px;
+  }
+  
+  .article-tags {
+    gap: 8px;
+  }
+  
+  .category-tag,
+  .tag-item {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
 }
 </style>

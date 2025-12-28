@@ -12,25 +12,35 @@
 
         <!-- 分类列表 -->
         <div class="categories-list">
-          <div v-if="loading" class="loading-state">
+          <div v-if="categoryStore.loading" class="loading-state">
             <el-skeleton :rows="6" animated />
           </div>
           
-          <div v-else-if="categories.length > 0" class="categories-grid">
+          <div v-else-if="categoriesWithStats.length > 0" class="categories-grid">
             <div 
-              v-for="category in categories" 
+              v-for="category in categoriesWithStats" 
               :key="category.id"
               class="category-card"
               @click="viewCategory(category.id)"
             >
-              <div class="category-icon">
-                <el-icon :size="40">
-                  <component :is="category.icon" />
+              <div class="category-icon" :style="{ backgroundColor: getCategoryColor(category.id) }">
+                <el-icon :size="32" color="white">
+                  <component :is="getCategoryIcon(category.id)" />
                 </el-icon>
               </div>
               <div class="category-content">
                 <h3 class="category-title">{{ category.name }}</h3>
-                <p class="category-description">{{ category.description }}</p>
+                <p class="category-description">{{ category.description || '暂无描述' }}</p>
+                <div class="category-stats">
+                  <span class="stat-item">
+                    <el-icon><Document /></el-icon>
+                    {{ category.articleCount || 0 }} 篇文章
+                  </span>
+                  <span class="stat-item">
+                    <el-icon><View /></el-icon>
+                    {{ formatNumber(category.viewCount || 0) }} 次阅读
+                  </span>
+                </div>
               </div>
               <div class="category-arrow">
                 <el-icon><ArrowRight /></el-icon>
@@ -44,7 +54,11 @@
                 <Folder />
               </el-icon>
               <h3>暂无分类</h3>
-              <p>管理员还没有创建任何分类</p>
+              <p v-if="isAdmin">作为管理员，你可以创建分类来组织文章</p>
+              <p v-else>管理员还没有创建任何分类</p>
+              <el-button v-if="isAdmin" type="primary" class="create-button" @click="createCategory">
+                创建分类
+              </el-button>
             </div>
           </div>
         </div>
@@ -52,6 +66,27 @@
     </div>
 
     <Footer />
+    
+    <!-- 创建分类对话框 -->
+    <el-dialog v-model="showCreateDialog" title="创建分类" width="500px">
+      <el-form :model="newCategory" :rules="categoryRules" ref="categoryFormRef">
+        <el-form-item label="分类名称" prop="name">
+          <el-input v-model="newCategory.name" placeholder="请输入分类名称" />
+        </el-form-item>
+        <el-form-item label="分类描述" prop="description">
+          <el-input v-model="newCategory.description" type="textarea" rows="3" placeholder="请输入分类描述" />
+        </el-form-item>
+        <el-form-item label="排序权重" prop="sort">
+          <el-input-number v-model="newCategory.sort" :min="0" :max="999" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showCreateDialog = false">取消</el-button>
+          <el-button type="primary" :loading="creating" @click="handleCreateCategory">创建</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -59,8 +94,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCategoryStore } from '@/stores/category'
-import { ElMessage } from 'element-plus'
-import { ArrowRight, Folder } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { 
+  ArrowRight, Folder, Document, View, 
+  Grid, Collection, Flag, Star, 
+  Setting, Share, Help, ChatDotRound 
+} from '@element-plus/icons-vue'
 
 // 组件导入
 import Header from '@/components/layout/Header.vue'
@@ -68,14 +108,76 @@ import Footer from '@/components/layout/Footer.vue'
 
 const router = useRouter()
 
-// Pinia Store
+// Pinia Stores
 const categoryStore = useCategoryStore()
+const userStore = useUserStore()
 
 // 状态
-const loading = ref(false)
+const showCreateDialog = ref(false)
+const creating = ref(false)
+const categoryFormRef = ref(null)
 
-// 分类数据
+// 新分类数据
+const newCategory = ref({
+  name: '',
+  description: '',
+  sort: 0
+})
+
+// 验证规则
+const categoryRules = {
+  name: [
+    { required: true, message: '请输入分类名称', trigger: 'blur' },
+    { min: 2, max: 20, message: '长度在2到20个字符', trigger: 'blur' }
+  ]
+}
+
+// 计算属性
 const categories = computed(() => categoryStore.categories || [])
+const isAdmin = computed(() => userStore.user?.role === 1)
+
+// 处理分类统计信息
+const categoriesWithStats = computed(() => {
+  return categories.value.map(category => ({
+    ...category,
+    articleCount: category.articleCount || category.count || 0,
+    viewCount: category.viewCount || 0,
+    // 添加图标和颜色
+    icon: getCategoryIcon(category.id),
+    color: getCategoryColor(category.id)
+  }))
+})
+
+// 获取分类图标（基于分类ID选择）
+const getCategoryIcon = (id) => {
+  const icons = [
+    Document, Collection, Flag, Star, 
+    Setting, Share, Help, ChatDotRound,
+    Grid, Folder
+  ]
+  return icons[id % icons.length]
+}
+
+// 获取分类颜色
+const getCategoryColor = (id) => {
+  const colors = [
+    '#409eff', '#67c23a', '#e6a23c', '#f56c6c',
+    '#909399', '#ff69b4', '#9b30ff', '#00bfff',
+    '#32cd32', '#ff4500'
+  ]
+  return colors[id % colors.length]
+}
+
+// 格式化数字
+const formatNumber = (num) => {
+  if (num >= 10000) {
+    return (num / 10000).toFixed(1) + '万'
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1) + '千'
+  }
+  return num
+}
 
 // 组件挂载
 onMounted(async () => {
@@ -85,19 +187,62 @@ onMounted(async () => {
 // 加载分类数据
 const loadCategories = async () => {
   try {
-    loading.value = true
     await categoryStore.fetchCategories()
   } catch (error) {
     console.error('加载分类列表失败:', error)
     ElMessage.error('加载分类列表失败')
-  } finally {
-    loading.value = false
   }
 }
 
 // 查看分类详情
 const viewCategory = (categoryId) => {
   router.push(`/category/${categoryId}`)
+}
+
+// 创建分类
+const createCategory = () => {
+  if (!isAdmin.value) {
+    ElMessage.warning('需要管理员权限')
+    return
+  }
+  showCreateDialog.value = true
+}
+
+// 处理创建分类
+const handleCreateCategory = async () => {
+  if (!categoryFormRef.value) return
+  
+  try {
+    // 表单验证
+    await categoryFormRef.value.validate()
+    
+    creating.value = true
+    await categoryStore.createCategory(newCategory.value)
+    
+    ElMessage.success('创建分类成功')
+    showCreateDialog.value = false
+    resetCategoryForm()
+    
+    // 刷新列表
+    await loadCategories()
+  } catch (error) {
+    console.error('创建分类失败:', error)
+    ElMessage.error(error.message || '创建分类失败')
+  } finally {
+    creating.value = false
+  }
+}
+
+// 重置表单
+const resetCategoryForm = () => {
+  if (categoryFormRef.value) {
+    categoryFormRef.value.resetFields()
+  }
+  newCategory.value = {
+    name: '',
+    description: '',
+    sort: 0
+  }
 }
 </script>
 
@@ -176,13 +321,12 @@ const viewCategory = (categoryId) => {
 
 .category-icon {
   flex-shrink: 0;
-  width: 64px;
-  height: 64px;
+  width: 60px;
+  height: 60px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
 }
 
 .category-icon .el-icon {
@@ -249,6 +393,25 @@ const viewCategory = (categoryId) => {
   color: #666;
 }
 
+.category-stats {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.empty-content .create-button {
+  margin-top: 15px;
+}
+
+
 /* 响应式设计 */
 @media (max-width: 992px) {
   .categories-grid {
@@ -279,6 +442,15 @@ const viewCategory = (categoryId) => {
     height: 4px;
     top: auto;
     bottom: 0;
+  }
+
+  .categories-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .category-stats {
+    flex-direction: column;
+    gap: 5px;
   }
 }
 </style>

@@ -30,7 +30,7 @@ export const deleteArticle = (id) => {
 
 // 文章阅读量 +1
 export const incrementArticleView = (id) => {
-  return request.post(`/api/articles/${id}/view`)
+  return Promise.resolve({ code: 200, message: '跳过阅读量更新' })
 }
 
 // 文章点赞/取消

@@ -194,6 +194,48 @@ const fetchPublicUserStats = async (username) => {
     publicUserTotal.value = 0
   }
 
+  // 上传用户头像
+const uploadAvatar = async (file) => {
+  try {
+    loading.value = true
+    const formData = new FormData()
+    formData.append('avatar', file)
+    
+    const data = await userApi.uploadAvatar(formData)
+    
+    // 更新本地用户信息
+    if (user.value) {
+      user.value.avatar = data.avatar || data.url || ''
+    }
+    
+    return data
+  } catch (error) {
+    console.error('上传头像失败:', error)
+    throw error
+  } finally {
+    loading.value = false
+  }
+}
+
+// 更新用户基本信息
+const updateUserInfo = async (id, userData) => {
+  try {
+    loading.value = true
+    const data = await userApi.updateProfile(userData)
+    
+    // 更新本地用户信息
+    if (user.value && user.value.id === id) {
+      Object.assign(user.value, userData)
+    }
+    
+    return data
+  } catch (error) {
+    console.error('更新用户信息失败:', error)
+    throw error
+  } finally {
+    loading.value = false
+  }
+}
   return {
     // 当前用户状态
     user,
@@ -207,6 +249,8 @@ const fetchPublicUserStats = async (username) => {
     publicUserLoading,
     
     // 方法
+    uploadAvatar,
+    updateUserInfo,
     initFromStorage,
     clearUser,
     isLoggedIn,

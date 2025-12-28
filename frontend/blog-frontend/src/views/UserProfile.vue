@@ -251,8 +251,7 @@ import {
   View,
   User,
   Edit,
-  SwitchButton,
-  Search
+  SwitchButton
 } from '@element-plus/icons-vue'
 
 // 组件导入
@@ -277,15 +276,24 @@ const userForm = reactive({
 
 const savingInfo = ref(false)
 
-// 表单验证规则
+// 表单验证规则 - 优化邮箱验证
 const infoRules = reactive({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 2, max: 20, message: '用户名长度为2-20个字符', trigger: 'blur' }
+    { min: 2, max: 20, message: '用户名长度为2-20个字符', trigger: 'blur' },
+    { 
+      pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/,
+      message: '用户名只能包含中文、英文、数字和下划线',
+      trigger: 'blur'
+    }
   ],
   email: [
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+    { 
+      type: 'email', 
+      message: '请输入正确的邮箱地址',
+      trigger: ['blur', 'change']
+    }
   ],
   bio: [
     { max: 200, message: '个人简介不能超过200个字符', trigger: 'blur' }
@@ -302,7 +310,7 @@ const passwordForm = reactive({
 
 const changingPassword = ref(false)
 
-// 密码验证规则
+// 密码验证规则 - 增强密码强度验证
 const passwordRules = reactive({
   oldPassword: [
     { required: true, message: '请输入原密码', trigger: 'blur' },
@@ -310,7 +318,12 @@ const passwordRules = reactive({
   ],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6个字符', trigger: 'blur' }
+    { min: 6, message: '密码长度不能少于6个字符', trigger: 'blur' },
+    { 
+      pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      message: '密码必须包含大小写字母和数字',
+      trigger: 'blur'
+    }
   ],
   confirmPassword: [
     { required: true, message: '请确认新密码', trigger: 'blur' },
@@ -335,13 +348,15 @@ const userStats = reactive({
   articleCount: 0,
   likeCount: 0,
   viewCount: 0,
-  followerCount: 0
+  followerCount: 0,
+  followingCount: 0
 })
 
 // 账户安全信息
 const lastLoginTime = ref('')
 const lastLoginIp = ref('')
 const registerTime = ref('')
+const userStatsLoading = ref(false)
 
 // 计算属性
 const avatarPlaceholder = computed(() => {
@@ -379,6 +394,10 @@ const loadUserInfo = async () => {
       
       // 设置注册时间
       registerTime.value = userStore.user.createTime || ''
+      
+      // 设置最近登录信息
+      lastLoginTime.value = userStore.user.lastLoginTime || ''
+      lastLoginIp.value = userStore.user.lastLoginIp || ''
     }
   } catch (error) {
     console.error('加载用户信息失败:', error)
@@ -389,48 +408,67 @@ const loadUserInfo = async () => {
 // 加载用户统计
 const loadUserStats = async () => {
   try {
-    // TODO: 这里需要后端提供用户统计接口
-    // 暂时使用默认值
-    userStats.articleCount = 0
-    userStats.likeCount = 0
-    userStats.viewCount = 0
-    userStats.followerCount = 0
+    userStatsLoading.value = true
     
-    // 加载用户文章获取文章数
-    const result = await articleStore.fetchMyArticles({ page: 1, size: 1 })
-    if (result) {
-      userStats.articleCount = result.total || 0
+    // 尝试从authStore获取用户统计
+    if (authStore.getUserStats) {
+      const stats = await authStore.getUserStats()
+      if (stats) {
+        Object.assign(userStats, {
+          articleCount: stats.articleCount || 0,
+          likeCount: stats.likeCount || 0,
+          viewCount: stats.viewCount || 0,
+          followerCount: stats.followerCount || 0,
+          followingCount: stats.followingCount || 0
+        })
+      }
     }
     
-    // 登录历史（需要后端接口）
-    // lastLoginTime.value = userStore.user?.lastLoginTime || ''
-    // lastLoginIp.value = userStore.user?.lastLoginIp || ''
+    // 如果上面的方法不存在，从文章store获取文章数
+    if (userStats.articleCount === 0) {
+      try {
+        const result = await articleStore.fetchMyArticles({ page: 1, size: 1 })
+        if (result) {
+          userStats.articleCount = result.total || 0
+        }
+      } catch (articleError) {
+        console.warn('获取文章数量失败:', articleError)
+      }
+    }
     
   } catch (error) {
     console.error('加载用户统计失败:', error)
+    ElMessage.warning('用户统计信息加载失败')
+  } finally {
+    userStatsLoading.value = false
   }
 }
 
 // 格式化时间
 const formatTime = (time) => {
   if (!time) return '未知'
-  const date = new Date(time)
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+  try {
+    const date = new Date(time)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch (error) {
+    return time
+  }
 }
 
 // 头像上传前的验证
 const beforeAvatarUpload = (file) => {
-  const isImage = file.type.startsWith('image/')
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+  const isImage = allowedTypes.includes(file.type)
   const isLt2M = file.size / 1024 / 1024 < 2
   
   if (!isImage) {
-    ElMessage.error('只能上传图片文件!')
+    ElMessage.error('只能上传 JPG、PNG、GIF 或 WebP 格式的图片!')
     return false
   }
   if (!isLt2M) {
@@ -447,15 +485,22 @@ const uploadAvatar = async (file) => {
     
     const result = await userStore.uploadAvatar(file.file)
     
-    if (result && result.avatar) {
-      userForm.avatar = result.avatar
-      ElMessage.success('头像上传成功')
+    if (result) {
+      // 根据返回结果更新头像URL
+      const avatarUrl = result.avatar || result.url || result.data?.url
+      if (avatarUrl) {
+        userForm.avatar = avatarUrl
+        ElMessage.success('头像上传成功')
+      } else {
+        ElMessage.warning('头像上传成功，但未获取到图片地址')
+      }
     } else {
-      ElMessage.error('头像上传失败')
+      ElMessage.error('头像上传失败，服务器无响应')
     }
   } catch (error) {
     console.error('上传头像失败:', error)
-    ElMessage.error('头像上传失败')
+    const errorMsg = error.response?.data?.message || error.message || '头像上传失败'
+    ElMessage.error(errorMsg)
   } finally {
     uploadingAvatar.value = false
   }
@@ -473,16 +518,26 @@ const saveUserInfo = async () => {
     await userStore.updateUserInfo(userStore.user.id, {
       username: userForm.username,
       email: userForm.email,
-      bio: userForm.bio,
-      avatar: userForm.avatar
+      bio: userForm.bio
+      // 注意：avatar通常通过专门的avatar接口更新，这里不传
     })
     
-    ElMessage.success('用户信息更新成功')
-  } catch (error) {
-    if (error instanceof Error) {
-      console.error('保存用户信息失败:', error)
-      ElMessage.error(error.message || '保存失败')
+    // 如果需要单独更新头像
+    if (userForm.avatar !== userStore.user?.avatar) {
+      // 这里可以调用专门的头像更新接口
+      console.log('头像已更新，需要调用头像更新接口')
     }
+    
+    ElMessage.success('用户信息更新成功')
+    
+    // 重新加载用户信息
+    await authStore.fetchCurrentUser()
+    await loadUserInfo()
+    
+  } catch (error) {
+    console.error('保存用户信息失败:', error)
+    const errorMsg = error.response?.data?.message || error.message || '保存失败'
+    ElMessage.error(errorMsg)
   } finally {
     savingInfo.value = false
   }
@@ -521,22 +576,30 @@ const changePassword = async () => {
     passwordForm.newPassword = ''
     passwordForm.confirmPassword = ''
     
+    // 重置表单验证状态
+    if (passwordFormRef.value) {
+      passwordFormRef.value.resetFields()
+    }
+    
   } catch (error) {
     console.error('修改密码失败:', error)
-    ElMessage.error(error.message || '修改密码失败')
+    const errorMsg = error.response?.data?.message || error.message || '修改密码失败'
+    ElMessage.error(errorMsg)
   } finally {
     changingPassword.value = false
   }
 }
 
-// 查看登录历史（需要后端接口）
+// 查看登录历史
 const viewLoginHistory = () => {
-  ElMessage.info('登录历史功能待实现')
+  ElMessage.info('登录历史功能开发中')
+  // TODO: 实现跳转到登录历史页面
 }
 
 // 查看账户状态
 const showAccountStatus = () => {
-  ElMessage.info('账户状态功能待实现')
+  ElMessage.info('账户状态功能开发中')
+  // TODO: 显示账户状态详情
 }
 
 // 跳转到我的文章
@@ -555,7 +618,8 @@ const logout = async () => {
     await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
       type: 'warning',
       confirmButtonText: '确定',
-      cancelButtonText: '取消'
+      cancelButtonText: '取消',
+      center: true
     })
     
     await authStore.logout()

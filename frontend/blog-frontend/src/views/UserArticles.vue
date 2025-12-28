@@ -8,13 +8,36 @@
                 <div class="page-header">
                     <h1>我的文章</h1>
                     <p class="page-subtitle">管理您的文章，包括草稿和已发布的文章</p>
+                    
+                    <!-- 快速统计 -->
+                    <div class="quick-stats">
+                        <div class="stat-item">
+                            <div class="stat-number">{{ total }}</div>
+                            <div class="stat-label">文章总数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{ publishedCount }}</div>
+                            <div class="stat-label">已发布</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{ draftCount }}</div>
+                            <div class="stat-label">草稿</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 工具栏 -->
                 <div class="toolbar">
                     <div class="toolbar-left">
-                        <el-input v-model="searchKeyword" placeholder="搜索文章标题..." clearable @clear="handleSearch"
-                            @keyup.enter="handleSearch" class="search-input" :prefix-icon="Search" />
+                        <el-input 
+                            v-model="searchKeyword" 
+                            placeholder="搜索文章标题..." 
+                            clearable 
+                            @clear="handleSearch"
+                            @keyup.enter="handleSearch" 
+                            class="search-input" 
+                            :prefix-icon="Search"
+                        />
 
                         <el-select v-model="statusFilter" placeholder="文章状态" @change="handleFilter"
                             class="status-select">
@@ -22,23 +45,44 @@
                             <el-option label="已发布" :value="1" />
                             <el-option label="草稿" :value="0" />
                         </el-select>
+                        
+                        <el-select v-model="categoryFilter" placeholder="分类" @change="handleFilter"
+                            class="category-select" clearable>
+                            <el-option 
+                                v-for="category in userCategories" 
+                                :key="category.id" 
+                                :label="category.name" 
+                                :value="category.id" 
+                            />
+                        </el-select>
                     </div>
 
                     <div class="toolbar-right">
-                        <el-button type="primary" @click="$router.push('/article/create')" class="create-btn">
+                        <el-button type="primary" @click="createArticle" class="create-btn">
                             <el-icon>
                                 <Plus />
                             </el-icon>
                             写新文章
                         </el-button>
 
-                        <el-button :disabled="selectedArticles.length === 0" @click="handleBatchDelete"
-                            class="batch-delete-btn">
-                            <el-icon>
-                                <Delete />
-                            </el-icon>
-                            批量删除
-                        </el-button>
+                        <el-dropdown v-if="selectedArticles.length > 0" @command="handleBatchCommand">
+                            <el-button class="batch-btn">
+                                <el-icon>
+                                    <More />
+                                </el-icon>
+                                批量操作
+                            </el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item command="publish" :disabled="!canBatchPublish">
+                                        <el-icon><CircleCheck /></el-icon>批量发布
+                                    </el-dropdown-item>
+                                    <el-dropdown-item command="delete">
+                                        <el-icon><Delete /></el-icon>批量删除
+                                    </el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </div>
                 </div>
 
@@ -46,13 +90,21 @@
                 <div class="articles-list">
                     <!-- 加载状态 -->
                     <div v-if="loading" class="loading-state">
-                        <el-skeleton :rows="5" animated />
+                        <div class="loading-content">
+                            <el-icon class="loading-icon"><Loading /></el-icon>
+                            <p>加载中...</p>
+                        </div>
                     </div>
 
                     <!-- 文章表格 -->
                     <div v-else-if="articles.length > 0" class="articles-table">
-                        <el-table :data="articles" style="width: 100%" @selection-change="handleSelectionChange"
-                            :row-key="row => row.id">
+                        <el-table 
+                            :data="articles" 
+                            style="width: 100%" 
+                            @selection-change="handleSelectionChange"
+                            :row-key="row => row.id"
+                            v-loading="loading"
+                        >
                             <el-table-column type="selection" width="55" />
 
                             <el-table-column label="文章标题" min-width="300">
@@ -63,6 +115,9 @@
                                             <el-tag v-if="row.status === 0" type="info" size="small" class="draft-tag">
                                                 草稿
                                             </el-tag>
+                                            <el-tag v-if="!row.isPublic && row.status === 1" type="warning" size="small">
+                                                私密
+                                            </el-tag>
                                         </div>
                                         <div v-if="row.summary" class="article-summary">
                                             {{ row.summary }}
@@ -71,7 +126,7 @@
                                 </template>
                             </el-table-column>
 
-                            <el-table-column prop="categoryName" label="分类" width="120">
+                            <el-table-column label="分类" width="120">
                                 <template #default="{ row }">
                                     <el-tag v-if="row.categoryName" size="small">
                                         {{ row.categoryName }}
@@ -80,23 +135,38 @@
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="阅读/点赞/评论" width="180">
+                            <el-table-column label="统计" width="180">
                                 <template #default="{ row }">
                                     <div class="stats">
-                                        <span class="stat-item">👁 {{ row.viewCount || 0 }}</span>
-                                        <span class="stat-item">❤ {{ row.likeCount || 0 }}</span>
-                                        <span class="stat-item">💬 {{ row.commentCount || 0 }}</span>
+                                        <el-tooltip content="阅读数" placement="top">
+                                            <span class="stat-item">
+                                                <el-icon><View /></el-icon>
+                                                {{ row.viewCount || 0 }}
+                                            </span>
+                                        </el-tooltip>
+                                        <el-tooltip content="点赞数" placement="top">
+                                            <span class="stat-item">
+                                                <el-icon><Star /></el-icon>
+                                                {{ row.likeCount || 0 }}
+                                            </span>
+                                        </el-tooltip>
+                                        <el-tooltip content="评论数" placement="top">
+                                            <span class="stat-item">
+                                                <el-icon><ChatDotRound /></el-icon>
+                                                {{ row.commentCount || 0 }}
+                                            </span>
+                                        </el-tooltip>
                                     </div>
                                 </template>
                             </el-table-column>
 
-                            <el-table-column prop="updateTime" label="更新时间" width="160">
+                            <el-table-column label="更新时间" width="160">
                                 <template #default="{ row }">
                                     {{ formatTime(row.updateTime || row.createTime) }}
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="操作" width="200" fixed="right">
+                            <el-table-column label="操作" width="240" fixed="right">
                                 <template #default="{ row }">
                                     <div class="action-buttons">
                                         <el-button link type="primary" @click="editArticle(row.id)" class="action-btn">
@@ -105,9 +175,26 @@
                                         <el-button link type="primary" @click="viewArticle(row.id)" class="action-btn">
                                             查看
                                         </el-button>
-                                        <el-button link type="danger" @click="deleteArticle(row)" class="action-btn">
-                                            删除
+                                        <el-button 
+                                            v-if="row.status === 0" 
+                                            link type="success" 
+                                            @click="publishArticle(row)" 
+                                            class="action-btn"
+                                        >
+                                            发布
                                         </el-button>
+                                        <el-dropdown @command="(command) => handleMoreAction(row, command)">
+                                            <el-button link type="primary" class="more-btn">
+                                                更多
+                                            </el-button>
+                                            <template #dropdown>
+                                                <el-dropdown-menu>
+                                                    <el-dropdown-item command="copy">复制链接</el-dropdown-item>
+                                                    <el-dropdown-item command="stats">查看统计</el-dropdown-item>
+                                                    <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                                                </el-dropdown-menu>
+                                            </template>
+                                        </el-dropdown>
                                     </div>
                                 </template>
                             </el-table-column>
@@ -121,8 +208,11 @@
                                 <Document />
                             </el-icon>
                             <h3>暂无文章</h3>
-                            <p>您还没有写过任何文章，开始创作吧！</p>
-                            <el-button type="primary" @click="$router.push('/article/create')" class="create-btn-empty">
+                            <p v-if="searchKeyword || statusFilter !== -1 || categoryFilter">
+                                没有找到符合条件的文章
+                            </p>
+                            <p v-else>您还没有写过任何文章，开始创作吧！</p>
+                            <el-button type="primary" @click="createArticle" class="create-btn-empty">
                                 <el-icon>
                                     <Plus />
                                 </el-icon>
@@ -133,11 +223,16 @@
                 </div>
 
                 <!-- 分页 -->
-                <div v-if="articles.length > 0 && !loading" class="pagination-wrapper">
-                    <el-pagination :current-page="currentPage" :page-size="pageSize" :total="total"
-                        :page-sizes="[10, 20, 30, 50]" layout="total, sizes, prev, pager, next, jumper"
-                        @size-change="handleSizeChange" @current-change="handlePageChange"
-                        @update:current-page="val => currentPage = val" @update:page-size="val => pageSize = val" />
+                <div v-if="total > 0 && !loading" class="pagination-wrapper">
+                    <el-pagination 
+                        :current-page="currentPage"
+                        :page-size="pageSize"
+                        :total="total"
+                        :page-sizes="[10, 20, 30, 50]" 
+                        layout="total, sizes, prev, pager, next, jumper"
+                        @size-change="handleSizeChange" 
+                        @current-change="handlePageChange"
+                    />
                 </div>
             </div>
         </div>
@@ -151,12 +246,19 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArticleStore } from '@/stores/article'
 import { useUserStore } from '@/stores/user'
+import { useCategoryStore } from '@/stores/category'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search,
   Plus,
   Delete,
-  Document
+  Document,
+  More,
+  View,
+  Star,
+  ChatDotRound,
+  Loading,
+  CircleCheck
 } from '@element-plus/icons-vue'
 
 // 组件导入
@@ -168,10 +270,12 @@ const router = useRouter()
 // Pinia Store
 const articleStore = useArticleStore()
 const userStore = useUserStore()
+const categoryStore = useCategoryStore()
 
 // 搜索和筛选
 const searchKeyword = ref('')
 const statusFilter = ref(-1)
+const categoryFilter = ref('')
 
 // 分页参数
 const currentPage = ref(1)
@@ -187,195 +291,369 @@ const articles = computed(() => articleStore.articles || [])
 // 选中文章
 const selectedArticles = ref([])
 
+// 计算属性
+const publishedCount = computed(() => {
+    return articles.value.filter(article => article.status === 1).length
+})
+
+const draftCount = computed(() => {
+    return articles.value.filter(article => article.status === 0).length
+})
+
+const userCategories = computed(() => {
+    return categoryStore.categories || []
+})
+
+// 是否可以批量发布（选中的都是草稿）
+const canBatchPublish = computed(() => {
+    if (selectedArticles.value.length === 0) return false
+    return selectedArticles.value.every(article => article.status === 0)
+})
+
 // 组件挂载
 onMounted(async () => {
-  // 初始化用户状态
-  userStore.initFromStorage()
-  
-  // 检查登录状态
-  if (!userStore.isLoggedIn()) {
-    ElMessage.warning('请先登录')
-    router.push('/')
-    return
-  }
-  
-  // 加载用户文章
-  await loadUserArticles()
+    // 初始化用户状态
+    userStore.initFromStorage()
+    
+    // 检查登录状态
+    if (!userStore.isLoggedIn()) {
+        ElMessage.warning('请先登录')
+        router.push('/')
+        return
+    }
+    
+    // 加载分类数据
+    await categoryStore.fetchCategories()
+    
+    // 加载用户文章
+    await loadUserArticles()
 })
 
 // 监听分页和筛选变化
 watch(
-  [currentPage, pageSize, statusFilter],
-  () => {
-    loadUserArticles()
-  }
+    [currentPage, pageSize, statusFilter, categoryFilter],
+    () => {
+        // 重置到第一页
+        if (!searchKeyword.value) {
+            loadUserArticles()
+        }
+    }
+)
+
+// 监听搜索关键词变化（带防抖）
+let searchTimer = null
+watch(
+    searchKeyword,
+    () => {
+        if (searchTimer) clearTimeout(searchTimer)
+        searchTimer = setTimeout(() => {
+            currentPage.value = 1
+            loadUserArticles()
+        }, 500)
+    }
 )
 
 // 加载用户文章
 const loadUserArticles = async () => {
-  try {
-    loading.value = true
-    
-    const params = {
-      page: currentPage.value,
-      size: pageSize.value
+    try {
+        loading.value = true
+        
+        const params = {
+            page: currentPage.value,
+            size: pageSize.value
+        }
+        
+        // 添加搜索关键词
+        if (searchKeyword.value.trim()) {
+            params.keyword = searchKeyword.value.trim()
+        }
+        
+        // 添加状态筛选
+        if (statusFilter.value !== -1) {
+            params.status = statusFilter.value
+        }
+        
+        // 添加分类筛选
+        if (categoryFilter.value) {
+            params.categoryId = categoryFilter.value
+        }
+        
+        const result = await articleStore.fetchMyArticles(params)
+        
+        if (result) {
+            total.value = result.total || 0
+            
+            // 如果当前页没有数据且不是第一页，回到上一页
+            if (articles.value.length === 0 && currentPage.value > 1) {
+                currentPage.value = Math.max(1, currentPage.value - 1)
+                await loadUserArticles()
+            }
+        }
+        
+    } catch (error) {
+        console.error('加载用户文章失败:', error)
+        ElMessage.error('加载文章失败')
+    } finally {
+        loading.value = false
     }
-    
-    // 添加搜索关键词
-    if (searchKeyword.value.trim()) {
-      params.keyword = searchKeyword.value.trim()
-    }
-    
-    // 添加状态筛选
-    if (statusFilter.value !== null) {
-      params.status = statusFilter.value
-    }
-    
-    const result = await articleStore.fetchMyArticles(params)
-    
-    if (result) {
-      total.value = result.total || 0
-    }
-    
-  } catch (error) {
-    console.error('加载用户文章失败:', error)
-    ElMessage.error('加载文章失败')
-  } finally {
-    loading.value = false
-  }
 }
 
 // 搜索文章
 const handleSearch = () => {
-  currentPage.value = 1
-  loadUserArticles()
+    currentPage.value = 1
+    loadUserArticles()
 }
 
 // 筛选文章
 const handleFilter = () => {
-  currentPage.value = 1
-  loadUserArticles()
+    currentPage.value = 1
+    loadUserArticles()
 }
 
 // 格式化时间
 const formatTime = (time) => {
-  if (!time) return ''
-  const date = new Date(time)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  
-  if (days === 0) {
-    // 今天，显示时间
-    return date.toLocaleTimeString('zh-CN', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
-  } else if (days === 1) {
-    return '昨天'
-  } else if (days < 7) {
-    return `${days}天前`
-  } else {
-    return date.toLocaleDateString('zh-CN')
-  }
+    if (!time) return ''
+    
+    try {
+        const date = new Date(time)
+        const now = new Date()
+        const diff = now.getTime() - date.getTime()
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+        
+        if (isNaN(date.getTime())) {
+            return '无效日期'
+        }
+        
+        if (days === 0) {
+            // 今天，显示时间
+            return date.toLocaleTimeString('zh-CN', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            })
+        } else if (days === 1) {
+            return '昨天 ' + date.toLocaleTimeString('zh-CN', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            })
+        } else if (days < 7) {
+            return `${days}天前`
+        } else if (days < 30) {
+            return `${Math.floor(days / 7)}周前`
+        } else {
+            return date.toLocaleDateString('zh-CN')
+        }
+    } catch (error) {
+        console.error('格式化时间失败:', time, error)
+        return ''
+    }
 }
 
 // 查看文章详情
 const viewArticle = (articleId) => {
-  router.push(`/article/${articleId}`)
+    router.push(`/article/${articleId}`)
 }
 
 // 编辑文章
 const editArticle = (articleId) => {
-  router.push(`/article/edit/${articleId}`)
+    router.push(`/article/edit/${articleId}`)
+}
+
+// 创建文章
+const createArticle = () => {
+    router.push('/article/create')
+}
+
+// 发布文章
+const publishArticle = async (article) => {
+    try {
+        await ElMessageBox.confirm(
+            `确定要发布文章 "${article.title}" 吗？`,
+            '发布确认',
+            {
+                type: 'warning',
+                confirmButtonText: '确定发布',
+                cancelButtonText: '取消'
+            }
+        )
+        
+        // 调用articleStore的发布方法
+        if (articleStore.publishDraft) {
+            await articleStore.publishDraft(article.id)
+            ElMessage.success('文章发布成功')
+        } else {
+            // 如果没有专门的方法，则更新文章状态
+            await articleStore.updateArticle(article.id, { ...article, status: 1 })
+            ElMessage.success('文章发布成功')
+        }
+        
+        // 重新加载文章列表
+        await loadUserArticles()
+        
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('发布文章失败:', error)
+            ElMessage.error('发布失败')
+        }
+    }
 }
 
 // 删除文章
 const deleteArticle = async (article) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除文章 "${article.title}" 吗？删除后不可恢复。`,
-      '提示',
-      {
-        type: 'warning',
-        confirmButtonText: '确定',
-        cancelButtonText: '取消'
-      }
-    )
-    
-    await articleStore.deleteArticle(article.id)
-    ElMessage.success('文章删除成功')
-    
-    // 重新加载文章列表
-    await loadUserArticles()
-    
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除文章失败:', error)
-      ElMessage.error('删除失败')
+    try {
+        await ElMessageBox.confirm(
+            `确定要删除文章 "${article.title}" 吗？删除后不可恢复。`,
+            '提示',
+            {
+                type: 'warning',
+                confirmButtonText: '确定',
+                cancelButtonText: '取消'
+            }
+        )
+        
+        await articleStore.deleteArticle(article.id)
+        ElMessage.success('文章删除成功')
+        
+        // 重新加载文章列表
+        await loadUserArticles()
+        
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('删除文章失败:', error)
+            ElMessage.error('删除失败')
+        }
     }
-  }
 }
 
-// 批量删除文章
-const handleBatchDelete = async () => {
-  if (selectedArticles.value.length === 0) return
-  
-  try {
-    const articleIds = selectedArticles.value.map(article => article.id)
-    const articleTitles = selectedArticles.value.map(article => article.title).join('、')
+// 批量操作
+const handleBatchCommand = async (command) => {
+    if (selectedArticles.value.length === 0) return
     
-    await ElMessageBox.confirm(
-      `确定要删除选中的 ${selectedArticles.value.length} 篇文章吗？删除后不可恢复。\n\n${articleTitles}`,
-      '批量删除确认',
-      {
-        type: 'warning',
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        dangerouslyUseHTMLString: true
-      }
-    )
-    
-    // 批量删除（需要后端支持批量删除接口）
-    // 这里暂时使用循环单个删除
-    for (const articleId of articleIds) {
-      try {
-        await articleStore.deleteArticle(articleId)
-      } catch (error) {
-        console.error(`删除文章 ${articleId} 失败:`, error)
-      }
+    try {
+        if (command === 'delete') {
+            const articleIds = selectedArticles.value.map(article => article.id)
+            const articleTitles = selectedArticles.value.map(article => article.title).join('、')
+            
+            await ElMessageBox.confirm(
+                `确定要删除选中的 ${selectedArticles.value.length} 篇文章吗？删除后不可恢复。\n\n${articleTitles}`,
+                '批量删除确认',
+                {
+                    type: 'warning',
+                    confirmButtonText: '确定删除',
+                    cancelButtonText: '取消',
+                    dangerouslyUseHTMLString: true
+                }
+            )
+            
+            // 批量删除（需要后端支持批量删除接口）
+            // 这里暂时使用循环单个删除
+            let successCount = 0
+            for (const article of selectedArticles.value) {
+                try {
+                    await articleStore.deleteArticle(article.id)
+                    successCount++
+                } catch (error) {
+                    console.error(`删除文章 ${article.id} 失败:`, error)
+                }
+            }
+            
+            ElMessage.success(`成功删除 ${successCount} 篇文章`)
+            
+            // 清空选中
+            selectedArticles.value = []
+            
+            // 重新加载文章列表
+            await loadUserArticles()
+            
+        } else if (command === 'publish') {
+            // 批量发布草稿
+            const draftArticles = selectedArticles.value.filter(article => article.status === 0)
+            
+            if (draftArticles.length === 0) {
+                ElMessage.warning('选中的文章中没有草稿')
+                return
+            }
+            
+            await ElMessageBox.confirm(
+                `确定要批量发布 ${draftArticles.length} 篇草稿吗？`,
+                '批量发布确认',
+                {
+                    type: 'warning',
+                    confirmButtonText: '确定发布',
+                    cancelButtonText: '取消'
+                }
+            )
+            
+            let successCount = 0
+            for (const article of draftArticles) {
+                try {
+                    if (articleStore.publishDraft) {
+                        await articleStore.publishDraft(article.id)
+                    } else {
+                        await articleStore.updateArticle(article.id, { ...article, status: 1 })
+                    }
+                    successCount++
+                } catch (error) {
+                    console.error(`发布文章 ${article.id} 失败:`, error)
+                }
+            }
+            
+            ElMessage.success(`成功发布 ${successCount} 篇文章`)
+            
+            // 清空选中
+            selectedArticles.value = []
+            
+            // 重新加载文章列表
+            await loadUserArticles()
+        }
+        
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('批量操作失败:', error)
+            ElMessage.error('操作失败')
+        }
     }
-    
-    ElMessage.success(`成功删除 ${selectedArticles.value.length} 篇文章`)
-    
-    // 清空选中
-    selectedArticles.value = []
-    
-    // 重新加载文章列表
-    await loadUserArticles()
-    
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('批量删除失败:', error)
-      ElMessage.error('批量删除失败')
+}
+
+// 更多操作
+const handleMoreAction = async (article, command) => {
+    switch (command) {
+        case 'copy':
+            // 复制文章链接
+            const url = `${window.location.origin}/article/${article.id}`
+            try {
+                await navigator.clipboard.writeText(url)
+                ElMessage.success('链接已复制到剪贴板')
+            } catch (error) {
+                console.error('复制失败:', error)
+                ElMessage.error('复制失败')
+            }
+            break
+            
+        case 'stats':
+            // 查看统计（可以跳转到统计页面）
+            router.push(`/article/${article.id}/stats`)
+            break
+            
+        case 'delete':
+            await deleteArticle(article)
+            break
     }
-  }
 }
 
 // 表格选择变化
 const handleSelectionChange = (selection) => {
-  selectedArticles.value = selection
+    selectedArticles.value = selection
 }
 
 // 分页改变
 const handlePageChange = (page) => {
-  currentPage.value = page
+    currentPage.value = page
 }
 
 // 每页数量改变
 const handleSizeChange = (size) => {
-  pageSize.value = size
-  currentPage.value = 1 // 重置到第一页
+    pageSize.value = size
+    currentPage.value = 1 // 重置到第一页
 }
 </script>
 
@@ -413,6 +691,42 @@ const handleSizeChange = (size) => {
 .page-subtitle {
     color: #666;
     font-size: 14px;
+    margin-bottom: 20px;
+}
+
+/* 快速统计 */
+.quick-stats {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-item {
+    background: white;
+    border-radius: 8px;
+    padding: 15px 20px;
+    min-width: 100px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.stat-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.stat-number {
+    font-size: 24px;
+    font-weight: 700;
+    color: #409eff;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    color: #666;
+    font-size: 13px;
 }
 
 /* 工具栏 */
@@ -437,7 +751,8 @@ const handleSizeChange = (size) => {
     width: 280px;
 }
 
-.status-select {
+.status-select,
+.category-select {
     width: 120px;
 }
 
@@ -447,6 +762,12 @@ const handleSizeChange = (size) => {
 }
 
 .create-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.batch-btn {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -514,13 +835,18 @@ const handleSizeChange = (size) => {
 }
 
 .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-size: 13px;
     color: #666;
+    cursor: default;
 }
 
 .action-buttons {
     display: flex;
-    gap: 12px;
+    gap: 8px;
+    align-items: center;
 }
 
 .action-btn {
@@ -528,9 +854,33 @@ const handleSizeChange = (size) => {
     font-size: 13px;
 }
 
+.more-btn {
+    padding: 4px 0;
+    font-size: 13px;
+}
+
 /* 加载状态 */
 .loading-state {
-    padding: 40px;
+    padding: 80px 20px;
+    text-align: center;
+}
+
+.loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.loading-icon {
+    font-size: 40px;
+    color: #409eff;
+    animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* 空状态 */
@@ -577,17 +927,32 @@ const handleSizeChange = (size) => {
         width: 100%;
     }
 
+    .toolbar-left {
+        flex-wrap: wrap;
+    }
+
     .search-input {
         width: 100%;
     }
 
-    .action-buttons {
-        flex-direction: column;
-        gap: 8px;
+    .quick-stats {
+        flex-wrap: wrap;
     }
 
-    .action-btn {
+    .stat-item {
+        flex: 1;
+        min-width: calc(50% - 10px);
+    }
+
+    .action-buttons {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .action-btn,
+    .more-btn {
         padding: 2px 0;
+        font-size: 12px;
     }
 }
 
@@ -600,5 +965,23 @@ const handleSizeChange = (size) => {
     .page-header h1 {
         font-size: 24px;
     }
+
+    .quick-stats {
+        gap: 10px;
+    }
+
+    .stat-item {
+        min-width: calc(100% - 10px);
+        padding: 12px 15px;
+    }
+}
+
+/* 表格悬停效果 */
+:deep(.el-table__row:hover) {
+    background-color: #f5f7fa !important;
+}
+
+:deep(.el-table__row:hover .title-text) {
+    color: #409eff;
 }
 </style>

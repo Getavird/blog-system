@@ -53,7 +53,7 @@
         <!-- 标签云/列表 -->
         <div class="tags-content">
           <!-- 加载状态 -->
-          <div v-if="loading" class="loading-state">
+          <div v-if="tagStore.loading" class="loading-state">
             <el-skeleton :rows="5" animated />
           </div>
 
@@ -65,6 +65,7 @@
               </el-icon>
               <h3>没有找到相关标签</h3>
               <p>尝试其他搜索关键词</p>
+              <el-button type="text" @click="clearSearch">清除搜索</el-button>
             </div>
           </div>
 
@@ -73,19 +74,20 @@
             <div class="tag-cloud-wrapper">
               <div 
                 v-for="tag in filteredTags" 
-                :key="tag.id"
+                :key="tag.id || tag.name"
                 :class="[
                   'tag-cloud-item',
-                  `tag-level-${Math.min(Math.floor(tag.count / 10) + 1, 5)}`
+                  `tag-level-${getTagLevel(tag)}`
                 ]"
                 :style="{
-                  fontSize: `${12 + Math.min(tag.count / 5, 10)}px`,
-                  opacity: 0.5 + (tag.count / 100)
+                  fontSize: `${getTagFontSize(tag)}px`,
+                  opacity: 0.6 + (getTagCount(tag) / 200),
+                  transform: `rotate(${Math.random() * 10 - 5}deg)`
                 }"
-                @click="viewTagArticles(tag.id, tag.name)"
+                @click="viewTagArticles(tag)"
               >
                 {{ tag.name }}
-                <span class="tag-count">{{ tag.count }}</span>
+                <span class="tag-count">{{ getTagCount(tag) }}</span>
               </div>
             </div>
           </div>
@@ -96,34 +98,42 @@
               <div class="table-header">
                 <div class="header-cell">标签名称</div>
                 <div class="header-cell">文章数量</div>
-                <div class="header-cell">最近更新</div>
+                <div class="header-cell">最后更新</div>
                 <div class="header-cell">操作</div>
               </div>
               
               <div class="table-body">
                 <div 
                   v-for="tag in filteredTags" 
-                  :key="tag.id"
+                  :key="tag.id || tag.name"
                   class="table-row"
                 >
                   <div class="table-cell">
-                    <el-tag :type="getTagType(tag.count)" size="medium">
+                    <el-tag :type="getTagType(tag)" size="medium" class="tag-cell">
                       {{ tag.name }}
                     </el-tag>
                   </div>
                   <div class="table-cell">
-                    <span class="article-count">{{ tag.count }} 篇</span>
+                    <span class="article-count">{{ getTagCount(tag) }} 篇</span>
                   </div>
                   <div class="table-cell">
-                    {{ formatTime(tag.lastUpdate) }}
+                    {{ formatTime(tag.updatedAt || tag.createTime) }}
                   </div>
                   <div class="table-cell">
                     <el-button 
                       type="primary" 
                       size="small" 
-                      @click="viewTagArticles(tag.id, tag.name)"
+                      @click="viewTagArticles(tag)"
                     >
                       查看文章
+                    </el-button>
+                    <el-button 
+                      v-if="userStore.user?.role === 1"
+                      type="danger" 
+                      size="small" 
+                      @click="deleteTag(tag)"
+                    >
+                      删除
                     </el-button>
                   </div>
                 </div>
@@ -133,25 +143,54 @@
         </div>
 
         <!-- 热门标签 -->
-        <div v-if="filteredTags.length > 0" class="hot-tags">
+        <div v-if="topTags.length > 0" class="hot-tags">
           <h3>热门标签</h3>
           <div class="hot-tags-list">
             <el-tag
               v-for="tag in topTags"
-              :key="tag.id"
-              :type="getTagType(tag.count)"
+              :key="tag.id || tag.name"
+              :type="getTagType(tag)"
               size="large"
               class="hot-tag-item"
-              @click="viewTagArticles(tag.id, tag.name)"
+              @click="viewTagArticles(tag)"
             >
-              {{ tag.name }} ({{ tag.count }})
+              {{ tag.name }} ({{ getTagCount(tag) }})
             </el-tag>
           </div>
+        </div>
+
+        <!-- 创建标签按钮（管理员） -->
+        <div v-if="userStore.user?.role === 1" class="create-tag-section">
+          <el-button type="primary" @click="showCreateDialog = true">
+            <el-icon><Plus /></el-icon>
+            创建新标签
+          </el-button>
         </div>
       </div>
     </div>
 
     <Footer />
+    
+    <!-- 创建标签对话框 -->
+    <el-dialog v-model="showCreateDialog" title="创建标签" width="500px">
+      <el-form :model="newTag" :rules="tagRules" ref="tagFormRef">
+        <el-form-item label="标签名称" prop="name">
+          <el-input v-model="newTag.name" placeholder="请输入标签名称" />
+        </el-form-item>
+        <el-form-item label="标签描述" prop="description">
+          <el-input v-model="newTag.description" type="textarea" rows="3" placeholder="请输入标签描述" />
+        </el-form-item>
+        <el-form-item label="标签颜色" prop="color">
+          <el-color-picker v-model="newTag.color" show-alpha :predefine="predefineColors" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showCreateDialog = false">取消</el-button>
+          <el-button type="primary" :loading="creating" @click="handleCreateTag">创建</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -159,54 +198,122 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTagStore } from '@/stores/tag'
-import { useArticleStore } from '@/stores/article'
-import { ElMessage } from 'element-plus'
-import { Search, PriceTag } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, PriceTag, Plus } from '@element-plus/icons-vue'
 
-// 组件导入 - 路径需要根据你的实际结构调整
+// 组件导入
 import Header from '@/components/layout/Header.vue'
 import Footer from '@/components/layout/Footer.vue'
 
 const router = useRouter()
+
+// Pinia Stores
 const tagStore = useTagStore()
-const articleStore = useArticleStore()
+const userStore = useUserStore()
 
 // 状态
-const tags = ref([])  // 添加 tags 变量定义
 const loading = ref(false)
 const searchKeyword = ref('')
 const viewMode = ref('cloud') // 'cloud' 或 'list'
+const showCreateDialog = ref(false)
+const creating = ref(false)
+const tagFormRef = ref(null)
+
+// 新标签数据
+const newTag = ref({
+  name: '',
+  description: '',
+  color: '#409eff'
+})
+
+// 预定义颜色
+const predefineColors = ref([
+  '#409eff', '#67c23a', '#e6a23c', '#f56c6c',
+  '#909399', '#ff69b4', '#9b30ff', '#00bfff',
+  '#32cd32', '#ff4500'
+])
+
+// 验证规则
+const tagRules = {
+  name: [
+    { required: true, message: '请输入标签名称', trigger: 'blur' },
+    { min: 2, max: 20, message: '长度在2到20个字符', trigger: 'blur' }
+  ]
+}
 
 // 计算属性
+const tags = computed(() => {
+  return tagStore.tags.map(tag => ({
+    ...tag,
+    // 统一文章数量字段
+    articleCount: tag.articleCount || tag.count || 0
+  }))
+})
+
 // 过滤后的标签
 const filteredTags = computed(() => {
-  if (!searchKeyword.value.trim()) {
-    return tags.value
+  let result = tags.value
+  
+  // 按关键词搜索
+  if (searchKeyword.value.trim()) {
+    const keyword = searchKeyword.value.toLowerCase()
+    result = result.filter(tag => 
+      tag.name.toLowerCase().includes(keyword) ||
+      (tag.description && tag.description.toLowerCase().includes(keyword))
+    )
   }
-  const keyword = searchKeyword.value.toLowerCase()
-  return tags.value.filter(tag => 
-    tag.name.toLowerCase().includes(keyword)
-  )
+  
+  return result
 })
+
+// 获取标签的文章数量
+const getTagCount = (tag) => {
+  return tag.articleCount || tag.count || 0
+}
+
+// 获取标签级别（用于云图）
+const getTagLevel = (tag) => {
+  const count = getTagCount(tag)
+  if (count >= 100) return 5
+  if (count >= 50) return 4
+  if (count >= 20) return 3
+  if (count >= 10) return 2
+  return 1
+}
+
+// 获取标签字体大小
+const getTagFontSize = (tag) => {
+  const count = getTagCount(tag)
+  const baseSize = 14
+  const maxSize = 32
+  const increment = 0.5
+  
+  // 对数计算，避免大小差异过大
+  const size = baseSize + Math.log2(count + 1) * increment
+  return Math.min(size, maxSize)
+}
 
 // 总文章数
 const totalArticleCount = computed(() => {
-  return tags.value.reduce((sum, tag) => sum + (tag.articleCount || 0), 0)
+  return tags.value.reduce((sum, tag) => sum + getTagCount(tag), 0)
 })
 
 // 最热标签（文章数最多的标签）
 const mostUsedTag = computed(() => {
   if (tags.value.length === 0) return { name: '无' }
-  const tag = tags.value.reduce((prev, current) => 
-    (prev.articleCount || 0) > (current.articleCount || 0) ? prev : current
+  
+  const sortedTags = [...tags.value].sort((a, b) => 
+    getTagCount(b) - getTagCount(a)
   )
-  return tag
+  
+  return sortedTags[0] || { name: '无' }
 })
 
 // 热门标签（前10个）
 const topTags = computed(() => {
   return [...tags.value]
-    .sort((a, b) => (b.articleCount || 0) - (a.articleCount || 0))
+    .sort((a, b) => getTagCount(b) - getTagCount(a))
     .slice(0, 10)
 })
 
@@ -215,18 +322,13 @@ onMounted(async () => {
   await loadTags()
 })
 
-// 方法
 // 加载标签
 const loadTags = async () => {
   try {
-    loading.value = true
     await tagStore.fetchTags()
-    tags.value = tagStore.tags || []
   } catch (error) {
     console.error('加载标签失败:', error)
     ElMessage.error('加载标签失败')
-  } finally {
-    loading.value = false
   }
 }
 
@@ -235,30 +337,118 @@ const handleSearch = () => {
   // 搜索逻辑由filteredTags计算属性处理
 }
 
+// 清除搜索
+const clearSearch = () => {
+  searchKeyword.value = ''
+}
+
 // 切换视图模式
 const toggleViewMode = () => {
   viewMode.value = viewMode.value === 'cloud' ? 'list' : 'cloud'
 }
 
 // 查看标签文章
-const viewTagArticles = (tagId, tagName) => {
-  router.push(`/tag/${encodeURIComponent(tagName)}`)
+const viewTagArticles = (tag) => {
+  router.push(`/tag/${encodeURIComponent(tag.name)}`)
 }
 
-// 格式化时间（示例，根据实际数据结构调整）
+// 格式化时间
 const formatTime = (time) => {
-  if (!time) return '未知'
-  const date = new Date(time)
-  return date.toLocaleDateString('zh-CN')
+  if (!time) return '暂无'
+  
+  try {
+    const date = new Date(time)
+    if (isNaN(date.getTime())) return '暂无'
+    
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 0) return '今天'
+    if (diffDays === 1) return '昨天'
+    if (diffDays < 7) return `${diffDays}天前`
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前`
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)}月前`
+    
+    return date.toLocaleDateString('zh-CN')
+  } catch (error) {
+    console.warn('时间格式化失败:', time, error)
+    return '暂无'
+  }
 }
 
 // 根据文章数量获取标签类型（用于样式）
-const getTagType = (count) => {
+const getTagType = (tag) => {
+  const count = getTagCount(tag)
   if (count >= 100) return 'danger'
   if (count >= 50) return 'warning'
   if (count >= 20) return 'success'
   if (count >= 10) return 'primary'
   return 'info'
+}
+
+// 创建标签
+const handleCreateTag = async () => {
+  if (!tagFormRef.value) return
+  
+  try {
+    // 表单验证
+    await tagFormRef.value.validate()
+    
+    creating.value = true
+    await tagStore.createTag(newTag.value)
+    
+    ElMessage.success('创建标签成功')
+    showCreateDialog.value = false
+    resetTagForm()
+    
+    // 刷新标签列表
+    await loadTags()
+  } catch (error) {
+    console.error('创建标签失败:', error)
+    ElMessage.error(error.message || '创建标签失败')
+  } finally {
+    creating.value = false
+  }
+}
+
+// 删除标签
+const deleteTag = async (tag) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除标签 "${tag.name}" 吗？`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    await tagStore.deleteTag(tag.id || tag.name)
+    
+    ElMessage.success('删除标签成功')
+    
+    // 刷新标签列表
+    await loadTags()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除标签失败:', error)
+      ElMessage.error('删除标签失败')
+    }
+  }
+}
+
+// 重置表单
+const resetTagForm = () => {
+  if (tagFormRef.value) {
+    tagFormRef.value.resetFields()
+  }
+  newTag.value = {
+    name: '',
+    description: '',
+    color: '#409eff'
+  }
 }
 </script>
 
@@ -314,6 +504,7 @@ const getTagType = (count) => {
   text-align: center;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   transition: all 0.3s;
+  cursor: pointer;
 }
 
 .tags-stats .stat-card:hover {
@@ -321,11 +512,34 @@ const getTagType = (count) => {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
 }
 
+.tags-stats .stat-card:nth-child(1):hover .stat-number {
+  color: #409eff;
+}
+
+.tags-stats .stat-card:nth-child(2):hover .stat-number {
+  color: #67c23a;
+}
+
+.tags-stats .stat-card:nth-child(3):hover .stat-number {
+  color: #e6a23c;
+}
+
 .tags-stats .stat-number {
   font-size: 36px;
   font-weight: 700;
   color: #409eff;
   margin-bottom: 8px;
+  transition: color 0.3s;
+}
+
+.tags-stats .stat-card:nth-child(2) .stat-number {
+  color: #67c23a;
+}
+
+.tags-stats .stat-card:nth-child(3) .stat-number {
+  color: #e6a23c;
+  font-size: 28px;
+  word-break: break-all;
 }
 
 .tags-stats .stat-label {
@@ -382,6 +596,7 @@ const getTagType = (count) => {
 
 .empty-content p {
   color: #666;
+  margin-bottom: 15px;
 }
 
 /* 标签云模式 */
@@ -397,33 +612,36 @@ const getTagType = (count) => {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 20px;
+  gap: 15px;
   text-align: center;
 }
 
 .tag-cloud-item {
-  padding: 12px 24px;
-  margin: 8px;
+  padding: 10px 20px;
+  margin: 5px;
   cursor: pointer;
   transition: all 0.3s;
-  border-radius: 30px;
+  border-radius: 20px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: #333;
   background: #f5f7fa;
   border: 2px solid transparent;
+  user-select: none;
 }
 
 .tag-cloud-item:hover {
-  transform: translateY(-5px) scale(1.05);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  transform: translateY(-5px) scale(1.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  z-index: 10;
 }
 
 /* 标签级别样式 */
 .tag-level-1 {
   border-color: #dcdfe6;
   background: #f5f7fa;
+  color: #909399;
 }
 .tag-level-1:hover {
   border-color: #c0c4cc;
@@ -474,6 +692,10 @@ const getTagType = (count) => {
   font-size: 0.8em;
   opacity: 0.8;
   font-weight: 500;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
 }
 
 /* 列表模式 */
@@ -490,7 +712,7 @@ const getTagType = (count) => {
 
 .table-header {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 2fr;
   background: #f8f9fa;
   padding: 16px 24px;
   border-bottom: 1px solid #e4e7ed;
@@ -508,7 +730,7 @@ const getTagType = (count) => {
 
 .table-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 2fr;
   padding: 16px 24px;
   border-bottom: 1px solid #f0f0f0;
   align-items: center;
@@ -523,9 +745,27 @@ const getTagType = (count) => {
   color: #333;
 }
 
+.tag-cell {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.tag-cell:hover {
+  transform: scale(1.05);
+}
+
 .article-count {
   color: #666;
   font-size: 14px;
+  font-weight: 500;
+}
+
+.table-cell .el-button {
+  margin-right: 8px;
+}
+
+.table-cell .el-button:last-child {
+  margin-right: 0;
 }
 
 /* 热门标签 */
@@ -534,6 +774,7 @@ const getTagType = (count) => {
   border-radius: 12px;
   padding: 30px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  margin-bottom: 30px;
 }
 
 .hot-tags h3 {
@@ -553,11 +794,27 @@ const getTagType = (count) => {
 .hot-tag-item {
   cursor: pointer;
   transition: all 0.3s;
+  padding: 8px 16px;
 }
 
 .hot-tag-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 创建标签区域 */
+.create-tag-section {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.create-tag-section .el-button {
+  padding: 12px 32px;
+  font-size: 16px;
+}
+
+.create-tag-section .el-icon {
+  margin-right: 8px;
 }
 
 /* 响应式设计 */
@@ -577,6 +834,10 @@ const getTagType = (count) => {
   
   .tag-cloud-mode {
     padding: 20px;
+  }
+  
+  .tag-cloud-item {
+    padding: 8px 16px;
   }
   
   .table-header {
@@ -611,12 +872,17 @@ const getTagType = (count) => {
     content: "文章数量";
   }
   
-  .table-cell[data-label="最近更新"]::before {
-    content: "最近更新";
+  .table-cell[data-label="最后更新"]::before {
+    content: "最后更新";
   }
   
   .table-cell[data-label="操作"]::before {
     content: "操作";
+  }
+  
+  .table-cell .el-button {
+    margin-right: 5px;
+    margin-bottom: 5px;
   }
 }
 
@@ -633,8 +899,13 @@ const getTagType = (count) => {
     font-size: 28px;
   }
   
-  .tag-cloud-item {
-    padding: 10px 20px;
+  .tags-stats .stat-card:nth-child(3) .stat-number {
+    font-size: 24px;
+  }
+  
+  .hot-tag-item {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }
 </style>

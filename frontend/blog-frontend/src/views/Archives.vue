@@ -178,11 +178,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArchiveStore } from '@/stores/archive'
-import { useArticleStore } from '@/stores/article'
-import { useUserStore } from '@/stores/user'  // ✅ 改为使用 userStore
+import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import {
   Calendar,
@@ -192,6 +191,7 @@ import {
   Star,
   ChatDotRound
 } from '@element-plus/icons-vue'
+import { ElCollapseTransition } from 'element-plus'
 
 // 组件导入
 import Header from '@/components/layout/Header.vue'
@@ -199,18 +199,27 @@ import Footer from '@/components/layout/Footer.vue'
 
 const router = useRouter()
 
-// Pinia Store
+// Pinia Stores
 const archiveStore = useArchiveStore()
-const articleStore = useArticleStore()
-const userStore = useUserStore()  // ✅ 改为 userStore
+const userStore = useUserStore()
 
 // 状态
 const loading = ref(false)
 const selectedYear = ref('all')
+const expandedYears = ref({}) // 存储年份的展开状态
 
 // 归档数据
-const archives = computed(() => archiveStore.archives || [])
-const availableYears = computed(() => archiveStore.archiveYears || [])
+const archives = computed(() => {
+  const archiveData = archiveStore.archives || []
+  return archiveData.map(year => ({
+    ...year,
+    expanded: expandedYears.value[year.year] !== false // 默认展开
+  }))
+})
+
+const availableYears = computed(() => {
+  return archiveStore.archiveYears || []
+})
 
 // 计算属性
 const totalArticles = computed(() => {
@@ -225,40 +234,26 @@ const totalMonths = computed(() => {
 
 const mostActiveYear = computed(() => {
   if (archives.value.length === 0) return '暂无'
-  let maxYear = archives.value[0].year
-  let maxCount = archives.value[0].total || 0
   
-  for (const year of archives.value) {
-    if (year.total > maxCount) {
-      maxCount = year.total
-      maxYear = year.year
-    }
-  }
-  return maxYear
+  const sortedYears = [...archives.value].sort((a, b) => (b.total || 0) - (a.total || 0))
+  return sortedYears[0]?.year || '暂无'
 })
 
 // 筛选后的归档数据
 const filteredArchives = computed(() => {
-  if (selectedYear.value === 'all') {
-    return archives.value.map(year => ({
-      ...year,
-      expanded: true
-    }))
+  let result = archives.value
+  
+  // 按年份筛选
+  if (selectedYear.value !== 'all') {
+    const yearNum = parseInt(selectedYear.value)
+    result = archives.value.filter(year => year.year === yearNum)
   }
   
-  return archives.value
-    .filter(year => year.year === parseInt(selectedYear.value))
-    .map(year => ({
-      ...year,
-      expanded: true
-    }))
+  return result
 })
 
 // 组件挂载
 onMounted(async () => {
-  // ✅ 初始化用户状态
-  userStore.initFromStorage()
-  
   await loadArchives()
 })
 
@@ -267,14 +262,20 @@ const loadArchives = async () => {
   try {
     loading.value = true
     
-    // 1. 加载所有归档数据
-    await archiveStore.fetchAllArchives()
+    // 并行加载数据
+    await Promise.all([
+      archiveStore.fetchAllArchives(),
+      archiveStore.fetchArchiveYears()
+    ])
     
-    // 2. 加载可用年份
-    await archiveStore.fetchArchiveYears()
-    
-    // 3. 加载归档统计（如果store中有）
-    await archiveStore.fetchArchiveStats()
+    // 初始化所有年份为展开状态
+    if (archives.value.length > 0) {
+      const initialExpanded = {}
+      archives.value.forEach(year => {
+        initialExpanded[year.year] = true
+      })
+      expandedYears.value = initialExpanded
+    }
     
   } catch (error) {
     console.error('加载归档数据失败:', error)
@@ -287,32 +288,49 @@ const loadArchives = async () => {
 // 选择年份
 const selectYear = (year) => {
   selectedYear.value = year
+  
+  // 如果选择单个年份，确保它展开
+  if (year !== 'all') {
+    expandedYears.value[parseInt(year)] = true
+  }
 }
 
 // 切换年份展开/收起
 const toggleYear = (year) => {
-  const yearIndex = archives.value.findIndex(y => y.year === year)
-  if (yearIndex !== -1) {
-    archives.value[yearIndex].expanded = !archives.value[yearIndex].expanded
-  }
+  expandedYears.value[year] = !expandedYears.value[year]
 }
 
 // 格式化数字
 const formatNumber = (num) => {
-  if (num >= 10000) {
-    return (num / 10000).toFixed(1) + '万'
+  if (!num && num !== 0) return 0
+  
+  const number = parseInt(num)
+  if (isNaN(number)) return 0
+  
+  if (number >= 1000000) {
+    return (number / 1000000).toFixed(1) + '百万'
   }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(1) + '千'
+  if (number >= 10000) {
+    return (number / 10000).toFixed(1) + '万'
   }
-  return num || 0
+  if (number >= 1000) {
+    return (number / 1000).toFixed(1) + '千'
+  }
+  return number.toString()
 }
 
 // 格式化日期
 const formatDay = (dateString) => {
   if (!dateString) return ''
-  const date = new Date(dateString)
-  return date.getDate()
+  
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return ''
+    return date.getDate().toString().padStart(2, '0')
+  } catch (error) {
+    console.warn('日期格式化失败:', dateString, error)
+    return ''
+  }
 }
 
 // 查看文章
@@ -322,10 +340,8 @@ const viewArticle = (articleId) => {
 
 // 跳转到写文章页面
 const toWriteArticle = () => {
-  // 检查是否登录 - 使用 userStore.isLoggedIn()
   if (!userStore.isLoggedIn()) {
     ElMessage.warning('请先登录后再发布文章')
-    router.push('/')
     return
   }
   
@@ -385,6 +401,7 @@ const toWriteArticle = () => {
   text-align: center;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   transition: all 0.3s;
+  cursor: pointer;
 }
 
 .stat-card:hover {
@@ -521,6 +538,12 @@ const toWriteArticle = () => {
   gap: 20px;
   color: #666;
   font-size: 14px;
+}
+
+.year-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .year-toggle {
@@ -745,6 +768,22 @@ const toWriteArticle = () => {
   
   .stat-number {
     font-size: 28px;
+  }
+  
+  .article-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .article-date {
+    align-self: flex-start;
+  }
+  
+  .article-arrow {
+    position: absolute;
+    right: 15px;
+    bottom: 15px;
   }
 }
 </style>

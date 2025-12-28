@@ -34,11 +34,23 @@
                 <Document />
               </el-icon> 最新文章</h2>
 
-            <!-- 使用 ArticleList 组件 -->
-            <ArticleList :articles="articles" :loading="loading" :show-time="true" :show-views="true"
-              :show-author="true" :show-summary="true" :show-pagination="true" :total="total"
-              :current-page="currentPage" :page-size="pageSize" @article-click="viewArticle"
-              @create-click="toWriteArticle" @size-change="handleSizeChange" @page-change="handlePageChange" />
+            <!-- 文章列表加载状态 -->
+            <div v-if="articleStore.articlesLoading" class="loading-container">
+              <el-skeleton :rows="5" animated />
+            </div>
+
+            <!-- 文章列表为空 -->
+            <div v-else-if="articles.length === 0" class="empty-state">
+              <el-empty description="暂无文章" />
+            </div>
+
+            <!-- 文章列表 -->
+            <ArticleList v-else :articles="articles" :loading="articleStore.articlesLoading" 
+              :show-time="true" :show-views="true" :show-author="true" 
+              :show-summary="true" :show-pagination="true" :total="total"
+              :current-page="currentPage" :page-size="pageSize" 
+              @article-click="viewArticle" @create-click="toWriteArticle"
+              @size-change="handleSizeChange" @page-change="handlePageChange" />
           </div>
 
           <!-- 右侧：侧边栏 -->
@@ -48,12 +60,20 @@
               <h3><el-icon>
                   <Star />
                 </el-icon> 热门文章</h3>
-              <ul class="hot-list">
+              
+              <div v-if="articleStore.hotLoading" class="loading-mini">
+                <el-skeleton :rows="3" animated />
+              </div>
+              
+              <ul v-else class="hot-list">
                 <li v-for="article in hotArticles" :key="article.id">
                   <a href="javascript:;" class="hot-item" @click="viewArticle(article.id)">
                     <span class="hot-title">{{ article.title }}</span>
-                    <span class="hot-views">👁 {{ article.viewCount }}</span>
+                    <span class="hot-views">👁 {{ article.viewCount || 0 }}</span>
                   </a>
+                </li>
+                <li v-if="hotArticles.length === 0" class="empty-item">
+                  暂无热门文章
                 </li>
               </ul>
             </div>
@@ -63,12 +83,20 @@
               <h3><el-icon>
                   <Folder />
                 </el-icon> 文章分类</h3>
-              <ul class="category-list">
-                <li v-for="category in categories" :key="category.id">
+              
+              <div v-if="categoryStore.loading" class="loading-mini">
+                <el-skeleton :rows="3" animated />
+              </div>
+              
+              <ul v-else class="category-list">
+                <li v-for="category in categoriesWithStats" :key="category.id">
                   <a href="javascript:;" class="category-item" @click="viewCategory(category.id)">
                     <span class="category-name">{{ category.name }}</span>
-                    <span class="category-count">({{ category.count }})</span>
+                    <span class="category-count">({{ category.articleCount || 0 }})</span>
                   </a>
+                </li>
+                <li v-if="categoriesWithStats.length === 0" class="empty-item">
+                  暂无分类
                 </li>
               </ul>
             </div>
@@ -78,11 +106,20 @@
               <h3><el-icon>
                   <PriceTag />
                 </el-icon> 热门标签</h3>
-              <div class="tags-cloud">
-                <el-tag v-for="tag in tags" :key="tag.id" :type="tagTypes[tag.id % tagTypes.length]" size="medium"
+              
+              <div v-if="tagStore.loading" class="loading-mini">
+                <el-skeleton :rows="2" animated />
+              </div>
+              
+              <div v-else class="tags-cloud">
+                <el-tag v-for="tag in tagsWithStats" :key="tag.id" 
+                  :type="tagTypes[tag.id % tagTypes.length]" size="medium"
                   class="tag-cloud-item" @click="viewTag(tag)">
                   {{ tag.name }} ({{ tag.articleCount || 0 }})
                 </el-tag>
+                <div v-if="tagsWithStats.length === 0" class="empty-tags">
+                  暂无标签
+                </div>
               </div>
             </div>
           </aside>
@@ -121,7 +158,7 @@
             <a href="javascript:;" class="forgot-link">忘记密码？</a>
           </div>
 
-          <el-button type="primary" size="large" :loading="loginLoading" @click="handleLogin" class="submit-btn">
+          <el-button type="primary" size="large" :loading="authStore.loading" @click="handleLogin" class="submit-btn">
             登录
           </el-button>
         </el-form>
@@ -154,7 +191,7 @@
             </el-checkbox>
           </el-form-item>
 
-          <el-button type="primary" size="large" :loading="registerLoading" @click="handleRegister" class="submit-btn">
+          <el-button type="primary" size="large" :loading="authStore.loading" @click="handleRegister" class="submit-btn">
             注册
           </el-button>
         </el-form>
@@ -164,7 +201,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useArticleStore } from '@/stores/article'
@@ -175,7 +212,6 @@ import { Document, Star, Folder, PriceTag } from '@element-plus/icons-vue'
 import Header from '@/components/layout/Header.vue'
 import Footer from '@/components/layout/Footer.vue'
 import ArticleList from '@/components/article/ArticleList.vue'
-import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 
@@ -184,14 +220,13 @@ const authStore = useAuthStore()
 const articleStore = useArticleStore()
 const categoryStore = useCategoryStore()
 const tagStore = useTagStore()
-const userStore = useUserStore()
 
 // 状态
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 
-// 计算属性：从Pinia Store获取数据
+// 计算属性
 const isLoggedIn = computed(() => authStore.isLoggedIn)
 const articles = computed(() => articleStore.articles || [])
 const hotArticles = computed(() => articleStore.hotArticles || [])
@@ -199,7 +234,22 @@ const categories = computed(() => categoryStore.categories || [])
 const tags = computed(() => tagStore.tags || [])
 const total = computed(() => articleStore.total || 0)
 
-// 标签类型数组（用于标签云样式）
+// 处理带统计的分类和标签数据
+const categoriesWithStats = computed(() => {
+  return categories.value.map(category => ({
+    ...category,
+    articleCount: category.articleCount || category.count || 0
+  }))
+})
+
+const tagsWithStats = computed(() => {
+  return tags.value.map(tag => ({
+    ...tag,
+    articleCount: tag.articleCount || 0
+  }))
+})
+
+// 标签类型数组
 const tagTypes = ['', 'success', 'info', 'warning', 'danger']
 
 // 登录/注册弹窗相关
@@ -207,8 +257,6 @@ const showLoginDialog = ref(false)
 const activeTab = ref('login')
 const loginFormRef = ref(null)
 const registerFormRef = ref(null)
-const loginLoading = ref(false)
-const registerLoading = ref(false)
 
 // 登录表单
 const loginForm = ref({
@@ -286,15 +334,28 @@ const registerRules = {
   ]
 }
 
+// 监听登录状态变化
+watch(isLoggedIn, (newValue) => {
+  if (newValue) {
+    // 登录后刷新数据
+    loadData()
+  }
+})
+
 // 生命周期
 onMounted(async () => {
-  // 初始化用户状态
-  userStore.initFromStorage()
+  console.log('首页 mounted，开始加载数据...')
   
-  console.log('当前登录状态:', userStore.isLoggedIn())
-  console.log('用户信息:', userStore.user)
+  // 如果已登录，自动获取用户信息
+  if (authStore.isLoggedIn) {
+    try {
+      await authStore.fetchCurrentUser()
+    } catch (error) {
+      console.warn('自动获取用户信息失败:', error)
+    }
+  }
   
-  // 加载数据
+  // 加载首页数据
   await loadData()
 })
 
@@ -324,7 +385,7 @@ const loadData = async () => {
     
     console.log('首页数据加载完成')
     console.log('文章数量:', articles.value.length)
-    console.log('热门文章:', hotArticles.value.length)
+    console.log('热门文章数量:', hotArticles.value.length)
     console.log('分类数量:', categories.value.length)
     console.log('标签数量:', tags.value.length)
 
@@ -338,12 +399,8 @@ const loadData = async () => {
 
 // 查看文章详情
 const viewArticle = (article) => {
-  if (typeof article === 'object') {
-    router.push(`/article/${article.id}`)
-  } else {
-    // 如果是来自ArticleList的点击事件，传过来的是articleId
-    router.push(`/article/${article}`)
-  }
+  const articleId = typeof article === 'object' ? article.id : article
+  router.push(`/article/${articleId}`)
 }
 
 // 查看分类
@@ -356,7 +413,6 @@ const viewTag = (tag) => {
   if (typeof tag === 'object') {
     router.push(`/tag/${encodeURIComponent(tag.name)}`)
   } else {
-    // 如果是模板中的点击，传过来的是tag对象
     const tagObj = tags.value.find(t => t.id === tag)
     if (tagObj) {
       router.push(`/tag/${encodeURIComponent(tagObj.name)}`)
@@ -377,8 +433,13 @@ const toWriteArticle = () => {
 
 // 查看文章列表
 const toArticlesList = () => {
-  currentPage.value = 1
-  loadData()
+  // 如果已经在第一页，刷新数据
+  if (currentPage.value === 1) {
+    loadData()
+  } else {
+    currentPage.value = 1
+    handlePageChange(1)
+  }
 }
 
 // 分页处理
@@ -393,6 +454,7 @@ const handlePageChange = async (page) => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (error) {
     console.error('分页加载失败:', error)
+    ElMessage.error('加载文章失败')
   }
 }
 
@@ -407,10 +469,11 @@ const handleSizeChange = async (size) => {
     })
   } catch (error) {
     console.error('分页大小改变失败:', error)
+    ElMessage.error('加载文章失败')
   }
 }
 
-// 登录方法（带详细调试）
+// 登录方法
 const handleLogin = async () => {
   if (!loginFormRef.value) return
 
@@ -418,36 +481,23 @@ const handleLogin = async () => {
     // 表单验证
     await loginFormRef.value.validate()
 
-    loginLoading.value = true
-    
-    console.log('开始登录，用户名:', loginForm.value.username)
-    
-    // 使用authStore的login方法
-    const result = await authStore.login(loginForm.value.username, loginForm.value.password)
-    
-    console.log('登录返回结果:', result)
-    console.log('userStore用户信息:', userStore.user)
-    console.log('localStorage用户信息:', localStorage.getItem('blog_user'))
-    console.log('登录状态:', authStore.isLoggedIn)
+    // 使用 authStore 的 login 方法
+    await authStore.login(loginForm.value.username, loginForm.value.password)
 
     ElMessage.success('登录成功')
     showLoginDialog.value = false
     resetForm()
     
-    // 刷新页面数据
+    // 登录成功后刷新数据
     await loadData()
     
   } catch (error) {
-    console.error('登录错误完整信息:', error)
-    console.error('错误响应:', error.response)
-    const errorMsg = error.response?.data?.message || error.message || '登录失败，请检查用户名和密码'
-    ElMessage.error(errorMsg)
-  } finally {
-    loginLoading.value = false
+    // 错误信息已经在 authStore 中处理了
+    console.error('登录失败:', error)
   }
 }
 
-// 注册方法（带详细调试）
+// 注册方法
 const handleRegister = async () => {
   if (!registerFormRef.value) return
 
@@ -455,31 +505,20 @@ const handleRegister = async () => {
     // 表单验证
     await registerFormRef.value.validate()
 
-    registerLoading.value = true
-    
-    console.log('开始注册，用户名:', registerForm.value.username)
-    
-    // 使用authStore的register方法
-    const result = await authStore.register({
+    // 使用 authStore 的 register 方法
+    await authStore.register({
       username: registerForm.value.username,
       email: registerForm.value.email,
       password: registerForm.value.password
     })
-    
-    console.log('注册返回结果:', result)
-    console.log('userStore用户信息:', userStore.user)
 
     ElMessage.success('注册成功')
-    activeTab.value = 'login'
+    activeTab.value = 'login' // 注册成功后切换到登录标签
     resetForm()
     
   } catch (error) {
-    console.error('注册错误完整信息:', error)
-    console.error('错误响应:', error.response)
-    const errorMsg = error.response?.data?.message || error.message || '注册失败，请稍后重试'
-    ElMessage.error(errorMsg)
-  } finally {
-    registerLoading.value = false
+    // 错误信息已经在 authStore 中处理了
+    console.error('注册失败:', error)
   }
 }
 
@@ -507,6 +546,52 @@ const resetForm = () => {
 </script>
 
 <style scoped>
+.loading-container {
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+}
+
+.empty-state {
+  padding: 40px;
+  background: white;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.loading-mini {
+  padding: 10px;
+}
+
+.hot-list .empty-item,
+.category-list .empty-item,
+.empty-tags {
+  padding: 10px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.tag-cloud-item {
+  margin: 4px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.tag-cloud-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+
+.hero-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 80px 0;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
 .home-page {
   min-height: 100vh;
   display: flex;

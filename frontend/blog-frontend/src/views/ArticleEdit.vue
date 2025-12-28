@@ -32,6 +32,7 @@
                 :maxlength="100"
                 show-word-limit
                 size="large"
+                @input="handleTitleInput"
               />
             </div>
 
@@ -50,10 +51,12 @@
               :defaultConfig="editorConfig"
               style="height: 500px; overflow-y: hidden;"
               @onCreated="handleCreated"
+              @onChange="handleEditorChange"
             />
 
             <!-- 加载状态 -->
             <div v-if="loading" class="editor-loading">
+              <el-icon class="loading-icon"><Loading /></el-icon>
               加载中...
             </div>
           </div>
@@ -66,14 +69,13 @@
               <div class="cover-upload">
                 <div v-if="coverImage" class="cover-image-preview">
                   <img :src="coverImage" class="cover-image" />
-                  <el-button type="text" @click="coverImage = ''" class="remove-cover">移除</el-button>
+                  <el-button type="text" @click="removeCover" class="remove-cover">移除</el-button>
                 </div>
                 <el-upload
                   v-else
                   class="cover-uploader"
-                  action="/api/upload"
                   :show-file-list="false"
-                  :on-success="handleCoverSuccess"
+                  :http-request="uploadCover"
                   :before-upload="beforeCoverUpload"
                 >
                   <el-icon><Plus /></el-icon>
@@ -86,8 +88,20 @@
             <!-- 分类选择 -->
             <div class="category-card">
               <h3>文章分类</h3>
-              <el-select v-model="categoryId" placeholder="选择分类" class="category-select" size="large">
-                <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
+              <el-select 
+                v-model="categoryId" 
+                placeholder="选择分类" 
+                class="category-select" 
+                size="large"
+                filterable
+                clearable
+              >
+                <el-option 
+                  v-for="category in categories" 
+                  :key="category.id" 
+                  :label="category.name" 
+                  :value="category.id" 
+                />
               </el-select>
             </div>
 
@@ -104,9 +118,18 @@
                   placeholder="输入标签，按回车添加"
                   size="large"
                   class="tags-select"
+                  @change="handleTagsChange"
                 >
-                  <el-option v-for="tag in allTags" :key="tag" :label="tag" :value="tag" />
+                  <el-option 
+                    v-for="tag in allTags" 
+                    :key="tag" 
+                    :label="tag" 
+                    :value="tag" 
+                  />
                 </el-select>
+              </div>
+              <div v-if="selectedTags.length > 0" class="selected-tags">
+                <span class="tags-count">已选择 {{ selectedTags.length }} 个标签</span>
               </div>
             </div>
 
@@ -119,14 +142,26 @@
                   <el-radio :label="1">发布</el-radio>
                 </el-radio-group>
                 
-                <div class="visibility-option" v-if="status === 1">
+                <div class="option-item" v-if="status === 1">
                   <el-checkbox v-model="isPublic">公开文章</el-checkbox>
+                  <el-tooltip content="不公开的文章只有作者自己可见" placement="top">
+                    <el-icon class="option-tip"><InfoFilled /></el-icon>
+                  </el-tooltip>
                 </div>
 
-                <div class="comment-option">
+                <div class="option-item">
                   <el-checkbox v-model="allowComment">允许评论</el-checkbox>
+                  <el-tooltip content="关闭后读者无法评论此文章" placement="top">
+                    <el-icon class="option-tip"><InfoFilled /></el-icon>
+                  </el-tooltip>
                 </div>
               </div>
+            </div>
+            
+            <!-- 自动保存提示 -->
+            <div v-if="hasUnsavedChanges" class="save-tip">
+              <el-icon><Warning /></el-icon>
+              内容尚未保存
             </div>
           </div>
         </div>
@@ -134,18 +169,41 @@
     </div>
 
     <Footer />
+    
+    <!-- 离开确认对话框 -->
+    <el-dialog
+      v-model="showLeaveConfirm"
+      title="离开确认"
+      width="400px"
+      :show-close="false"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+    >
+      <p>文章内容尚未保存，确定要离开吗？</p>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="cancelLeave">取消</el-button>
+          <el-button type="primary" @click="confirmLeave">确定离开</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, computed, onMounted, onBeforeUnmount, onUnmounted } from 'vue'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useArticleStore } from '@/stores/article'
 import { useCategoryStore } from '@/stores/category'
 import { useTagStore } from '@/stores/tag'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { 
+  Plus, 
+  Loading,
+  InfoFilled,
+  Warning
+} from '@element-plus/icons-vue'
 
 // 导入 Vue 3 版本的 WangEditor
 import '@wangeditor/editor/dist/css/style.css'
@@ -178,10 +236,13 @@ const status = ref(0) // 0:草稿, 1:发布
 const isPublic = ref(true)
 const allowComment = ref(true)
 
-// 加载状态
+// 状态管理
 const saving = ref(false)
 const publishing = ref(false)
 const loading = ref(false)
+const hasUnsavedChanges = ref(false)
+const showLeaveConfirm = ref(false)
+const nextRoute = ref(null)
 
 // 分类和标签数据
 const categories = computed(() => categoryStore.categories || [])
@@ -194,78 +255,59 @@ const allTags = computed(() => {
 })
 
 // WangEditor 相关
-const editorRef = ref(null) // 用于获取 editor 实例
+const editorRef = ref(null)
 
 // 编辑器配置
 const editorConfig = ref({
   placeholder: '开始写作...',
+  scroll: false, // 编辑器区域是否支持滚动
   MENU_CONF: {
     // 配置上传图片
     uploadImage: {
-      server: '/api/files/upload', // 文件上传接口
+      server: '/api/files/editor/upload',
       fieldName: 'file',
       maxFileSize: 2 * 1024 * 1024, // 2M
       allowedFileTypes: ['image/*'],
       headers: {
-        'Content-Type': 'multipart/form-data'
+        // 如果需要认证，这里可以添加
       },
       // 自定义上传回调
-      customInsert: (res, insertFn) => {
-        // res 即服务端的返回结果
-        if (res.code === 200) {
-          // 从结果中获取图片 url
-          const url = res.data?.url || res.data
-          if (url) {
-            // 插入图片
-            insertFn(url, '', url)
+      customUpload: async (file, insertFn) => {
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          
+          // 使用统一的 request 上传
+          const { default: request } = await import('@/utils/request')
+          const response = await request.post('/api/files/editor/upload', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          })
+          
+          // WangEditor 编辑器返回格式
+          if (response.errno === 0 && response.data?.url) {
+            insertFn(response.data.url)
             ElMessage.success('图片上传成功')
           } else {
-            ElMessage.error('图片上传失败：未获取到图片地址')
+            throw new Error(response.message || '上传失败')
           }
-        } else {
-          ElMessage.error(res.msg || '图片上传失败')
+        } catch (error) {
+          console.error('图片上传失败:', error)
+          ElMessage.error('图片上传失败')
+          throw error
         }
-      },
-      // 上传错误回调
-      onError: (file, err, res) => {
-        console.error('图片上传失败:', err, res)
-        ElMessage.error('图片上传失败')
-      },
-      // 上传进度回调
-      onProgress: (progress) => {
-        // 可以在这里显示上传进度
-        console.log('上传进度:', progress)
       }
     },
-    // 禁用视频上传菜单
+    // 禁用视频上传
     uploadVideo: {
       disabled: true
-    },
-    // 配置全屏
-    fullScreen: {
-      onFullScreen: (editor, isFull) => {
-        console.log('全屏状态:', isFull)
-        // 全屏时隐藏侧边栏
-        const settingsSection = document.querySelector('.settings-section')
-        if (settingsSection) {
-          if (isFull) {
-            settingsSection.style.display = 'none'
-          } else {
-            setTimeout(() => {
-              settingsSection.style.display = 'block'
-            }, 100)
-          }
-        }
-      }
     }
   }
 })
 
 // 组件挂载
 onMounted(async () => {
-  // 初始化用户状态
-  userStore.initFromStorage()
-  
   // 检查登录状态
   if (!userStore.isLoggedIn()) {
     ElMessage.warning('请先登录')
@@ -275,12 +317,16 @@ onMounted(async () => {
   
   // 加载分类和标签数据
   try {
+    loading.value = true
     await Promise.all([
       categoryStore.fetchCategories(),
       tagStore.fetchTags()
     ])
   } catch (error) {
     console.error('加载分类或标签失败:', error)
+    ElMessage.error('加载分类或标签失败')
+  } finally {
+    loading.value = false
   }
   
   // 如果是编辑模式，加载文章数据
@@ -297,25 +343,27 @@ const loadArticleData = async () => {
   try {
     loading.value = true
     
-    // 通过 articleStore 获取文章详情
     const article = await articleStore.fetchArticleDetail(articleId.value)
     
     if (article) {
       // 填充表单数据
       title.value = article.title || ''
       content.value = article.content || ''
-      coverImage.value = article.coverImage || ''
-      categoryId.value = article.categoryId || ''
+      coverImage.value = article.coverImage || article.cover || ''
+      categoryId.value = article.categoryId || article.category?.id || ''
       status.value = article.status || 0
       isPublic.value = article.isPublic !== false
       allowComment.value = article.allowComment !== false
       
       // 处理标签
       if (article.tags && Array.isArray(article.tags)) {
-        selectedTags.value = article.tags.map(tag => typeof tag === 'string' ? tag : tag.name)
-      } else {
-        selectedTags.value = []
+        selectedTags.value = article.tags.map(tag => {
+          return typeof tag === 'string' ? tag : tag.name
+        }).filter(tag => tag) // 过滤掉空值
       }
+      
+      // 重置未保存状态
+      hasUnsavedChanges.value = false
     } else {
       ElMessage.error('文章不存在或无权访问')
       router.push('/user/articles')
@@ -331,22 +379,47 @@ const loadArticleData = async () => {
 
 // 编辑器创建时的回调
 const handleCreated = (editor) => {
-  editorRef.value = editor // 记录 editor 实例
+  editorRef.value = editor
   
   // 如果是从编辑模式加载的文章，设置编辑器内容
-  if (content.value && isEditMode.value && editorRef.value) {
+  if (content.value && isEditMode.value) {
     editor.setHtml(content.value)
   }
 }
 
-// 组件销毁时，及时销毁编辑器
+// 编辑器内容变化
+const handleEditorChange = () => {
+  if (editorRef.value) {
+    content.value = editorRef.value.getHtml()
+    if (!hasUnsavedChanges.value && content.value) {
+      hasUnsavedChanges.value = true
+    }
+  }
+}
+
+// 标题输入变化
+const handleTitleInput = () => {
+  if (!hasUnsavedChanges.value && title.value.trim()) {
+    hasUnsavedChanges.value = true
+  }
+}
+
+// 标签变化
+const handleTagsChange = () => {
+  if (!hasUnsavedChanges.value && selectedTags.value.length > 0) {
+    hasUnsavedChanges.value = true
+  }
+}
+
+// 组件销毁
 onBeforeUnmount(() => {
   if (editorRef.value) {
     editorRef.value.destroy()
     editorRef.value = null
   }
-  
-  // 移除页面离开提示
+})
+
+onUnmounted(() => {
   window.removeEventListener('beforeunload', beforeUnloadHandler)
 })
 
@@ -366,41 +439,23 @@ const beforeCoverUpload = (file) => {
   return true
 }
 
-// 封面图片上传成功
-const handleCoverSuccess = (response, file) => {
-  if (response.code === 200) {
-    // 根据后端返回结构获取图片地址
-    const url = response.data?.url || response.data
-    if (url) {
-      coverImage.value = url
-      ElMessage.success('封面图片上传成功')
-    } else {
-      ElMessage.error('封面图片上传失败：未获取到图片地址')
-    }
-  } else {
-    ElMessage.error(response.msg || '封面图片上传失败')
-  }
-}
-
-// 自定义上传封面图片（处理上传失败的情况）
+// 上传封面图片
 const uploadCover = async (options) => {
   try {
     const formData = new FormData()
     formData.append('file', options.file)
     formData.append('usageType', 'article-cover')
     
-    // 使用统一的 request 工具上传
     const { default: request } = await import('@/utils/request')
-    
     const response = await request.post('/api/files/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     })
     
-    // 注意：request 已经处理了响应拦截器，返回的是 data 字段
     if (response && response.url) {
       coverImage.value = response.url
+      hasUnsavedChanges.value = true
       ElMessage.success('封面图片上传成功')
       options.onSuccess({ code: 200, data: response })
     } else {
@@ -417,6 +472,7 @@ const uploadCover = async (options) => {
 // 移除封面图片
 const removeCover = () => {
   coverImage.value = ''
+  hasUnsavedChanges.value = true
 }
 
 // 保存草稿
@@ -426,7 +482,6 @@ const saveDraft = async () => {
   try {
     saving.value = true
     
-    // 准备文章数据
     const articleData = {
       title: title.value.trim(),
       content: getEditorContent(),
@@ -462,6 +517,9 @@ const saveDraft = async () => {
       }
     }
     
+    // 重置未保存状态
+    hasUnsavedChanges.value = false
+    
   } catch (error) {
     console.error('保存草稿失败:', error)
     ElMessage.error(error.message || '保存草稿失败')
@@ -477,7 +535,6 @@ const publishArticle = async () => {
   try {
     publishing.value = true
     
-    // 准备文章数据
     const articleData = {
       title: title.value.trim(),
       content: getEditorContent(),
@@ -492,17 +549,16 @@ const publishArticle = async () => {
     let result
     
     if (isEditMode.value) {
-      // 更新并发布文章
       result = await articleStore.updateArticle(articleId.value, articleData)
       ElMessage.success('文章发布成功')
     } else {
-      // 创建并发布文章
       result = await articleStore.createArticle(articleData)
       ElMessage.success('文章发布成功')
     }
     
     // 发布成功后跳转到文章详情页
     if (result && result.id) {
+      hasUnsavedChanges.value = false
       setTimeout(() => {
         router.push(`/article/${result.id}`)
       }, 500)
@@ -520,13 +576,11 @@ const publishArticle = async () => {
 
 // 验证表单
 const validateForm = () => {
-  // 验证标题
   if (!title.value.trim()) {
     ElMessage.warning('请输入文章标题')
     return false
   }
   
-  // 验证内容
   const editorContent = getEditorContent()
   if (!editorContent.trim() || editorContent === '<p><br></p>') {
     ElMessage.warning('请输入文章内容')
@@ -546,51 +600,46 @@ const getEditorContent = () => {
 
 // 页面离开提示处理
 const beforeUnloadHandler = (e) => {
-  // 获取编辑器内容
-  const editorContent = getEditorContent()
-  if (editorContent && editorContent !== '<p><br></p>' && title.value) {
+  if (hasUnsavedChanges.value) {
     e.preventDefault()
     e.returnValue = '文章内容尚未保存，确定要离开吗？'
   }
 }
 
-// 路由离开前的提示
-const setupRouteGuard = () => {
-  const guardHandler = (to, from, next) => {
-    if (from.path.includes('/article/edit') || from.path === '/article/create') {
-      // 获取编辑器内容
-      const editorContent = getEditorContent()
-      if (editorContent && editorContent !== '<p><br></p>' && title.value) {
-        ElMessageBox.confirm(
-          '文章内容尚未保存，确定要离开吗？',
-          '提示',
-          {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-          }
-        ).then(() => {
-          next()
-        }).catch(() => {
-          next(false)
-        })
-        return
-      }
-    }
+// 路由离开守卫
+onBeforeRouteLeave((to, from, next) => {
+  if (!hasUnsavedChanges.value) {
     next()
+    return
   }
   
-  // 添加路由守卫
-  const originalBeforeEach = router.beforeEach
-  router.beforeEach = (to, from, next) => {
-    guardHandler(to, from, next)
+  // 如果正在保存或发布，阻止离开
+  if (saving.value || publishing.value) {
+    ElMessage.warning('正在保存，请稍后...')
+    next(false)
+    return
   }
+  
+  // 显示确认对话框
+  showLeaveConfirm.value = true
+  nextRoute.value = next
+})
+
+// 取消离开
+const cancelLeave = () => {
+  showLeaveConfirm.value = false
+  nextRoute.value = null
 }
 
-// 在组件挂载后设置路由守卫
-onMounted(() => {
-  setupRouteGuard()
-})
+// 确认离开
+const confirmLeave = () => {
+  showLeaveConfirm.value = false
+  if (nextRoute.value) {
+    hasUnsavedChanges.value = false // 重置状态
+    nextRoute.value()
+    nextRoute.value = null
+  }
+}
 </script>
 
 <style scoped>
@@ -658,6 +707,8 @@ onMounted(() => {
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   color: #666;
+  flex-direction: column;
+  gap: 10px;
 }
 
 /* 右侧卡片 */
@@ -747,6 +798,52 @@ onMounted(() => {
   gap: 15px;
 }
 
+.loading-icon {
+  animation: rotate 1s linear infinite;
+}
+
+.selected-tags {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.tags-count {
+  font-size: 12px;
+  color: #666;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.option-tip {
+  color: #999;
+  cursor: help;
+}
+
+.save-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 15px;
+  background: #fff6ec;
+  border: 1px solid #ffd8b2;
+  border-radius: 4px;
+  color: #e6a23c;
+  font-size: 14px;
+  margin-top: 20px;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* 响应式设计 */
 @media (max-width: 992px) {
   .edit-content {
@@ -780,7 +877,6 @@ onMounted(() => {
 :deep(.w-e-bar) {
   background-color: #fff !important;
   border-bottom: 1px solid #e8e8e8 !important;
-  flex-wrap: wrap !important;
 }
 
 :deep(.w-e-text-container) {
@@ -789,8 +885,8 @@ onMounted(() => {
 
 :deep(.w-e-text) {
   padding: 20px !important;
+  min-height: 400px !important;
 }
-
 /* 全屏模式下的调整 */
 :deep(.w-e-full-screen-editor) {
   z-index: 1000 !important;
