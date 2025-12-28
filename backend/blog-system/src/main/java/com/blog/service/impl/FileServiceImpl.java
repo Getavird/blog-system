@@ -54,31 +54,53 @@ public class FileServiceImpl implements FileService {
         String subPath = generateSubPath();
 
         // 3. 处理上传路径
-        String normalizedBasePath = uploadBasePath;
-        if (!normalizedBasePath.endsWith("/")) {
-            normalizedBasePath += "/";
+        // 获取项目根目录
+        Path projectRoot = Paths.get("").toAbsolutePath();
+        System.out.println("📁 项目根目录: " + projectRoot.toString());
+
+        // 处理基础路径
+        String basePath = uploadBasePath;
+        if (basePath.startsWith("./")) {
+            basePath = basePath.substring(2);
         }
 
-        // 移除路径中的 "./" 前缀
-        if (normalizedBasePath.startsWith("./")) {
-            normalizedBasePath = normalizedBasePath.substring(2);
+        // 确保 basePath 不以斜杠开头，并以斜杠结尾
+        if (basePath.startsWith("/")) {
+            basePath = basePath.substring(1);
+        }
+        if (!basePath.endsWith("/")) {
+            basePath = basePath + "/";
         }
 
-        String fullPath = normalizedBasePath + subPath;
+        System.out.println("📁 基础路径: " + basePath);
+        System.out.println("📁 子路径: " + subPath);
+        System.out.println("📁 保存名称: " + saveName);
+
+        // 构建正确的相对路径（仅目录路径）
+        String dirRelativePath = basePath + subPath; // 应该是 "uploads/2025/12/28/"
+        System.out.println("📁 目录相对路径: " + dirRelativePath);
+
+        // 转换为绝对路径
+        Path dirAbsolutePath = projectRoot.resolve(dirRelativePath).normalize();
+        System.out.println("📁 目录绝对路径: " + dirAbsolutePath.toString());
 
         // 4. 创建目录
-        createDirectoryIfNotExists(fullPath);
+        createDirectoryIfNotExists(dirAbsolutePath);
 
         // 5. 保存文件到磁盘
-        Path actualFullPath = Paths.get("").toAbsolutePath().resolve(fullPath);
-        Path destinationPath = actualFullPath.resolve(saveName);
+        Path destinationPath = dirAbsolutePath.resolve(saveName);
+        System.out.println("📁 目标文件路径: " + destinationPath.toString());
+
+        // 确保父目录存在
+        Files.createDirectories(destinationPath.getParent());
+
         file.transferTo(destinationPath.toFile());
 
         // 6. 保存记录到数据库
         UploadFile uploadFile = new UploadFile();
         uploadFile.setOriginalName(originalFilename);
         uploadFile.setSaveName(saveName);
-        uploadFile.setFilePath(subPath + saveName);
+        uploadFile.setFilePath(subPath + saveName); // 只存储相对路径，如 "2025/12/28/filename.png"
         uploadFile.setFileSize(file.getSize());
         uploadFile.setFileType(file.getContentType());
         uploadFile.setFileExt(fileExt);
@@ -116,33 +138,38 @@ public class FileServiceImpl implements FileService {
         String saveName = generateSaveName(originalFilename);
         String fileExt = FileUtil.getFileExtension(originalFilename);
         String subPath = generateSubPath();
+        String relativePath = subPath + saveName;
 
         // 4. 处理上传路径
-        String normalizedBasePath = uploadBasePath;
-        if (!normalizedBasePath.endsWith("/")) {
-            normalizedBasePath += "/";
+        Path projectRoot = Paths.get("").toAbsolutePath();
+        System.out.println("📁 项目根目录: " + projectRoot.toString());
+
+        // 处理基础路径
+        String basePath = uploadBasePath;
+        if (basePath.startsWith("./")) {
+            basePath = basePath.substring(2);
         }
 
-        // 移除路径中的 "./" 前缀
-        if (normalizedBasePath.startsWith("./")) {
-            normalizedBasePath = normalizedBasePath.substring(2);
-        }
-
-        String fullPath = normalizedBasePath + subPath;
+        // 构建完整路径
+        Path fullPath = projectRoot.resolve(relativePath).normalize();
 
         // 5. 创建目录
         createDirectoryIfNotExists(fullPath);
 
-        // 6. 保存文件（使用绝对路径）
-        Path actualFullPath = Paths.get("").toAbsolutePath().resolve(fullPath);
-        Path destinationPath = actualFullPath.resolve(saveName);
+        // 6. 保存文件
+        Path destinationPath = fullPath.resolve(saveName);
+        System.out.println("📁 保存文件到: " + destinationPath.toString());
+
+        // 确保父目录存在
+        Files.createDirectories(destinationPath.getParent());
+
         Files.write(destinationPath, fileBytes);
 
         // 7. 保存记录到数据库
         UploadFile uploadFile = new UploadFile();
         uploadFile.setOriginalName(originalFilename);
         uploadFile.setSaveName(saveName);
-        uploadFile.setFilePath(subPath + saveName);
+        uploadFile.setFilePath(relativePath);
         uploadFile.setFileSize((long) fileBytes.length);
         uploadFile.setFileType(contentType);
         uploadFile.setFileExt(fileExt);
@@ -154,6 +181,7 @@ public class FileServiceImpl implements FileService {
         int result = uploadFileMapper.insert(uploadFile);
         if (result > 0) {
             System.out.println("✅ 文件上传成功: " + originalFilename);
+            System.out.println("📍 实际保存位置: " + destinationPath.toAbsolutePath());
             return uploadFile;
         } else {
             Files.deleteIfExists(destinationPath);
@@ -194,8 +222,17 @@ public class FileServiceImpl implements FileService {
             System.out.println("✅ 文件删除成功（软删除）: ID=" + id);
 
             // 可选的：物理删除文件
-            // String fullPath = uploadPath + file.getFilePath();
-            // Files.deleteIfExists(Paths.get(fullPath));
+            // 如果需要物理删除，取消下面的注释
+            /*
+             * try {
+             * Path projectRoot = Paths.get("").toAbsolutePath();
+             * Path filePath = projectRoot.resolve(file.getFilePath()).normalize();
+             * Files.deleteIfExists(filePath);
+             * System.out.println("🗑️ 物理删除文件: " + filePath);
+             * } catch (IOException e) {
+             * System.err.println("⚠️ 物理删除文件失败: " + e.getMessage());
+             * }
+             */
 
             return true;
         }
@@ -210,16 +247,28 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public String generateSaveName(String originalFilename) {
-        // 格式：时间戳_随机UUID_原始文件名（确保唯一）
+        // 格式：时间戳_随机UUID_文件名
         String timestamp = String.valueOf(System.currentTimeMillis());
         String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         String ext = FileUtil.getFileExtension(originalFilename);
 
-        // 清理原始文件名中的特殊字符
-        String safeName = originalFilename.replaceAll("[^a-zA-Z0-9.-]", "_");
-        safeName = safeName.substring(0, Math.min(safeName.length(), 50));
+        // 获取不含扩展名的文件名
+        String nameWithoutExt = FileUtil.getFileNameWithoutExtension(originalFilename);
 
-        return timestamp + "_" + uuid + "_" + safeName;
+        // 清理文件名：只保留字母、数字、下划线、中划线
+        String cleanName = nameWithoutExt.replaceAll("[^a-zA-Z0-9\u4e00-\u9fa5_-]", "_");
+
+        // 限制长度
+        cleanName = cleanName.substring(0, Math.min(cleanName.length(), 50));
+
+        // 构建保存名
+        String saveName = timestamp + "_" + uuid + "_" + cleanName;
+        if (!ext.isEmpty()) {
+            saveName += "." + ext;
+        }
+
+        System.out.println("📁 生成的保存名: " + saveName);
+        return saveName;
     }
 
     @Override
@@ -272,33 +321,19 @@ public class FileServiceImpl implements FileService {
     private String generateSubPath() {
         LocalDate today = LocalDate.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd/");
-        return formatter.format(today);
+        String subPath = formatter.format(today);
+        System.out.println("📁 生成的子路径: " + subPath);
+        return subPath;
     }
 
     /**
-     * 创建目录（如果不存在）
+     * 创建目录（如果不存在）- 简化版本
      */
-    private void createDirectoryIfNotExists(String path) throws IOException {
-        // 确保路径是相对于项目根目录，不是Tomcat临时目录
-        Path actualPath;
-        if (path.startsWith("./")) {
-            // 相对路径，从项目根目录开始
-            actualPath = Paths.get("").toAbsolutePath().resolve(path.substring(2));
-        } else if (path.startsWith("/")) {
-            // 绝对路径
-            actualPath = Paths.get(path);
-        } else {
-            // 相对路径，补充"./"
-            actualPath = Paths.get("").toAbsolutePath().resolve("uploads").resolve(path);
-        }
-
-        File dir = actualPath.toFile();
-        if (!dir.exists()) {
-            boolean created = dir.mkdirs();
-            if (!created) {
-                throw new IOException("无法创建目录: " + actualPath);
-            }
-            System.out.println("📁 创建目录: " + actualPath);
+    private void createDirectoryIfNotExists(Path path) throws IOException {
+        if (!Files.exists(path)) {
+            System.out.println("📁 尝试创建目录: " + path.toAbsolutePath());
+            Files.createDirectories(path);
+            System.out.println("✅ 目录创建成功: " + path.toAbsolutePath());
         }
     }
 }

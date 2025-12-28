@@ -247,10 +247,24 @@ public class FileController {
             Integer userId = SessionUtil.getCurrentUserId(request);
             UploadFile uploadFile = fileService.uploadFile(file, userId != null ? userId : 0, "article");
 
+            // 调试信息
+            System.out.println("🖼️ 上传成功:");
+            System.out.println("  - 原始文件名: " + uploadFile.getOriginalName());
+            System.out.println("  - 文件路径: " + uploadFile.getFilePath());
+            System.out.println("  - 文件URL: " + uploadFile.getFileUrl());
+
+            // 直接构建正确的URL
+            String fileUrl = uploadFile.getFileUrl();
+
+            // 如果是相对路径，确保以 /uploads/ 开头
+            if (fileUrl != null && !fileUrl.startsWith("/") && !fileUrl.startsWith("http")) {
+                fileUrl = "/uploads/" + fileUrl;
+            }
+
             // 构建wangeditor期望的响应格式
             result.put("errno", 0);
             Map<String, String> data = new HashMap<>();
-            data.put("url", uploadFile.getFileUrl());
+            data.put("url", fileUrl);
             data.put("alt", uploadFile.getOriginalName());
             result.put("data", data);
 
