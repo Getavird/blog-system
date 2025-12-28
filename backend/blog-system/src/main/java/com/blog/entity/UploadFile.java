@@ -1,4 +1,3 @@
-// UploadFile.java
 package com.blog.entity;
 
 import lombok.Data;

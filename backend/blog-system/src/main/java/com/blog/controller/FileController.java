@@ -19,13 +19,13 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/files")
 public class FileController {
-    
+
     @Autowired
     private FileService fileService;
-    
+
     @Value("${file.max-size:10485760}")
     private Long maxFileSize;
-    
+
     /**
      * 上传文件（Spring方式）
      */
@@ -34,26 +34,26 @@ public class FileController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "usageType", required = false, defaultValue = "general") String usageType,
             HttpServletRequest request) {
-        
+
         // 检查登录
         if (!SessionUtil.isLogin(request)) {
             return Result.unauthorized("请先登录");
         }
-        
+
         Integer userId = SessionUtil.getCurrentUserId(request);
-        
+
         try {
             UploadFile uploadFile = fileService.uploadFile(file, userId, usageType);
-            
+
             Map<String, Object> extraData = new HashMap<>();
             extraData.put("url", uploadFile.getFileUrl());
             extraData.put("fileSizeFormatted", uploadFile.getFileSizeFormatted());
-            
+
             Result<UploadFile> result = Result.success("文件上传成功", uploadFile);
             result.setData(uploadFile);
-            
+
             return result;
-            
+
         } catch (IOException e) {
             e.printStackTrace();
             return Result.error("文件上传失败: " + e.getMessage());
@@ -61,7 +61,7 @@ public class FileController {
             return Result.error(e.getMessage());
         }
     }
-    
+
     /**
      * 批量上传文件
      */
@@ -70,18 +70,18 @@ public class FileController {
             @RequestParam("files") MultipartFile[] files,
             @RequestParam(value = "usageType", required = false, defaultValue = "general") String usageType,
             HttpServletRequest request) {
-        
+
         // 检查登录
         if (!SessionUtil.isLogin(request)) {
             return Result.unauthorized("请先登录");
         }
-        
+
         Integer userId = SessionUtil.getCurrentUserId(request);
-        
+
         try {
             List<UploadFile> uploadFiles = new java.util.ArrayList<>();
             Map<String, Object> errors = new HashMap<>();
-            
+
             for (int i = 0; i < files.length; i++) {
                 MultipartFile file = files[i];
                 try {
@@ -91,11 +91,11 @@ public class FileController {
                     errors.put(file.getOriginalFilename(), e.getMessage());
                 }
             }
-            
+
             Map<String, Object> resultData = new HashMap<>();
             resultData.put("success", uploadFiles);
             resultData.put("errors", errors);
-            
+
             if (uploadFiles.isEmpty()) {
                 return Result.error("所有文件上传失败");
             } else if (!errors.isEmpty()) {
@@ -103,12 +103,12 @@ public class FileController {
             } else {
                 return Result.success("所有文件上传成功", uploadFiles);
             }
-            
+
         } catch (Exception e) {
             return Result.error("文件上传失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 获取文件信息
      */
@@ -120,7 +120,7 @@ public class FileController {
         }
         return Result.success(file);
     }
-    
+
     /**
      * 获取用户上传的文件列表
      */
@@ -129,20 +129,20 @@ public class FileController {
             @RequestParam(value = "page", defaultValue = "1") Integer page,
             @RequestParam(value = "size", defaultValue = "20") Integer size,
             HttpServletRequest request) {
-        
+
         // 检查登录
         if (!SessionUtil.isLogin(request)) {
             return Result.unauthorized("请先登录");
         }
-        
+
         Integer userId = SessionUtil.getCurrentUserId(request);
         List<UploadFile> files = fileService.getUserFiles(userId);
-        
+
         // 简单分页
         int total = files.size();
         int start = (page - 1) * size;
         int end = Math.min(start + size, total);
-        
+
         if (start >= total) {
             Map<String, Object> emptyResult = new HashMap<>();
             emptyResult.put("files", java.util.Collections.emptyList());
@@ -152,19 +152,19 @@ public class FileController {
             emptyResult.put("pages", 0);
             return Result.success(emptyResult);
         }
-        
+
         List<UploadFile> pageFiles = files.subList(start, end);
-        
+
         Map<String, Object> resultData = new HashMap<>();
         resultData.put("files", pageFiles);
         resultData.put("total", total);
         resultData.put("page", page);
         resultData.put("size", size);
         resultData.put("pages", (int) Math.ceil((double) total / size));
-        
+
         return Result.success(resultData);
     }
-    
+
     /**
      * 删除文件
      */
@@ -174,9 +174,9 @@ public class FileController {
         if (!SessionUtil.isLogin(request)) {
             return Result.unauthorized("请先登录");
         }
-        
+
         Integer userId = SessionUtil.getCurrentUserId(request);
-        
+
         try {
             boolean success = fileService.deleteFile(id, userId);
             return success ? Result.success("文件删除成功") : Result.error("文件删除失败");
@@ -184,7 +184,7 @@ public class FileController {
             return Result.error(e.getMessage());
         }
     }
-    
+
     /**
      * 获取上传配置信息
      */
@@ -193,11 +193,11 @@ public class FileController {
         Map<String, Object> config = new HashMap<>();
         config.put("maxFileSize", maxFileSize);
         config.put("maxFileSizeFormatted", formatFileSize(maxFileSize));
-        config.put("allowedTypes", new String[]{"jpg", "jpeg", "png", "gif", "webp", "pdf", "doc", "docx", "txt"});
+        config.put("allowedTypes", new String[] { "jpg", "jpeg", "png", "gif", "webp", "pdf", "doc", "docx", "txt" });
         config.put("uploadPath", fileService.getStoragePath());
         return Result.success(config);
     }
-    
+
     /**
      * 格式化文件大小
      */
@@ -211,5 +211,55 @@ public class FileController {
         } else {
             return String.format("%.1fGB", size / (1024.0 * 1024 * 1024));
         }
+    }
+
+    @PostMapping("/editor/upload")
+    public Map<String, Object> editorUpload(
+            @RequestParam("file") MultipartFile file,
+            HttpServletRequest request) {
+
+        Map<String, Object> result = new HashMap<>();
+
+        try {
+            // 检查登录（可选，根据需要）
+            if (!SessionUtil.isLogin(request)) {
+                result.put("errno", 403);
+                result.put("message", "请先登录");
+                return result;
+            }
+
+            // 检查文件类型（只允许图片）
+            String contentType = file.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                result.put("errno", 1);
+                result.put("message", "只允许上传图片文件");
+                return result;
+            }
+
+            // 限制文件大小（5MB）
+            if (file.getSize() > 5 * 1024 * 1024) {
+                result.put("errno", 1);
+                result.put("message", "图片大小不能超过5MB");
+                return result;
+            }
+
+            // 使用现有的文件服务上传
+            Integer userId = SessionUtil.getCurrentUserId(request);
+            UploadFile uploadFile = fileService.uploadFile(file, userId != null ? userId : 0, "article");
+
+            // 构建wangeditor期望的响应格式
+            result.put("errno", 0);
+            Map<String, String> data = new HashMap<>();
+            data.put("url", uploadFile.getFileUrl());
+            data.put("alt", uploadFile.getOriginalName());
+            result.put("data", data);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("errno", 1);
+            result.put("message", "上传失败: " + e.getMessage());
+        }
+
+        return result;
     }
 }

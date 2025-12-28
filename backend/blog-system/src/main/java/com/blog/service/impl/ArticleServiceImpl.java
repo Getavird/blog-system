@@ -3,17 +3,35 @@ package com.blog.service.impl;
 import com.blog.dao.ArticleMapper;
 import com.blog.dao.ArticleTagMapper;
 import com.blog.dao.TagMapper;
+import com.blog.dao.UploadFileMapper;
 import com.blog.entity.Article;
 import com.blog.entity.Tag;
+import com.blog.entity.UploadFile;
 import com.blog.service.ArticleService;
+import com.blog.service.FileService;
+import com.blog.utils.EditorImageUtils;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +46,15 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Autowired
     private ArticleTagMapper articleTagMapper;
+
+    @Autowired
+    private EditorImageUtils editorImageUtils;
+
+    @Autowired
+    private FileService fileService;
+
+    @Autowired
+    private UploadFileMapper uploadFileMapper;
 
     @Override
     public List<Article> getArticles(int page, int size) {
@@ -52,6 +79,7 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Override
     public boolean createArticle(Article article) {
+        article = processArticleImages(article);
         // 先保存文章，获取ID
         int result = articleMapper.insert(article);
         if (result > 0 && article.getId() != null) {
@@ -64,6 +92,8 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Override
     public boolean updateArticle(Article article) {
+        // 处理文章内容中的图片
+        article = processArticleImages(article);
         // 处理标签逻辑
         processArticleTags(article);
 
@@ -249,4 +279,104 @@ public class ArticleServiceImpl implements ArticleService {
     public Article getArticleByIdAndUserId(Integer id, Integer userId) {
         return articleMapper.findByIdAndUserId(id, userId);
     }
+
+    private Article processArticleImages(Article article) {
+        if (article.getContent() == null) {
+            return article;
+        }
+
+        String content = article.getContent();
+
+        // 简单的base64图片检测和处理
+        Pattern pattern = Pattern.compile("data:image/([^;]+);base64,([^\"]+)");
+        Matcher matcher = pattern.matcher(content);
+
+        while (matcher.find()) {
+            String base64Image = matcher.group(0);
+            String mimeType = matcher.group(1);
+            String base64Data = matcher.group(2);
+
+            try {
+                // 生成文件名
+                String ext = mimeType.equals("jpeg") ? "jpg" : mimeType;
+                String fileName = "img_" + System.currentTimeMillis() + "_" +
+                        new Random().nextInt(1000) + "." + ext;
+
+                // 保存到本地
+                byte[] bytes = Base64.getDecoder().decode(base64Data);
+                Path path = Paths.get("uploads", "article_images", fileName);
+                Files.createDirectories(path.getParent());
+                Files.write(path, bytes);
+
+                // 替换URL
+                String imageUrl = "/uploads/article_images/" + fileName;
+                content = content.replace(base64Image, imageUrl);
+
+            } catch (Exception e) {
+                // 失败就跳过
+                System.out.println("跳过base64图片处理: " + e.getMessage());
+            }
+        }
+
+        article.setContent(content);
+        return article;
+    }
+
+    // 在 FileServiceImpl.java 中，确保使用正确的上传路径
+    @Value("${blog.upload.path:./uploads/}")
+    private String uploadBasePath; // 应该指向 ./uploads/
+
+    public UploadFile uploadFile(MultipartFile file, Integer userId, String usageType) throws IOException {
+        // 确保上传目录存在
+        String uploadDir = uploadBasePath;
+        if (!uploadDir.endsWith("/")) {
+            uploadDir += "/";
+        }
+
+        // 根据使用类型创建子目录
+        String subDir = "";
+        switch (usageType) {
+            case "avatar":
+                subDir = "avatars/";
+                break;
+            case "article":
+            case "article_content":
+                subDir = "article_images/";
+                break;
+            case "cover":
+                subDir = "covers/";
+                break;
+            default:
+                subDir = "general/";
+        }
+
+        String fullUploadDir = uploadDir + subDir;
+
+        // 创建目录
+        File dir = new File(fullUploadDir);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        // 生成文件名
+        String originalFilename = file.getOriginalFilename();
+        String fileExt = originalFilename != null && originalFilename.contains(".")
+                ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                : "";
+        String saveName = System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8) + fileExt;
+
+        // 保存文件
+        Path filePath = Paths.get(fullUploadDir, saveName);
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+        // 保存到数据库...
+        UploadFile uploadFile = new UploadFile();
+        uploadFile.setOriginalName(originalFilename);
+        uploadFile.setSaveName(saveName);
+        uploadFile.setFilePath(subDir + saveName); // 相对路径
+        // ... 其他字段设置
+
+        return uploadFile;
+    }
+
 }
