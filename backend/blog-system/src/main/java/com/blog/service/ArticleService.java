@@ -107,4 +107,42 @@ public interface ArticleService {
      * 根据ID和用户ID获取文章（用于权限验证）
      */
     Article getArticleByIdAndUserId(Integer id, Integer userId);
+
+    /**
+     * 根据用户ID和状态查询文章（分页）
+     * 
+     * @param userId 用户ID
+     * @param status 文章状态（0=草稿，1=发布，2=删除）
+     * @param page   页码
+     * @param size   每页数量
+     * @return 文章列表
+     */
+    List<Article> getArticlesByUserIdAndStatus(Integer userId, Integer status, Integer page, Integer size);
+
+    /**
+     * 统计用户特定状态的文章数量
+     * 
+     * @param userId 用户ID
+     * @param status 文章状态
+     * @return 文章数量
+     */
+    Long countArticlesByUserIdAndStatus(Integer userId, Integer status);
+
+    /**
+     * 根据用户ID查询所有文章（包括各种状态，用于管理员）
+     * 
+     * @param userId 用户ID
+     * @param page   页码
+     * @param size   每页数量
+     * @return 文章列表
+     */
+    List<Article> getArticlesByUserId(Integer userId, Integer page, Integer size);
+
+    /**
+     * 统计用户所有文章数量
+     * 
+     * @param userId 用户ID
+     * @return 文章数量
+     */
+    Long countArticlesByUserId(Integer userId);
 }

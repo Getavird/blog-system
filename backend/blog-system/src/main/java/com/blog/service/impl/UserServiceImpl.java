@@ -1,10 +1,15 @@
 package com.blog.service.impl;
 
+import com.blog.common.PageResult;
 import com.blog.dao.UserMapper;
+import com.blog.entity.Article;
 import com.blog.entity.ChangePasswordRequest;
 import com.blog.entity.User;
+import com.blog.entity.vo.ArticlePublicVO;
 import com.blog.entity.vo.UserProfileVO;
+import com.blog.entity.vo.UserPublicVO;
 import com.blog.entity.vo.UserStatsVO;
+import com.blog.service.ArticleService;
 import com.blog.service.FollowService;
 import com.blog.service.UserService;
 import com.blog.utils.PasswordUtil;
@@ -12,7 +17,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 @Service
 @Transactional
@@ -23,6 +30,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private FollowService followService;
+
+    @Autowired
+    private ArticleService articleService;
 
     @Override
     public User register(User user) {
@@ -549,5 +559,140 @@ public class UserServiceImpl implements UserService {
             System.err.println("❌ 更新最后活动时间异常: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public UserPublicVO getPublicUserInfo(String username) {
+        try {
+            User user = userMapper.findByUsername(username);
+            if (user == null) {
+                return null;
+            }
+
+            UserPublicVO publicVO = new UserPublicVO();
+            publicVO.setId(user.getId());
+            publicVO.setUsername(user.getUsername());
+            publicVO.setAvatar(user.getAvatar());
+            publicVO.setBio(user.getBio());
+            publicVO.setCreateTime(user.getCreateTime());
+            publicVO.setLastActiveTime(user.getLastActiveTime());
+
+            // 获取统计信息
+            UserStatsVO stats = new UserStatsVO();
+            stats.setArticleCount(user.getArticleCount() != null ? user.getArticleCount() : 0);
+            stats.setLikeCount(user.getLikeCount() != null ? user.getLikeCount() : 0);
+            stats.setViewCount(user.getViewCount() != null ? user.getViewCount() : 0);
+            stats.setFollowingCount(followService.getFollowingCount(user.getId()));
+            stats.setFollowerCount(followService.getFollowerCount(user.getId()));
+
+            publicVO.setStats(stats);
+
+            return publicVO;
+
+        } catch (Exception e) {
+            System.err.println("❌ 获取公开用户信息异常: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Override
+    public PageResult<ArticlePublicVO> getPublicUserArticles(String username, Integer page, Integer size,
+            Integer status) {
+        try {
+            // 1. 根据用户名获取用户
+            User user = userMapper.findByUsername(username);
+            if (user == null) {
+                return new PageResult<>(0L, page, size, new ArrayList<>());
+            }
+
+            // 2. 获取文章列表
+            List<Article> articles = articleService.getArticlesByUserIdAndStatus(user.getId(), status, page, size);
+
+            // 3. 获取文章总数
+            Long total = articleService.countArticlesByUserIdAndStatus(user.getId(), status);
+
+            // 4. 转换为ArticlePublicVO
+            List<ArticlePublicVO> articleVOs = articles.stream()
+                    .map(this::convertToArticlePublicVO)
+                    .collect(java.util.stream.Collectors.toList());
+
+            return new PageResult<>(total, page, size, articleVOs);
+
+        } catch (Exception e) {
+            System.err.println("❌ 获取用户公开文章异常: " + e.getMessage());
+            e.printStackTrace();
+            return new PageResult<>(0L, page, size, new ArrayList<>());
+        }
+    }
+
+    /**
+     * 将Article转换为ArticlePublicVO（添加到UserServiceImpl类中）
+     */
+    private ArticlePublicVO convertToArticlePublicVO(Article article) {
+        ArticlePublicVO vo = new ArticlePublicVO();
+        vo.setId(article.getId());
+        vo.setTitle(article.getTitle());
+        vo.setSummary(article.getSummary());
+        vo.setCoverImage(article.getCoverImage());
+        vo.setViewCount(article.getViewCount());
+        vo.setLikeCount(article.getLikeCount());
+        vo.setCommentCount(article.getCommentCount());
+        vo.setCreateTime(article.getCreateTime());
+        vo.setUpdateTime(article.getUpdateTime());
+        vo.setAuthorName(article.getAuthorName());
+        vo.setAuthorAvatar(article.getAuthorAvatar());
+
+        // 获取标签
+        if (article.getTags() != null && !article.getTags().isEmpty()) {
+            String[] tagNames = article.getTags().split(",");
+            List<com.blog.entity.Tag> tags = java.util.Arrays.stream(tagNames)
+                    .map(tagName -> {
+                        com.blog.entity.Tag tag = new com.blog.entity.Tag();
+                        tag.setName(tagName.trim());
+                        return tag;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+            vo.setTags(tags);
+        }
+
+        // 获取分类信息
+        if (article.getCategoryName() != null) {
+            com.blog.entity.Category category = new com.blog.entity.Category();
+            category.setId(article.getCategoryId());
+            category.setName(article.getCategoryName());
+            vo.setCategory(category);
+        }
+
+        return vo;
+    }
+
+    @Override
+    public UserStatsVO getPublicUserStats(String username) {
+        try {
+            User user = userMapper.findByUsername(username);
+            if (user == null) {
+                return null;
+            }
+
+            UserStatsVO stats = new UserStatsVO();
+            stats.setArticleCount(user.getArticleCount() != null ? user.getArticleCount() : 0);
+            stats.setLikeCount(user.getLikeCount() != null ? user.getLikeCount() : 0);
+            stats.setViewCount(user.getViewCount() != null ? user.getViewCount() : 0);
+            stats.setFollowingCount(followService.getFollowingCount(user.getId()));
+            stats.setFollowerCount(followService.getFollowerCount(user.getId()));
+
+            return stats;
+
+        } catch (Exception e) {
+            System.err.println("❌ 获取用户公开统计异常: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Override
+    public User getUserByUsername(String username) {
+        return userMapper.findByUsername(username);
     }
 }

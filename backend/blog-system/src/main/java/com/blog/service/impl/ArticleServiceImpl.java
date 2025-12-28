@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
@@ -377,6 +378,70 @@ public class ArticleServiceImpl implements ArticleService {
         // ... 其他字段设置
 
         return uploadFile;
+    }
+
+    @Override
+    public List<Article> getArticlesByUserIdAndStatus(Integer userId, Integer status, Integer page, Integer size) {
+        try {
+            if (page == null || page < 1)
+                page = 1;
+            if (size == null || size < 1)
+                size = 10;
+
+            int offset = (page - 1) * size;
+
+            // 调用已有的Mapper方法
+            return articleMapper.findByUserIdAndStatus(userId, status, offset, size);
+
+        } catch (Exception e) {
+            System.err.println("❌ 查询用户文章列表异常: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public Long countArticlesByUserIdAndStatus(Integer userId, Integer status) {
+        try {
+            Long count = articleMapper.countByUserIdAndStatus(userId, status);
+            return count != null ? count : 0L;
+        } catch (Exception e) {
+            System.err.println("❌ 统计用户文章数量异常: " + e.getMessage());
+            e.printStackTrace();
+            return 0L;
+        }
+    }
+
+    @Override
+    public List<Article> getArticlesByUserId(Integer userId, Integer page, Integer size) {
+        try {
+            if (page == null || page < 1)
+                page = 1;
+            if (size == null || size < 1)
+                size = 10;
+
+            int offset = (page - 1) * size;
+
+            // 使用新添加的findByUserId方法
+            return articleMapper.findByUserId(userId, offset, size);
+
+        } catch (Exception e) {
+            System.err.println("❌ 查询用户所有文章异常: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public Long countArticlesByUserId(Integer userId) {
+        try {
+            Long count = articleMapper.countByUserId(userId);
+            return count != null ? count : 0L;
+        } catch (Exception e) {
+            System.err.println("❌ 统计用户所有文章异常: " + e.getMessage());
+            e.printStackTrace();
+            return 0L;
+        }
     }
 
 }

@@ -1,8 +1,12 @@
 package com.blog.service;
 
+import com.blog.common.PageResult;
 import com.blog.entity.ChangePasswordRequest;
 import com.blog.entity.User;
+import com.blog.entity.vo.ArticlePublicVO;
 import com.blog.entity.vo.UserProfileVO;
+import com.blog.entity.vo.UserPublicVO;
+import com.blog.entity.vo.UserStatsVO;
 
 public interface UserService {
 
@@ -55,4 +59,24 @@ public interface UserService {
      * 更新最后活动时间（用于判断在线状态）
      */
     void updateLastActive(Integer userId);
+
+    /**
+     * 获取公开用户信息
+     */
+    UserPublicVO getPublicUserInfo(String username);
+
+    /**
+     * 获取用户公开文章列表
+     */
+    PageResult<ArticlePublicVO> getPublicUserArticles(String username, Integer page, Integer size, Integer status);
+
+    /**
+     * 获取用户公开统计信息
+     */
+    UserStatsVO getPublicUserStats(String username);
+
+    /**
+     * 根据用户名获取用户
+     */
+    User getUserByUsername(String username);
 }

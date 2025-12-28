@@ -1,9 +1,12 @@
 package com.blog.controller;
 
+import com.blog.common.PageResult;
 import com.blog.common.Result;
 import com.blog.entity.ChangePasswordRequest;
 import com.blog.entity.User;
+import com.blog.entity.vo.ArticlePublicVO;
 import com.blog.entity.vo.UserProfileVO;
+import com.blog.entity.vo.UserPublicVO;
 import com.blog.entity.vo.UserStatsVO;
 import com.blog.service.UserService;
 import com.blog.utils.SessionUtil;
@@ -85,10 +88,10 @@ public class UserController {
             if (currentUser == null) {
                 return Result.unauthorized("请先登录");
             }
-            
+
             // 更新最后活动时间
             userService.updateLastActive(currentUser.getId());
-            
+
             UserProfileVO profile = userService.getUserProfile(currentUser.getId());
             return Result.success("获取个人信息成功", profile);
         } catch (RuntimeException e) {
@@ -104,14 +107,14 @@ public class UserController {
      * 更新个人简介
      */
     @PutMapping("/bio")
-    public Result<String> updateBio(@RequestParam String bio, 
-                                   HttpServletRequest request) {
+    public Result<String> updateBio(@RequestParam String bio,
+            HttpServletRequest request) {
         try {
             User currentUser = SessionUtil.getCurrentUser(request);
             if (currentUser == null) {
                 return Result.unauthorized("请先登录");
             }
-            
+
             boolean success = userService.updateBio(currentUser.getId(), bio);
             if (success) {
                 // 更新最后活动时间
@@ -137,10 +140,10 @@ public class UserController {
             if (currentUser == null) {
                 return Result.unauthorized("请先登录");
             }
-            
+
             // 更新最后活动时间
             userService.updateLastActive(currentUser.getId());
-            
+
             UserProfileVO profile = userService.getUserProfile(currentUser.getId());
             return Result.success("获取统计信息成功", profile.getStats());
         } catch (Exception e) {
@@ -160,18 +163,18 @@ public class UserController {
             if (currentUser == null) {
                 return Result.unauthorized("请先登录");
             }
-            
+
             // 更新最后活动时间
             userService.updateLastActive(currentUser.getId());
-            
+
             UserProfileVO profile = userService.getUserProfile(currentUser.getId());
-            
+
             Map<String, Object> status = new HashMap<>();
             status.put("createTime", profile.getCreateTime());
             status.put("lastLoginTime", profile.getLastLoginTime());
             status.put("lastLoginIp", profile.getLastLoginIp());
             status.put("isOnline", profile.getIsOnline());
-            
+
             return Result.success("获取账户状态成功", status);
         } catch (Exception e) {
             System.err.println("❌ 获取账户状态异常: " + e.getMessage());
@@ -247,6 +250,61 @@ public class UserController {
             System.err.println("❌ 修改密码接口异常: " + e.getMessage());
             e.printStackTrace();
             return Result.error("系统异常，请稍后重试");
+        }
+    }
+
+    /**
+     * 获取公开用户信息
+     * 路径: GET /api/user/public/{username}
+     */
+    @GetMapping("/public/{username}")
+    public Result<UserPublicVO> getPublicUserInfo(@PathVariable String username) {
+        try {
+            UserPublicVO user = userService.getPublicUserInfo(username);
+            if (user == null) {
+                return Result.notFound("用户不存在");
+            }
+            return Result.success(user);
+        } catch (Exception e) {
+            System.err.println("❌ 获取公开用户信息失败: " + e.getMessage());
+            return Result.error("获取用户信息失败");
+        }
+    }
+
+    /**
+     * 获取用户公开文章列表
+     * 路径: GET /api/user/public/{username}/articles
+     */
+    @GetMapping("/public/{username}/articles")
+    public Result<PageResult<ArticlePublicVO>> getPublicUserArticles(
+            @PathVariable String username,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size) {
+        try {
+            // 只获取已发布的文章 (status = 1)
+            PageResult<ArticlePublicVO> articles = userService.getPublicUserArticles(username, page, size, 1);
+            return Result.success("获取文章列表成功", articles);
+        } catch (Exception e) {
+            System.err.println("❌ 获取用户公开文章失败: " + e.getMessage());
+            return Result.error("获取文章列表失败");
+        }
+    }
+
+    /**
+     * 获取用户公开统计
+     * 路径: GET /api/user/public/{username}/stats
+     */
+    @GetMapping("/public/{username}/stats")
+    public Result<UserStatsVO> getPublicUserStats(@PathVariable String username) {
+        try {
+            UserStatsVO stats = userService.getPublicUserStats(username);
+            if (stats == null) {
+                return Result.notFound("用户不存在");
+            }
+            return Result.success("获取用户统计成功", stats);
+        } catch (Exception e) {
+            System.err.println("❌ 获取用户统计失败: " + e.getMessage());
+            return Result.error("获取统计信息失败");
         }
     }
 }

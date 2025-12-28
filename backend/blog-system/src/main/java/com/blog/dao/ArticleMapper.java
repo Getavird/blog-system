@@ -472,4 +472,32 @@ public interface ArticleMapper {
                         "LEFT JOIN category c ON a.category_id = c.id " +
                         "WHERE a.id = #{id} AND a.user_id = #{userId}")
         Article findByIdAndUserId(@Param("id") Integer id, @Param("userId") Integer userId);
+
+        /**
+         * 统计用户特定状态的文章数量
+         */
+        @Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status = #{status}")
+        Long countByUserIdAndStatus(@Param("userId") Integer userId,
+                        @Param("status") Integer status);
+
+        /**
+         * 统计用户所有文章数量
+         */
+        @Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId}")
+        Long countByUserId(@Param("userId") Integer userId);
+
+        /**
+         * 根据用户ID查询所有文章（分页）
+         */
+        @Select("SELECT a.*, u.username as author_name, u.avatar as author_avatar, " +
+                        "c.name as category_name " +
+                        "FROM article a " +
+                        "LEFT JOIN user u ON a.user_id = u.id " +
+                        "LEFT JOIN category c ON a.category_id = c.id " +
+                        "WHERE a.user_id = #{userId} " +
+                        "ORDER BY a.create_time DESC " +
+                        "LIMIT #{offset}, #{size}")
+        List<Article> findByUserId(@Param("userId") Integer userId,
+                        @Param("offset") int offset,
+                        @Param("size") int size);
 }
