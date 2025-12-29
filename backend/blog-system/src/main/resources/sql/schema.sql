@@ -162,3 +162,18 @@ CREATE TABLE IF NOT EXISTS `user_like` (
     INDEX idx_user_id (user_id),
     INDEX idx_comment_id (comment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户点赞评论表';
+
+
+--6
+CREATE TABLE IF NOT EXISTS user_follow (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    follower_id INT NOT NULL COMMENT '关注者ID',
+    following_id INT NOT NULL COMMENT '被关注者ID',
+    status TINYINT DEFAULT 1 COMMENT '状态：0-取消关注，1-已关注',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_follower_following (follower_id, following_id),
+    KEY idx_follower_id (follower_id),
+    KEY idx_following_id (following_id),
+    KEY idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户关注关系表';

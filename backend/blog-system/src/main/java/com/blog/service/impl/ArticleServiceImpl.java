@@ -639,4 +639,33 @@ public class ArticleServiceImpl implements ArticleService {
             return new ArrayList<>();
         }
     }
+    @Override
+public int getArticleCountByUserId(Integer userId) {
+    try {
+        return articleMapper.countArticlesByUserId(userId);
+    } catch (Exception e) {
+        System.err.println("获取用户文章数量失败: " + e.getMessage());
+        return 0;
+    }
+}
+
+@Override
+public int getDraftCountByUserId(Integer userId) {
+    try {
+        return articleMapper.countDraftsByUserId(userId);
+    } catch (Exception e) {
+        System.err.println("获取用户草稿数量失败: " + e.getMessage());
+        return 0;
+    }
+}
+
+@Override
+public int getPublishedArticleCountByUserId(Integer userId) {
+    try {
+        return articleMapper.countPublishedArticlesByUserId(userId);
+    } catch (Exception e) {
+        System.err.println("获取用户已发布文章数量失败: " + e.getMessage());
+        return 0;
+    }
+}
 }

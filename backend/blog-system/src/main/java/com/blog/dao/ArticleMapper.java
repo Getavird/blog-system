@@ -500,4 +500,23 @@ public interface ArticleMapper {
         List<Article> findByUserId(@Param("userId") Integer userId,
                         @Param("offset") int offset,
                         @Param("size") int size);
+
+
+                        /**
+ * 统计用户文章数量
+ */
+@Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status != 2")
+int countArticlesByUserId(@Param("userId") Integer userId);
+
+/**
+ * 统计用户草稿数量
+ */
+@Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status = 0")
+int countDraftsByUserId(@Param("userId") Integer userId);
+
+/**
+ * 统计用户已发布文章数量
+ */
+@Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status = 1")
+int countPublishedArticlesByUserId(@Param("userId") Integer userId);
 }

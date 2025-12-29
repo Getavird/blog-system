@@ -108,6 +108,20 @@ public interface ArticleService {
      */
     Article getArticleByIdAndUserId(Integer id, Integer userId);
 
+    /**
+ * 获取用户文章数量
+ */
+int getArticleCountByUserId(Integer userId);
+
+/**
+ * 获取用户草稿数量
+ */
+int getDraftCountByUserId(Integer userId);
+
+/**
+ * 获取用户已发布文章数量
+ */
+int getPublishedArticleCountByUserId(Integer userId);
 
     /**
      * 根据用户ID和状态查询文章（分页）

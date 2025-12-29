@@ -4,6 +4,7 @@ import com.blog.common.Result;
 import com.blog.entity.vo.FollowVO;
 import com.blog.entity.vo.FollowCountVO;
 import com.blog.service.FollowService;
+import com.blog.service.UserService;
 import com.blog.utils.SessionUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,11 +21,14 @@ public class FollowController {
     @Autowired
     private FollowService followService;
     
+    @Autowired
+    private UserService userService;
+    
     /**
-     * 关注用户
+     * 关注用户 - 支持用户名或用户ID
      */
-    @PostMapping("/{userId}")
-    public Result<String> follow(@PathVariable Integer userId, HttpServletRequest request) {
+    @PostMapping("/{identifier}")
+    public Result<String> follow(@PathVariable String identifier, HttpServletRequest request) {
         try {
             // 1. 检查登录
             Integer currentUserId = SessionUtil.getCurrentUserId(request);
@@ -32,8 +36,19 @@ public class FollowController {
                 return Result.unauthorized("请先登录");
             }
             
-            // 2. 关注用户
-            boolean success = followService.follow(currentUserId, userId);
+            // 2. 解析identifier：可能是用户ID或用户名
+            Integer targetUserId = parseUserId(identifier);
+            if (targetUserId == null) {
+                return Result.error("用户不存在");
+            }
+            
+            // 3. 检查不能关注自己
+            if (currentUserId.equals(targetUserId)) {
+                return Result.error("不能关注自己");
+            }
+            
+            // 4. 关注用户
+            boolean success = followService.follow(currentUserId, targetUserId);
             if (success) {
                 return Result.success("关注成功");
             } else {
@@ -50,10 +65,10 @@ public class FollowController {
     }
     
     /**
-     * 取消关注
+     * 取消关注 - 支持用户名或用户ID
      */
-    @DeleteMapping("/{userId}")
-    public Result<String> unfollow(@PathVariable Integer userId, HttpServletRequest request) {
+    @DeleteMapping("/{identifier}")
+    public Result<String> unfollow(@PathVariable String identifier, HttpServletRequest request) {
         try {
             // 1. 检查登录
             Integer currentUserId = SessionUtil.getCurrentUserId(request);
@@ -61,8 +76,14 @@ public class FollowController {
                 return Result.unauthorized("请先登录");
             }
             
-            // 2. 取消关注
-            boolean success = followService.unfollow(currentUserId, userId);
+            // 2. 解析identifier：可能是用户ID或用户名
+            Integer targetUserId = parseUserId(identifier);
+            if (targetUserId == null) {
+                return Result.error("用户不存在");
+            }
+            
+            // 3. 取消关注
+            boolean success = followService.unfollow(currentUserId, targetUserId);
             if (success) {
                 return Result.success("取消关注成功");
             } else {
@@ -79,10 +100,10 @@ public class FollowController {
     }
     
     /**
-     * 检查是否关注
+     * 检查是否关注 - 支持用户名或用户ID
      */
-    @GetMapping("/check/{userId}")
-    public Result<Map<String, Object>> checkFollowing(@PathVariable Integer userId, 
+    @GetMapping("/check/{identifier}")
+    public Result<Map<String, Object>> checkFollowing(@PathVariable String identifier, 
                                                      HttpServletRequest request) {
         try {
             // 1. 检查登录
@@ -91,11 +112,18 @@ public class FollowController {
                 return Result.unauthorized("请先登录");
             }
             
-            // 2. 检查是否关注
-            boolean isFollowing = followService.isFollowing(currentUserId, userId);
+            // 2. 解析identifier：可能是用户ID或用户名
+            Integer targetUserId = parseUserId(identifier);
+            if (targetUserId == null) {
+                return Result.error("用户不存在");
+            }
+            
+            // 3. 检查是否关注
+            boolean isFollowing = followService.isFollowing(currentUserId, targetUserId);
             
             Map<String, Object> result = new HashMap<>();
             result.put("isFollowing", isFollowing);
+            result.put("userId", targetUserId);
             
             return Result.success(result);
             
@@ -163,7 +191,7 @@ public class FollowController {
     }
     
     /**
-     * 获取关注数量统计
+     * 获取当前用户的关注数量统计
      */
     @GetMapping("/counts")
     public Result<FollowCountVO> getFollowCounts(HttpServletRequest request) {
@@ -187,12 +215,18 @@ public class FollowController {
     }
     
     /**
-     * 获取用户的关注数量（公开接口，无需登录）
+     * 获取用户的关注数量（公开接口，无需登录） - 支持用户名或用户ID
      */
-    @GetMapping("/counts/{userId}")
-    public Result<FollowCountVO> getUserFollowCounts(@PathVariable Integer userId) {
+    @GetMapping("/counts/{identifier}")
+    public Result<FollowCountVO> getUserFollowCounts(@PathVariable String identifier) {
         try {
-            // 获取用户的关注数量统计
+            // 1. 解析identifier：可能是用户ID或用户名
+            Integer userId = parseUserId(identifier);
+            if (userId == null) {
+                return Result.error("用户不存在");
+            }
+            
+            // 2. 获取用户的关注数量统计
             FollowCountVO countVO = followService.getFollowCount(userId);
             
             return Result.success("获取用户关注数量成功", countVO);
@@ -201,6 +235,36 @@ public class FollowController {
             System.err.println("❌ 获取用户关注数量接口异常: " + e.getMessage());
             e.printStackTrace();
             return Result.error("获取用户关注数量失败");
+        }
+    }
+    
+    /**
+     * 解析用户标识符为用户ID
+     * @param identifier 用户ID（数字）或用户名
+     * @return 用户ID，如果不存在则返回null
+     */
+    private Integer parseUserId(String identifier) {
+        try {
+            // 尝试作为数字解析（用户ID）
+            if (identifier.matches("\\d+")) {
+                Integer userId = Integer.parseInt(identifier);
+                // 验证用户ID是否存在
+                if (userService.getUserById(userId) != null) {
+                    return userId;
+                }
+                return null;
+            }
+            
+            // 如果不是数字，尝试作为用户名查询
+            com.blog.entity.User user = userService.getUserByUsername(identifier);
+            if (user != null) {
+                return user.getId();
+            }
+            
+            return null;
+        } catch (Exception e) {
+            System.err.println("解析用户标识符失败: " + identifier + ", 错误: " + e.getMessage());
+            return null;
         }
     }
 }

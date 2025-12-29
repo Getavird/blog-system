@@ -44,8 +44,14 @@ export const getHotArticles = (limit = 10) => {
 }
 
 // 最新文章
+// 修改为调用 /api/articles/latest
 export const getNewestArticles = (limit = 10) => {
-  return request.get('/api/articles/newest', { params: { limit } })
+  return request.get('/api/articles/latest', { params: { limit } })
+}
+
+// 获取当前用户文章数量统计
+export const getMyArticleCount = () => {
+  return request.get('/api/articles/my/count')
 }
 
 // 搜索文章
