@@ -61,8 +61,13 @@
             <div class="breadcrumb">
               <router-link to="/">首页</router-link>
               <el-icon><ArrowRight /></el-icon>
-              <span v-if="article.category">{{ article.category.name }}</span>
-              <el-icon><ArrowRight /></el-icon>
+              
+              <!-- 显示分类（如果有） -->
+              <span v-if="displayCategoryName" @click="goToCategory(displayCategoryId)" class="category-link">
+                {{ displayCategoryName }}
+              </span>
+              
+              <el-icon v-if="displayCategoryName"><ArrowRight /></el-icon>
               <span class="current">{{ article.title }}</span>
             </div>
             
@@ -92,24 +97,27 @@
             <!-- 文章分类和标签 -->
             <div class="article-tags">
               <el-tag 
-                v-if="article.category"
+                v-if="displayCategoryName"
                 type="primary" 
                 size="large"
-                @click="goToCategory(article.category.id)"
+                @click="goToCategory(displayCategoryId)"
                 class="category-tag"
               >
                 <el-icon><Folder /></el-icon>
-                {{ article.category.name }}
+                {{ displayCategoryName }}
               </el-tag>
               <el-tag
-                v-for="tag in article.tags"
-                :key="tag.id"
+                v-for="tag in processedTags"
+                :key="getTagKey(tag, index)"
                 size="large"
-                @click="goToTag(tag.id)"
+                @click="goToTag(tag)"
                 class="tag-item"
               >
-                #{{ tag.name }}
+                {{ tag }}
               </el-tag>
+              <div v-if="processedTags.length === 0" class="no-tags">
+                <span class="no-tags-text">暂无标签</span>
+              </div>
             </div>
             
             <!-- 文章内容 -->
@@ -380,6 +388,98 @@ const showLogin = ref(false)
 const tocItems = ref([])
 const showToc = computed(() => tocItems.value.length > 0)
 
+// 处理标签数据
+const processedTags = computed(() => {
+  if (!article.value || !article.value.tags) return []
+  
+  const tags = article.value.tags
+  
+  // 如果是字符串
+  if (typeof tags === 'string') {
+    return tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+  }
+  
+  // 如果是数组
+  if (Array.isArray(tags)) {
+    return tags.map(tag => {
+      if (typeof tag === 'string') return tag
+      if (tag && typeof tag === 'object') return tag.name || tag.label || ''
+      return ''
+    }).filter(tag => tag)
+  }
+  
+  return []
+})
+
+// 获取标签key
+const getTagKey = (tag, index) => {
+  return `${tag}-${index}`
+}
+
+// 跳转到标签
+const goToTag = (tagName) => {
+  if (tagName) {
+    router.push({
+      path: '/tags',
+      query: { 
+        name: encodeURIComponent(tagName)
+      }
+    })
+  }
+}
+
+// 显示的分类名称
+const displayCategoryName = computed(() => {
+  if (!article.value) return ''
+  
+  // 方法1: 从category对象获取
+  if (article.value.category) {
+    // 如果是对象且有name属性
+    if (typeof article.value.category === 'object' && article.value.category.name) {
+      return article.value.category.name
+    }
+    // 如果是字符串
+    if (typeof article.value.category === 'string') {
+      return article.value.category
+    }
+  }
+  
+  // 方法2: 从categoryName字段获取
+  if (article.value.categoryName) {
+    return article.value.categoryName
+  }
+  
+  // 方法3: 从分类列表匹配
+  if (article.value.categoryId && categories.value.length > 0) {
+    const foundCategory = categories.value.find(cat => cat.id === article.value.categoryId)
+    if (foundCategory) {
+      return foundCategory.name
+    }
+  }
+  
+  return ''
+})
+
+// 显示的分类ID
+const displayCategoryId = computed(() => {
+  if (!article.value) return ''
+  
+  // 方法1: 从category对象获取
+  if (article.value.category && article.value.category.id) {
+    return article.value.category.id
+  }
+  
+  // 方法2: 直接获取categoryId
+  if (article.value.categoryId) {
+    return article.value.categoryId
+  }
+  
+  return ''
+})
+
+// 分类数据
+const categories = computed(() => categoryStore.categories || [])
+
 // 组件挂载
 onMounted(async () => {
   // 初始化用户状态
@@ -417,12 +517,41 @@ const loadArticleDetail = async () => {
     // 1. 加载文章详情
     await articleStore.fetchArticleDetail(articleId.value)
     
-    // 2. 不需要单独调用阅读量接口，因为 GET /api/articles/{id} 已经返回了最新的阅读量
+    // 2. 验证分类数据
+    if (article.value) {
+      console.log('文章分类信息验证:')
+      console.log('- category 对象:', article.value.category)
+      console.log('- categoryId:', article.value.categoryId)
+      console.log('- categoryName:', article.value.categoryName)
+      
+      // 如果有categoryId但没有category对象，尝试从分类列表获取
+      if (article.value.categoryId && (!article.value.category || !article.value.category.name)) {
+        console.log('尝试从分类列表匹配分类信息...')
+        
+        // 确保分类数据已加载
+        if (categories.value.length === 0) {
+          await categoryStore.fetchCategories()
+        }
+        
+        // 查找匹配的分类
+        const foundCategory = categories.value.find(cat => cat.id === article.value.categoryId)
+        if (foundCategory) {
+          console.log('找到匹配的分类:', foundCategory)
+          // 更新文章的分类信息
+          article.value.category = foundCategory
+          article.value.categoryName = foundCategory.name
+        } else {
+          console.warn('未找到匹配的分类，ID:', article.value.categoryId)
+        }
+      }
+    }
     
-    // 3. 加载文章评论
+    // 3. 不需要单独调用阅读量接口，因为 GET /api/articles/{id} 已经返回了最新的阅读量
+    
+    // 4. 加载文章评论
     await loadArticleComments()
     
-    // 4. 检查当前用户是否关注了作者
+    // 5. 检查当前用户是否关注了作者
     if (isLoggedIn.value && article.value && article.value.authorId && !isArticleAuthor.value) {
       try {
         const isFollowing = await followStore.checkFollowStatus(article.value.authorId)
@@ -432,7 +561,7 @@ const loadArticleDetail = async () => {
       }
     }
     
-    // 5. 生成目录
+    // 6. 生成目录
     generateToc()
     
     console.log('文章详情加载完成:', article.value)
@@ -632,20 +761,6 @@ const editArticle = () => {
 const goToCategory = (categoryId) => {
   if (categoryId) {
     router.push(`/category/${categoryId}`)
-  }
-}
-
-// 跳转到标签
-const goToTag = (tagId) => {
-  if (tagId) {
-    // 先获取标签名称
-    const tag = tagStore.tags.find(t => t.id === tagId)
-    if (tag) {
-      router.push({
-        path: '/tag',
-        query: { name: encodeURIComponent(tag.name) }
-      })
-    }
   }
 }
 
@@ -925,6 +1040,10 @@ const toLoginPage = () => {
   color: #666;
   font-size: 14px;
   margin-bottom: 20px;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  flex-wrap: wrap;
 }
 
 .breadcrumb a {
@@ -937,9 +1056,24 @@ const toLoginPage = () => {
   color: #409eff;
 }
 
+.breadcrumb .category-link {
+  color: #666;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.breadcrumb .category-link:hover {
+  color: #409eff;
+  text-decoration: underline;
+}
+
 .breadcrumb .current {
   color: #333;
   font-weight: 500;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 文章标题 */
@@ -983,6 +1117,7 @@ const toLoginPage = () => {
   margin-bottom: 30px;
   padding-bottom: 20px;
   border-bottom: 1px solid #f0f0f0;
+  align-items: center;
 }
 
 .category-tag,
@@ -998,6 +1133,15 @@ const toLoginPage = () => {
 .tag-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.no-tags {
+  color: #999;
+  font-size: 14px;
+}
+
+.no-tags-text {
+  font-style: italic;
 }
 
 /* 文章内容 */

@@ -36,27 +36,83 @@ export const useArchiveStore = defineStore('archive', () => {
 
 
   // 获取所有归档数据（带格式化）
-  const fetchAllArchives = async () => {
-    return withLoading(
-      loadingAll,
-      async () => {
-        const data = await archiveApi.getAllArchives()
-        // 严格校验数据类型，避免非数组导致的 map 报错
-        const safeData = Array.isArray(data) ? data : []
-        archives.value = safeData.map(year => ({
-          ...(year || {}), // 处理 year 为 null/undefined 的情况
-          expanded: true,
-          months: Array.isArray(year?.months) ? year.months : [],
-          total: year?.total || 0,
-          viewCount: year?.viewCount || 0,
-          likeCount: year?.likeCount || 0
-        }))
+const fetchAllArchives = async () => {
+  return withLoading(
+    loadingAll,
+    async () => {
+      try {
+        const response = await archiveApi.getAllArchives()
+        
+        const yearMap = new Map()
+        
+        if (Array.isArray(response)) {
+          response.forEach(monthData => {
+            const year = parseInt(monthData.year) || new Date().getFullYear()
+            let month = 0
+            
+            if (monthData.month && typeof monthData.month === 'string') {
+              const match = monthData.month.match(/(\d+)/)
+              month = match ? parseInt(match[1]) : 0
+            }
+            
+            if (month === 0) month = 1
+            
+            if (!yearMap.has(year)) {
+              yearMap.set(year, {
+                year: year,
+                total: 0,
+                viewCount: 0,
+                likeCount: 0,
+                expanded: true, // 年份默认展开
+                months: []
+              })
+            }
+            
+            const yearData = yearMap.get(year)
+            yearData.total += monthData.articleCount || 0
+            yearData.viewCount += monthData.viewCount || 0
+            yearData.likeCount += monthData.likeCount || 0
+            
+            yearData.months.push({
+              month: month,
+              count: monthData.articleCount || 0,
+              articles: monthData.articles || [],
+              expanded: false, // 月份默认收起（文章多时更合适）
+              monthName: monthData.monthName || monthData.month || `${month}月`
+            })
+          })
+        }
+        
+        // 转换为数组并排序
+        const formattedData = Array.from(yearMap.values())
+        formattedData.forEach(year => {
+          year.months.sort((a, b) => b.month - a.month)
+        })
+        formattedData.sort((a, b) => b.year - a.year)
+        
+        // 默认展开最近一年的所有月份，其他年份的月份收起
+        if (formattedData.length > 0) {
+          const currentYear = new Date().getFullYear()
+          formattedData.forEach(year => {
+            if (year.year === currentYear) {
+              year.months.forEach(month => {
+                month.expanded = true // 当前年份的月份默认展开
+              })
+            }
+          })
+        }
+        
+        archives.value = formattedData
         return archives.value
-      },
-      '获取归档数据失败：'
-    )
-  }
-
+        
+      } catch (error) {
+        console.error('获取归档数据失败:', error)
+        throw error
+      }
+    },
+    '获取归档数据失败：'
+  )
+}
   // 获取归档统计
   const fetchArchiveStats = async () => {
     return withLoading(
@@ -71,17 +127,32 @@ export const useArchiveStore = defineStore('archive', () => {
   }
 
   // 获取可用年份
-  const fetchArchiveYears = async () => {
-    return withLoading(
-      loadingYears,
-      async () => {
-        const data = await archiveApi.getArchiveYears()
-        archiveYears.value = Array.isArray(data) ? data : []
-        return archiveYears.value
-      },
-      '获取归档年份失败：'
-    )
-  }
+const fetchArchiveYears = async () => {
+  return withLoading(
+    loadingYears,
+    async () => {
+      const response = await archiveApi.getArchiveYears()
+      
+      // 提取 data 字段
+      let data = response
+      if (response && typeof response === 'object' && 'data' in response) {
+        data = response.data
+      }
+      
+      // 确保是数组
+      archiveYears.value = Array.isArray(data) ? data : []
+      
+      // 如果年份接口返回空，从归档数据中提取年份
+      if (archiveYears.value.length === 0 && archives.value.length > 0) {
+        archiveYears.value = archives.value.map(year => year.year).sort((a, b) => b - a)
+      }
+      
+      console.log('📦 年份数据:', archiveYears.value)
+      return archiveYears.value
+    },
+    '获取归档年份失败：'
+  )
+}
 
   // 按年份查归档（增加参数校验）
   const fetchArchivesByYear = async (year) => {

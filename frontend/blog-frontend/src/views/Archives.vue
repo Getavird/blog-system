@@ -30,6 +30,38 @@
           </div>
         </div>
 
+        <!-- 月份操作按钮 -->
+        <div class="month-actions" v-if="!loading && archives.length > 0">
+          <div class="action-buttons">
+            <el-button 
+              size="small" 
+              type="text" 
+              @click="expandAllMonths"
+              v-if="hasCollapsedMonths"
+            >
+              <el-icon><Expand /></el-icon>
+              展开所有月份
+            </el-button>
+            
+            <el-button 
+              size="small" 
+              type="text" 
+              @click="collapseAllMonths"
+              v-if="hasExpandedMonths"
+            >
+              <el-icon><Fold /></el-icon>
+              收起所有月份
+            </el-button>
+          </div>
+          
+          <div class="month-stats">
+            <span>共 {{ totalMonths }} 个月份，{{ totalArticles }} 篇文章</span>
+            <el-tooltip content="月份默认收起，点击月份标题可展开" placement="top">
+              <el-icon><InfoFilled /></el-icon>
+            </el-tooltip>
+          </div>
+        </div>
+
         <!-- 年份筛选 -->
         <div class="year-filter">
           <h3>按年份筛选</h3>
@@ -106,6 +138,28 @@
                 </div>
               </div>
 
+              <!-- 年份操作按钮 -->
+              <div class="year-actions" v-if="yearData.expanded">
+                <div class="action-buttons">
+                  <el-button 
+                    size="small" 
+                    type="text" 
+                    @click.stop="expandAllMonthsInYear(yearData.year)"
+                    v-if="hasCollapsedMonthsInYear(yearData.year)"
+                  >
+                    展开所有月份
+                  </el-button>
+                  <el-button 
+                    size="small" 
+                    type="text" 
+                    @click.stop="collapseAllMonthsInYear(yearData.year)"
+                    v-if="hasExpandedMonthsInYear(yearData.year)"
+                  >
+                    收起所有月份
+                  </el-button>
+                </div>
+              </div>
+
               <!-- 月份列表 -->
               <el-collapse-transition>
                 <div v-show="yearData.expanded" class="months-container">
@@ -115,10 +169,13 @@
                     class="month-section"
                   >
                     <!-- 月份标题 -->
-                    <div class="month-header">
+                    <div class="month-header" @click.stop="toggleMonth(yearData.year, monthData.month)">
                       <div class="month-title">
                         <h3>{{ monthData.month }}月</h3>
                         <span class="month-count">{{ monthData.count }} 篇文章</span>
+                        <el-icon class="month-toggle" :class="{ 'rotate': monthData.expanded }">
+                          <ArrowDown />
+                        </el-icon>
                       </div>
                       <div class="month-date">
                         {{ yearData.year }}年{{ monthData.month }}月
@@ -126,43 +183,45 @@
                     </div>
 
                     <!-- 文章列表 -->
-                    <div class="articles-list">
-                      <div 
-                        v-for="article in monthData.articles" 
-                        :key="article.id"
-                        class="article-item"
-                        @click="viewArticle(article.id)"
-                      >
-                        <div class="article-date">
-                          {{ formatDay(article.createTime) }}
-                        </div>
-                        <div class="article-content">
-                          <div class="article-title">
-                            {{ article.title }}
-                            <el-tag v-if="article.status === 0" type="info" size="mini">
-                              草稿
-                            </el-tag>
+                    <el-collapse-transition>
+                      <div v-show="monthData.expanded" class="articles-list">
+                        <div 
+                          v-for="article in monthData.articles" 
+                          :key="article.id"
+                          class="article-item"
+                          @click="viewArticle(article.id)"
+                        >
+                          <div class="article-date">
+                            {{ formatDay(article.createTime) }}
                           </div>
-                          <div class="article-meta">
-                            <span class="meta-item">
-                              <el-icon><View /></el-icon>
-                              {{ article.viewCount || 0 }}
-                            </span>
-                            <span class="meta-item">
-                              <el-icon><Star /></el-icon>
-                              {{ article.likeCount || 0 }}
-                            </span>
-                            <span class="meta-item">
-                              <el-icon><ChatDotRound /></el-icon>
-                              {{ article.commentCount || 0 }}
-                            </span>
+                          <div class="article-content">
+                            <div class="article-title">
+                              {{ article.title }}
+                              <el-tag v-if="article.status === 0" type="info" size="mini">
+                                草稿
+                              </el-tag>
+                            </div>
+                            <div class="article-meta">
+                              <span class="meta-item">
+                                <el-icon><View /></el-icon>
+                                {{ article.viewCount || 0 }}
+                              </span>
+                              <span class="meta-item">
+                                <el-icon><Star /></el-icon>
+                                {{ article.likeCount || 0 }}
+                              </span>
+                              <span class="meta-item">
+                                <el-icon><ChatDotRound /></el-icon>
+                                {{ article.commentCount || 0 }}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                        <div class="article-arrow">
-                          <el-icon><ArrowRight /></el-icon>
+                          <div class="article-arrow">
+                            <el-icon><ArrowRight /></el-icon>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </el-collapse-transition>
                   </div>
                 </div>
               </el-collapse-transition>
@@ -178,18 +237,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArchiveStore } from '@/stores/archive'
 import { useUserStore } from '@/stores/user'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElTooltip } from 'element-plus'
 import {
   Calendar,
   ArrowDown,
   ArrowRight,
   View,
   Star,
-  ChatDotRound
+  ChatDotRound,
+  Expand,
+  Fold,
+  InfoFilled
 } from '@element-plus/icons-vue'
 import { ElCollapseTransition } from 'element-plus'
 
@@ -208,12 +270,13 @@ const loading = ref(false)
 const selectedYear = ref('all')
 const expandedYears = ref({}) // 存储年份的展开状态
 
-// 归档数据
+// 归档数据 - 直接使用 store 的响应式数据
 const archives = computed(() => {
+  // 直接从 store 获取数据
   const archiveData = archiveStore.archives || []
   return archiveData.map(year => ({
     ...year,
-    expanded: expandedYears.value[year.year] !== false // 默认展开
+    expanded: expandedYears.value[year.year] !== false // 年份的展开状态
   }))
 })
 
@@ -239,6 +302,20 @@ const mostActiveYear = computed(() => {
   return sortedYears[0]?.year || '暂无'
 })
 
+// 计算是否有收起的月份
+const hasCollapsedMonths = computed(() => {
+  return archives.value.some(year => 
+    year.months.some(month => !month.expanded)
+  )
+})
+
+// 计算是否有展开的月份
+const hasExpandedMonths = computed(() => {
+  return archives.value.some(year => 
+    year.months.some(month => month.expanded)
+  )
+})
+
 // 筛选后的归档数据
 const filteredArchives = computed(() => {
   let result = archives.value
@@ -257,12 +334,12 @@ onMounted(async () => {
   await loadArchives()
 })
 
-// 加载归档数据
+// 加载归档数据 - 通过 store 调用 API
 const loadArchives = async () => {
   try {
     loading.value = true
     
-    // 并行加载数据
+    // 通过 store 方法加载数据
     await Promise.all([
       archiveStore.fetchAllArchives(),
       archiveStore.fetchArchiveYears()
@@ -298,6 +375,88 @@ const selectYear = (year) => {
 // 切换年份展开/收起
 const toggleYear = (year) => {
   expandedYears.value[year] = !expandedYears.value[year]
+}
+
+// 切换月份展开/收起
+const toggleMonth = (year, month) => {
+  // 找到对应的年份数据
+  const yearIndex = archiveStore.archives.findIndex(y => y.year === year)
+  if (yearIndex !== -1) {
+    // 找到对应的月份数据
+    const monthIndex = archiveStore.archives[yearIndex].months.findIndex(m => m.month === month)
+    if (monthIndex !== -1) {
+      // 切换展开状态
+      archiveStore.archives[yearIndex].months[monthIndex].expanded = 
+        !archiveStore.archives[yearIndex].months[monthIndex].expanded
+      
+      // 触发响应式更新
+      archiveStore.archives = [...archiveStore.archives]
+    }
+  }
+}
+
+// 检查年份中是否有收起的月份
+const hasCollapsedMonthsInYear = (year) => {
+  const yearData = archives.value.find(y => y.year === year)
+  if (yearData) {
+    return yearData.months.some(month => !month.expanded)
+  }
+  return false
+}
+
+// 检查年份中是否有展开的月份
+const hasExpandedMonthsInYear = (year) => {
+  const yearData = archives.value.find(y => y.year === year)
+  if (yearData) {
+    return yearData.months.some(month => month.expanded)
+  }
+  return false
+}
+
+// 展开某年的所有月份
+const expandAllMonthsInYear = (year) => {
+  const yearIndex = archiveStore.archives.findIndex(y => y.year === year)
+  if (yearIndex !== -1) {
+    archiveStore.archives[yearIndex].months.forEach(month => {
+      month.expanded = true
+    })
+    // 触发响应式更新
+    archiveStore.archives = [...archiveStore.archives]
+  }
+}
+
+// 收起某年的所有月份
+const collapseAllMonthsInYear = (year) => {
+  const yearIndex = archiveStore.archives.findIndex(y => y.year === year)
+  if (yearIndex !== -1) {
+    archiveStore.archives[yearIndex].months.forEach(month => {
+      month.expanded = false
+    })
+    // 触发响应式更新
+    archiveStore.archives = [...archiveStore.archives]
+  }
+}
+
+// 展开所有月份
+const expandAllMonths = () => {
+  archiveStore.archives.forEach(year => {
+    year.months.forEach(month => {
+      month.expanded = true
+    })
+  })
+  // 触发响应式更新
+  archiveStore.archives = [...archiveStore.archives]
+}
+
+// 收起所有月份
+const collapseAllMonths = () => {
+  archiveStore.archives.forEach(year => {
+    year.months.forEach(month => {
+      month.expanded = false
+    })
+  })
+  // 触发响应式更新
+  archiveStore.archives = [...archiveStore.archives]
 }
 
 // 格式化数字
@@ -421,6 +580,31 @@ const toWriteArticle = () => {
   font-size: 14px;
 }
 
+/* 月份操作按钮 */
+.month-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8f9fa;
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.month-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: 14px;
+}
+
 /* 年份筛选 */
 .year-filter {
   background: white;
@@ -508,7 +692,7 @@ const toWriteArticle = () => {
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   border-radius: 12px;
   transition: all 0.3s;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .year-header:hover {
@@ -555,6 +739,17 @@ const toWriteArticle = () => {
   transform: rotate(180deg);
 }
 
+/* 年份操作按钮 */
+.year-actions {
+  margin-left: 20px;
+  margin-bottom: 15px;
+}
+
+.year-actions .action-buttons {
+  display: flex;
+  gap: 15px;
+}
+
 /* 月份部分 */
 .months-container {
   margin-left: 20px;
@@ -584,12 +779,19 @@ const toWriteArticle = () => {
 }
 
 .month-header {
+  cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 15px;
-  padding-bottom: 10px;
+  padding: 10px 15px;
   border-bottom: 1px solid #eee;
+  transition: all 0.3s;
+  border-radius: 6px;
+}
+
+.month-header:hover {
+  background-color: #f8f9fa;
 }
 
 .month-title {
@@ -613,6 +815,17 @@ const toWriteArticle = () => {
   font-weight: 500;
 }
 
+.month-toggle {
+  margin-left: 8px;
+  color: #999;
+  transition: transform 0.3s;
+  font-size: 14px;
+}
+
+.month-toggle.rotate {
+  transform: rotate(180deg);
+}
+
 .month-date {
   color: #999;
   font-size: 14px;
@@ -623,6 +836,9 @@ const toWriteArticle = () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-left: 20px;
+  transition: all 0.3s;
+  overflow: hidden;
 }
 
 .article-item {
@@ -710,6 +926,16 @@ const toWriteArticle = () => {
     grid-template-columns: repeat(2, 1fr);
   }
   
+  .month-actions {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  
+  .month-stats {
+    align-self: flex-start;
+  }
+  
   .timeline::before {
     left: 20px;
   }
@@ -750,6 +976,10 @@ const toWriteArticle = () => {
   
   .article-title {
     font-size: 14px;
+  }
+  
+  .articles-list {
+    margin-left: 0;
   }
 }
 
