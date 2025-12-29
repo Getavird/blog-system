@@ -695,4 +695,20 @@ public class UserServiceImpl implements UserService {
     public User getUserByUsername(String username) {
         return userMapper.findByUsername(username);
     }
+
+    @Override
+    public boolean updateAvatar(Integer userId, String avatarFilename) {
+        User user = userMapper.findById(userId);
+        if (user != null) {
+            user.setAvatar(avatarFilename);
+            int updateResult = userMapper.update(user);
+            if (updateResult > 0) {
+                System.out.println("✅ 数据库更新成功（备用方案）");
+                return true;
+            }
+        }
+        
+        System.err.println("❌ 数据库更新失败");
+        return false;
+    }
 }

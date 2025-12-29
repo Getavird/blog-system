@@ -93,14 +93,24 @@ public class FileServiceImpl implements FileService {
 
         // 确保父目录存在
         Files.createDirectories(destinationPath.getParent());
-
         file.transferTo(destinationPath.toFile());
 
-        // 6. 保存记录到数据库
+        // 6. 保存记录到数据库 - 修正文件路径
         UploadFile uploadFile = new UploadFile();
         uploadFile.setOriginalName(originalFilename);
         uploadFile.setSaveName(saveName);
-        uploadFile.setFilePath(subPath + saveName); // 只存储相对路径，如 "2025/12/28/filename.png"
+
+        // 重要：保存相对于 uploads 目录的路径
+        // 应该保存为 "2025/12/28/filename.png" 而不是 "uploads/2025/12/28/filename.png"
+        // 因为 WebConfig 已经将 /uploads/** 映射到 uploads 目录
+        String filePathForDb = subPath + saveName; // "2025/12/28/filename.png"
+        uploadFile.setFilePath(filePathForDb);
+
+        // 设置正确的访问 URL
+        // 这应该是一个相对URL，如 "/uploads/2025/12/28/filename.png"
+        String fileUrl = "/uploads/" + filePathForDb;
+        uploadFile.setFileUrl(fileUrl); // 确保 UploadFile 类有这个方法
+
         uploadFile.setFileSize(file.getSize());
         uploadFile.setFileType(file.getContentType());
         uploadFile.setFileExt(fileExt);
