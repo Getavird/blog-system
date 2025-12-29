@@ -150,6 +150,84 @@
           
           <!-- 搜索结果 -->
           <div v-else class="results-container">
+              <!-- 🔍 第3步：添加调试信息区域（新增代码） -->
+  <!-- =============================================== -->
+  <div v-if="isDevelopment" class="debug-info">
+    <div class="debug-header">
+      <h4><el-icon><InfoFilled /></el-icon> 调试信息</h4>
+      <el-button type="text" size="small" @click="toggleDebug">
+        {{ showDebugDetails ? '隐藏详情' : '显示详情' }}
+      </el-button>
+    </div>
+    <!-- 在调试信息区域添加 -->
+<div v-if="searchStore.searchResults.users.length > 0" class="debug-users">
+  <h5>用户搜索结果预览：</h5>
+  <div v-for="(user, index) in searchStore.searchResults.users.slice(0, 3)" :key="user.id || index" class="debug-user-item">
+    <div><strong>ID:</strong> {{ user.id }}</div>
+    <div><strong>用户名:</strong> {{ user.username }}</div>
+    <div><strong>头像:</strong> {{ user.avatar }}</div>
+    <div><strong>文章数:</strong> {{ user.articleCount }}</div>
+    <button @click.stop="showUserRawData(user)" class="debug-btn">查看原始数据</button>
+  </div>
+</div>
+
+<!-- 添加一个模态框显示原始数据 -->
+<el-dialog v-model="showRawDataDialog" title="用户原始数据" width="80%">
+  <pre>{{ currentRawData }}</pre>
+</el-dialog>
+    <div class="debug-summary">
+      <div class="debug-item">
+        <span class="debug-label">搜索状态：</span>
+        <span class="debug-value" :class="{ 'loading': searchStore.searchLoading }">
+          {{ searchStore.searchLoading ? '加载中...' : '完成' }}
+        </span>
+      </div>
+      <div class="debug-item">
+        <span class="debug-label">搜索类型：</span>
+        <span class="debug-value">{{ searchType }} ({{ searchTypeLabel }})</span>
+      </div>
+      <div class="debug-item">
+        <span class="debug-label">关键词：</span>
+        <span class="debug-value">{{ keyword }}</span>
+      </div>
+      <div class="debug-item">
+        <span class="debug-label">后端返回总数：</span>
+        <span class="debug-value">{{ searchStore.pagination.total }}</span>
+      </div>
+      <div class="debug-item">
+        <span class="debug-label">前端统计：</span>
+        <span class="debug-value">
+          用户({{ searchStore.searchResults.users.length }}) + 
+          文章({{ searchStore.searchResults.articles.length }}) + 
+          标签({{ searchStore.searchResults.tags.length }}) = 
+          {{ searchStore.searchResults.users.length + searchStore.searchResults.articles.length + searchStore.searchResults.tags.length }}
+        </span>
+      </div>
+      <div class="debug-item">
+        <span class="debug-label">hasResults：</span>
+        <span class="debug-value" :class="{ 'true': searchStore.hasResults, 'false': !searchStore.hasResults }">
+          {{ searchStore.hasResults }}
+        </span>
+      </div>
+    </div>
+    
+    <!-- 可折叠的详细数据 -->
+    <div v-if="showDebugDetails" class="debug-details">
+      <h5>用户数据 ({{ searchStore.searchResults.users.length }} 条)：</h5>
+      <pre v-if="searchStore.searchResults.users.length > 0">{{ formatDebugData(searchStore.searchResults.users) }}</pre>
+      <div v-else class="debug-empty">无用户数据</div>
+      
+      <h5>文章数据 ({{ searchStore.searchResults.articles.length }} 条)：</h5>
+      <pre v-if="searchStore.searchResults.articles.length > 0">{{ formatDebugData(searchStore.searchResults.articles) }}</pre>
+      <div v-else class="debug-empty">无文章数据</div>
+      
+      <h5>标签数据 ({{ searchStore.searchResults.tags.length }} 条)：</h5>
+      <pre v-if="searchStore.searchResults.tags.length > 0">{{ formatDebugData(searchStore.searchResults.tags) }}</pre>
+      <div v-else class="debug-empty">无标签数据</div>
+    </div>
+  </div>
+  <!-- =============================================== -->
+  
             <!-- 搜索结果头部 -->
             <div class="results-header">
               <h2>搜索结果</h2>
@@ -313,7 +391,8 @@ import {
   Star,
   CollectionTag,
   Clock,
-  Close
+  Close,
+  InfoFilled // 🔍 新增调试图标
 } from '@element-plus/icons-vue'
 
 // 组件导入
@@ -326,6 +405,8 @@ const router = useRouter()
 // Pinia Store
 const searchStore = useSearchStore()
 
+const isDevelopment = ref(true) // 暂时设为true以便调试，实际应为：import.meta.env.MODE === 'development'
+
 // DOM引用
 const searchBoxRef = ref(null)
 const searchInputRef = ref(null)
@@ -337,6 +418,23 @@ const keyword = ref('')
 const searchType = ref('full')
 const showSuggestions = ref(false)
 const showHistory = ref(false)
+
+
+// 🔍 第3步：新增调试相关响应式数据
+// ===============================================
+const showDebugDetails = ref(false)
+const showRawDataDialog = ref(false)
+const currentRawData = ref('')
+// ===============================================
+
+const showUserRawData = (user) => {
+  if (user._raw) {
+    currentRawData.value = JSON.stringify(user._raw, null, 2)
+  } else {
+    currentRawData.value = JSON.stringify(user, null, 2)
+  }
+  showRawDataDialog.value = true
+}
 
 // 计算属性
 const searchTypeLabel = computed(() => {
@@ -474,19 +572,18 @@ const handleTypeChange = () => {
 const doSearch = async () => {
   const searchKeyword = keyword.value.trim()
   
+  console.log("🔍 开始搜索 - 关键词:", searchKeyword, "类型:", searchType.value)
+  
   if (!searchKeyword) {
-    // 如果关键词为空，显示搜索历史
     showHistory.value = true
     showSuggestions.value = false
     return
   }
   
   try {
-    // 隐藏下拉框
     showSuggestions.value = false
     showHistory.value = false
     
-    // 更新URL参数
     router.replace({
       path: '/search',
       query: { 
@@ -495,7 +592,6 @@ const doSearch = async () => {
       }
     })
     
-    // 根据搜索类型调用不同的搜索方法
     let searchResult
     switch (searchType.value) {
       case 'articles':
@@ -519,7 +615,9 @@ const doSearch = async () => {
           searchStore.pagination.size)
     }
     
-    // 添加到搜索历史
+    console.log("✅ 搜索完成 - 结果:", searchResult)
+    console.log("📊 用户搜索结果:", searchStore.searchResults.users)
+    
     if (searchKeyword) {
       searchStore.addToSearchHistory(searchKeyword)
     }
@@ -626,6 +724,34 @@ const viewUser = (username) => {
 const viewTag = (tagName) => {
   router.push(`/tag/${encodeURIComponent(tagName)}`)
 }
+
+
+// 🔍 第3步：添加调试相关方法（新增代码）
+// ===============================================
+// 切换调试详情显示
+const toggleDebug = () => {
+  showDebugDetails.value = !showDebugDetails.value
+}
+
+// 格式化调试数据
+const formatDebugData = (data) => {
+  try {
+    if (Array.isArray(data) && data.length > 0) {
+      // 只显示第一条数据的结构示例
+      const sample = data[0]
+      const formatted = {
+        count: data.length,
+        sample: sample,
+        fields: Object.keys(sample)
+      }
+      return JSON.stringify(formatted, null, 2)
+    }
+    return JSON.stringify(data, null, 2)
+  } catch (e) {
+    return '数据格式错误'
+  }
+}
+// ===============================================
 
 // 搜索标签
 const searchTag = (tagName) => {
@@ -1211,4 +1337,131 @@ const handleSizeChange = async (size) => {
     padding: 0 15px;
   }
 }
+
+/* 🔍 第3步：添加调试信息样式（新增代码） */
+/* =============================================== */
+.debug-info {
+  background: #f0f9ff;
+  border: 1px solid #bae0ff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #d1e9ff;
+}
+
+.debug-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #409eff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.debug-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.debug-item {
+  display: flex;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e4e7ed;
+}
+
+.debug-label {
+  font-weight: 500;
+  color: #606266;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.debug-value {
+  color: #303133;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.debug-value.true {
+  color: #67c23a;
+}
+
+.debug-value.false {
+  color: #f56c6c;
+}
+
+.debug-value.loading {
+  color: #e6a23c;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.debug-details {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #d1e9ff;
+}
+
+.debug-details h5 {
+  margin: 12px 0 8px 0;
+  font-size: 14px;
+  color: #409eff;
+}
+
+.debug-details pre {
+  margin: 8px 0;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  font-size: 12px;
+  max-height: 200px;
+  overflow: auto;
+  border: 1px solid #e4e7ed;
+  white-space: pre-wrap;
+}
+
+.debug-empty {
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  color: #909399;
+  font-size: 13px;
+  text-align: center;
+  border: 1px dashed #dcdfe6;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .debug-summary {
+    grid-template-columns: 1fr;
+  }
+  
+  .debug-item {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .debug-label {
+    min-width: auto;
+  }
+}
+/* =============================================== */
 </style>

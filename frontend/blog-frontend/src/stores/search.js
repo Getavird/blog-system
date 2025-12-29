@@ -59,47 +59,109 @@ export const useSearchStore = defineStore('search', () => {
     searchError.value = null
   }
   
-  // 全文搜索
-  const fullSearch = async (keyword, page = 1, size = 20) => {
-    try {
-      searchLoading.value = true
-      searchError.value = null
-      currentKeyword.value = keyword
-      searchType.value = 'full'
+// 全文搜索
+const fullSearch = async (keyword, page = 1, size = 20) => {
+  try {
+    searchLoading.value = true
+    searchError.value = null
+    currentKeyword.value = keyword
+    searchType.value = 'full'
+    
+    const response = await searchApi.fullSearch(keyword, page, size)
+     // 调试：查看完整响应结构
+    debugResponseStructure(response)
+
+    console.log('✅ fullSearch 响应:', response)
+    console.log('🔍 新的数据结构:', {
+      keyword: response.keyword,
+      total: response.total,
+      articlesCount: response.articles?.length,
+      usersCount: response.users?.length,
+      tagsCount: response.tags?.length
+    })
+    
+    // 处理返回数据 - 新的 FullSearchResponse 结构
+    let articles = []
+    let users = []
+    let tags = []
+    let total = 0
+    let currentPage = page
+    let currentSize = size
+    
+    if (response) {
+      // 新数据结构：直接使用 articles, users, tags 字段
+      articles = response.articles || []
+      users = response.users || []
+      tags = response.tags || []
+      total = response.total || 0
+      currentPage = response.page || page
+      currentSize = response.size || size
       
-      const data = await searchApi.fullSearch(keyword, page, size)
-      
-      // 处理返回数据
-      if (data) {
-        searchResults.value = {
-          articles: data.articles || [],
-          users: data.users || [],
-          tags: data.tags || [],
-          total: data.total || 0
-        }
-        
-        pagination.value = {
-          page: data.page || page,
-          size: data.size || size,
-          total: data.total || 0,
-          totalPages: Math.ceil((data.total || 0) / (data.size || size))
-        }
+      // 如果后端返回的是嵌套在 data 字段中（有时API会这样）
+      if (response.data) {
+        articles = response.data.articles || response.data.data?.articles || []
+        users = response.data.users || response.data.data?.users || []
+        tags = response.data.tags || response.data.data?.tags || []
+        total = response.data.total || 0
+        currentPage = response.data.page || page
+        currentSize = response.data.size || size
       }
-      
-      // 保存到搜索历史
-      if (keyword.trim()) {
-        addToSearchHistory(keyword)
-      }
-      
-      return data
-    } catch (error) {
-      searchError.value = error.response?.data?.message || error.message || '搜索失败'
-      console.error('全文搜索失败:', error)
-      throw error
-    } finally {
-      searchLoading.value = false
     }
+    
+    console.log('📊 提取的结果:', {
+      articles: articles.length,
+      users: users.length,
+      tags: tags.length,
+      total: total
+    })
+    
+    // 处理用户数据，确保有必要的字段
+    const processedUsers = users.map(user => {
+      console.log('👤 处理用户数据:', user)
+      return {
+        id: user.id,
+        username: user.username || '',
+        avatar: user.avatar || '',
+        bio: user.bio || '',
+        articleCount: user.articleCount || 0,
+        followerCount: user.followerCount || 0,
+        likeCount: user.likeCount || 0,
+        viewCount: user.viewCount || 0,
+        // 保持原始数据用于调试
+        _raw: user
+      }
+    })
+    
+    searchResults.value = {
+      articles: articles,
+      users: processedUsers,
+      tags: tags,
+      total: total
+    }
+    
+    pagination.value = {
+      page: currentPage,
+      size: currentSize,
+      total: total,
+      totalPages: Math.ceil(total / currentSize)
+    }
+    
+    console.log('✅ 最终搜索结果:', searchResults.value)
+    
+    // 保存到搜索历史
+    if (keyword.trim()) {
+      addToSearchHistory(keyword)
+    }
+    
+    return response
+  } catch (error) {
+    searchError.value = error.response?.data?.message || error.message || '搜索失败'
+    console.error('搜索失败:', error)
+    throw error
+  } finally {
+    searchLoading.value = false
   }
+}
   
   // 搜索文章
   const searchArticles = async (keyword, page = 1, size = 10) => {
@@ -141,41 +203,111 @@ export const useSearchStore = defineStore('search', () => {
     }
   }
   
-  // 搜索用户
-  const searchUsers = async (keyword, page = 1, size = 10) => {
-    try {
-      searchLoading.value = true
-      searchError.value = null
-      currentKeyword.value = keyword
-      searchType.value = 'users'
-      
-      const data = await searchApi.searchUsers(keyword, page, size)
-      
-      if (data) {
-        searchResults.value = {
-          articles: [],
-          users: data.list || data.users || data.data || [],
-          tags: [],
-          total: data.total || data.count || 0
-        }
-        
-        pagination.value = {
-          page: data.page || page,
-          size: data.size || size,
-          total: data.total || data.count || 0,
-          totalPages: Math.ceil((data.total || data.count || 0) / (data.size || size))
-        }
+
+// 搜索用户
+const searchUsers = async (keyword, page = 1, size = 10) => {
+  try {
+    searchLoading.value = true
+    searchError.value = null
+    currentKeyword.value = keyword
+    searchType.value = 'users'
+    
+    const response = await searchApi.searchUsers(keyword, page, size)
+    
+    console.log('✅ searchUsers 响应:', response)
+    
+    let users = []
+    let total = 0
+    let currentPage = page
+    let currentSize = size
+    
+    if (response) {
+      // 尝试不同的数据结构
+      if (response.users) {
+        // 新结构：直接有 users 字段
+        users = response.users || []
+        total = response.total || 0
+        currentPage = response.page || page
+        currentSize = response.size || size
+      } else if (response.data && response.data.users) {
+        // 嵌套结构
+        users = response.data.users || []
+        total = response.data.total || 0
+        currentPage = response.data.page || page
+        currentSize = response.data.size || size
+      } else if (response.data && response.data.items) {
+        // 旧结构
+        users = response.data.items || []
+        total = response.data.total || 0
+        currentPage = response.data.page || page
+        currentSize = response.data.size || size
+      } else if (response.items) {
+        // 另一种旧结构
+        users = response.items || []
+        total = response.total || 0
+        currentPage = response.page || page
+        currentSize = response.size || size
       }
-      
-      return data
-    } catch (error) {
-      searchError.value = error.response?.data?.message || error.message || '搜索用户失败'
-      console.error('搜索用户失败:', error)
-      throw error
-    } finally {
-      searchLoading.value = false
     }
+    
+    console.log('👤 原始用户数据:', users)
+    
+    // 处理用户数据
+    const processedUsers = users.map(user => ({
+      id: user.id,
+      username: user.username || '',
+      avatar: user.avatar || '',
+      bio: user.bio || '',
+      articleCount: user.articleCount || 0,
+      followerCount: user.followerCount || 0,
+      likeCount: user.likeCount || 0,
+      viewCount: user.viewCount || 0
+    }))
+    
+    console.log('👤 处理后的用户数据:', processedUsers)
+    
+    searchResults.value = {
+      articles: [],
+      users: processedUsers,
+      tags: [],
+      total: total
+    }
+    
+    pagination.value = {
+      page: currentPage,
+      size: currentSize,
+      total: total,
+      totalPages: Math.ceil(total / currentSize)
+    }
+    
+    console.log('✅ 最终用户搜索结果:', searchResults.value)
+    
+    return response
+  } catch (error) {
+    searchError.value = error.response?.data?.message || error.message || '搜索用户失败'
+    console.error('搜索用户失败:', error)
+    throw error
+  } finally {
+    searchLoading.value = false
   }
+}
+
+// 调试方法：查看完整的响应结构
+const debugResponseStructure = (response) => {
+  console.log('🔍 完整响应结构分析:')
+  console.log('1. 响应对象:', response)
+  console.log('2. 响应类型:', typeof response)
+  console.log('3. 响应原型:', Object.getPrototypeOf(response))
+  console.log('4. 所有属性:', Object.keys(response))
+  
+  if (response && typeof response === 'object') {
+    console.log('5. 详细属性:')
+    Object.keys(response).forEach(key => {
+      const value = response[key]
+      console.log(`   ${key}:`, value, `(类型: ${typeof value}, 是数组: ${Array.isArray(value)})`)
+    })
+  }
+}
   
   // 搜索标签
   const searchTags = async (keyword, page = 1, size = 10) => {
@@ -373,9 +505,12 @@ export const useSearchStore = defineStore('search', () => {
   }
   
   // 计算属性：是否有搜索结果
-  const hasResults = computed(() => {
-    return searchResults.value.total > 0
-  })
+// 计算属性：是否有搜索结果
+const hasResults = computed(() => {
+  const total = searchResults.value.total || 0
+  console.log('📊 hasResults 计算: total =', total)
+  return total > 0
+})
   
   // 计算属性：是否正在搜索
   const isSearching = computed(() => searchLoading.value)

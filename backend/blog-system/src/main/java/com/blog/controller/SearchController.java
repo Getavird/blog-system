@@ -2,6 +2,7 @@ package com.blog.controller;
 
 import com.blog.common.Result;
 import com.blog.entity.Article;
+import com.blog.entity.FullSearchResponse;
 import com.blog.entity.SearchResult;
 import com.blog.entity.User;
 import com.blog.entity.Tag;  // 新增
@@ -20,28 +21,28 @@ public class SearchController {
     @Autowired
     private SearchService searchService;
     
-    /**
-     * 全文搜索（文章+用户+标签）
-     * GET /api/search/full?keyword=java&page=1&size=20
-     */
-    @GetMapping("/full")
-    public Result<SearchResult<Object>> fullSearch(
-            @RequestParam String keyword,
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "20") Integer size,
-            HttpServletRequest request) {
-        
-        if (keyword == null || keyword.trim().isEmpty()) {
-            return Result.badRequest("搜索关键词不能为空");
-        }
-        
-        // 保存搜索记录
-        Integer userId = SessionUtil.getCurrentUserId(request);
-        searchService.saveSearchRecord(keyword, userId);
-        
-        SearchResult<Object> result = searchService.fullSearch(keyword, page, size);
-        return Result.success(result);
+/**
+ * 全文搜索（文章+用户+标签）
+ * GET /api/search/full?keyword=java&page=1&size=20
+ */
+@GetMapping("/full")
+public Result<FullSearchResponse> fullSearch(
+        @RequestParam String keyword,
+        @RequestParam(defaultValue = "1") Integer page,
+        @RequestParam(defaultValue = "20") Integer size,
+        HttpServletRequest request) {
+    
+    if (keyword == null || keyword.trim().isEmpty()) {
+        return Result.badRequest("搜索关键词不能为空");
     }
+    
+    // 保存搜索记录
+    Integer userId = SessionUtil.getCurrentUserId(request);
+    searchService.saveSearchRecord(keyword, userId);
+    
+    FullSearchResponse result = searchService.fullSearch(keyword, page, size);
+    return Result.success(result);
+}
     
     /**
      * 搜索文章
@@ -70,26 +71,33 @@ public class SearchController {
      * 搜索用户（需要登录）
      * GET /api/search/users?keyword=admin&page=1&size=10
      */
-    @GetMapping("/users")
-    public Result<SearchResult<User>> searchUsers(
-            @RequestParam String keyword,
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "10") Integer size,
-            HttpServletRequest request) {
-        
-        // 检查登录
-        if (!SessionUtil.isLogin(request)) {
-            return Result.unauthorized("请先登录");
-        }
-        
-        if (keyword == null || keyword.trim().isEmpty()) {
-            return Result.badRequest("搜索关键词不能为空");
-        }
-        
-        SearchResult<User> result = searchService.searchUsers(keyword, page, size);
-        return Result.success(result);
+/**
+ * 搜索用户（需要登录） - 修改为不需要登录
+ * GET /api/search/users?keyword=admin&page=1&size=10
+ */
+@GetMapping("/users")
+public Result<SearchResult<User>> searchUsers(
+        @RequestParam String keyword,
+        @RequestParam(defaultValue = "1") Integer page,
+        @RequestParam(defaultValue = "10") Integer size,
+        HttpServletRequest request) {
+    
+    System.out.println("🔍 搜索用户请求 - 关键词: " + keyword + ", 页码: " + page);
+    
+    // 移除登录检查
+    // if (!SessionUtil.isLogin(request)) {
+    //     return Result.unauthorized("请先登录");
+    // }
+    
+    if (keyword == null || keyword.trim().isEmpty()) {
+        return Result.badRequest("搜索关键词不能为空");
     }
     
+    SearchResult<User> result = searchService.searchUsers(keyword, page, size);
+    System.out.println("✅ 搜索用户结果 - 总数: " + result.getTotal());
+    
+    return Result.success(result);
+}
     /**
      * 搜索标签（新增）
      * GET /api/search/tags?keyword=java&page=1&size=10

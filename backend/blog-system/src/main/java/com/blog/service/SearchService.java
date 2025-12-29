@@ -1,6 +1,7 @@
 package com.blog.service;
 
 import com.blog.entity.Article;
+import com.blog.entity.FullSearchResponse;
 import com.blog.entity.SearchResult;
 import com.blog.entity.User;
 import java.util.List;
@@ -10,7 +11,7 @@ public interface SearchService {
     /**
      * 全文搜索（搜索文章和用户）
      */
-    SearchResult<Object> fullSearch(String keyword, Integer page, Integer size);
+    FullSearchResponse fullSearch(String keyword, Integer page, Integer size);
     
     /**
      * 搜索文章（标题、内容、标签）

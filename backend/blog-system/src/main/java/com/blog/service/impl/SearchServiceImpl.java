@@ -5,6 +5,7 @@ import com.blog.dao.UserMapper;
 import com.blog.dao.SearchRecordMapper;  // 新增
 import com.blog.dao.TagMapper;  // 新增
 import com.blog.entity.Article;
+import com.blog.entity.FullSearchResponse;
 import com.blog.entity.SearchRecord;
 import com.blog.entity.SearchResult;
 import com.blog.entity.User;
@@ -33,28 +34,24 @@ public class SearchServiceImpl implements SearchService {
     @Autowired
     private SearchRecordMapper searchRecordMapper;  // 新增
     
-    @Override
-    public SearchResult<Object> fullSearch(String keyword, Integer page, Integer size) {
-        if (!StringUtils.hasText(keyword)) {
-            return new SearchResult<>(keyword, 0, page, size, new ArrayList<>());
-        }
-        
-        // 分别搜索文章和用户
-        SearchResult<Article> articleResult = searchArticles(keyword, 1, 5);
-        SearchResult<User> userResult = searchUsers(keyword, 1, 3);
-        SearchResult<Tag> tagResult = searchTags(keyword, 1, 2);  // 新增标签搜索
-        
-        // 合并结果
-        List<Object> combinedItems = new ArrayList<>();
-        combinedItems.addAll(articleResult.getItems());
-        combinedItems.addAll(userResult.getItems());
-        combinedItems.addAll(tagResult.getItems());
-        
-        int total = articleResult.getTotal() + userResult.getTotal() + tagResult.getTotal();
-        
-        return new SearchResult<>(keyword, total, page, size, combinedItems);
+@Override
+public FullSearchResponse fullSearch(String keyword, Integer page, Integer size) {
+    if (!StringUtils.hasText(keyword)) {
+        return new FullSearchResponse(keyword, page, size, 0, 
+            new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
     }
     
+    // 分别搜索文章、用户和标签
+    SearchResult<Article> articleResult = searchArticles(keyword, 1, 5);
+    SearchResult<User> userResult = searchUsers(keyword, 1, 3);
+    SearchResult<Tag> tagResult = searchTags(keyword, 1, 2);
+    
+    int total = articleResult.getTotal() + userResult.getTotal() + tagResult.getTotal();
+    
+    return new FullSearchResponse(keyword, page, size, total,
+            articleResult.getItems(), userResult.getItems(), tagResult.getItems());
+}
+
     @Override
     public SearchResult<Article> searchArticles(String keyword, Integer page, Integer size) {
         if (!StringUtils.hasText(keyword)) {
