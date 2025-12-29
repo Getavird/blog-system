@@ -1,12 +1,7 @@
 <template>
   <div class="article-card" @click="handleClick">
     <div class="card-content">
-      <!-- 封面图片 -->
-      <div v-if="showCover && article.coverImage" class="card-cover">
-        <img :src="article.coverImage" :alt="article.title" />
-      </div>
-      
-      <!-- 文章信息 -->
+      <!-- 左侧：文章信息 -->
       <div class="card-body">
         <!-- 标题 -->
         <h3 class="card-title">
@@ -15,11 +10,6 @@
             草稿
           </el-tag>
         </h3>
-        
-        <!-- 摘要 -->
-        <p v-if="showSummary" class="card-summary">
-          {{ article.summary || '暂无摘要' }}
-        </p>
         
         <!-- 元信息 -->
         <div class="card-meta">
@@ -72,6 +62,11 @@
           </el-tag>
           <span v-if="article.tags.length > 3" class="more-tags">+{{ article.tags.length - 3 }}</span>
         </div>
+      </div>
+      
+      <!-- 右侧：封面图片 -->
+      <div v-if="showCover && article.coverImage" class="card-cover">
+        <img :src="article.coverImage" :alt="article.title" />
       </div>
     </div>
   </div>
@@ -134,6 +129,12 @@ const props = defineProps({
   showStatus: {
     type: Boolean,
     default: false
+  },
+  // 新增：封面图片位置
+  coverPosition: {
+    type: String,
+    default: 'right', // 'left' 或 'right'
+    validator: (value) => ['left', 'right'].includes(value)
   }
 })
 
@@ -180,16 +181,37 @@ const formatTime = (time) => {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
 }
 
+/* 主要内容布局 */
+.card-content {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* 文章信息部分（左侧） */
+.card-body {
+  flex: 1;
+  min-width: 0; /* 防止内容溢出 */
+}
+
+/* 封面图片部分（右侧） */
 .card-cover {
-  margin-bottom: 16px;
+  flex-shrink: 0;
+  width: 200px; /* 封面图片宽度 */
+  height: 120px; /* 封面图片高度 */
   border-radius: 6px;
   overflow: hidden;
 }
 
 .card-cover img {
   width: 100%;
-  height: 180px;
+  height: 100%;
   object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.article-card:hover .card-cover img {
+  transform: scale(1.05);
 }
 
 .card-title {
@@ -247,8 +269,30 @@ const formatTime = (time) => {
   color: #999;
 }
 
+/* 封面在左侧的样式 */
+.cover-left .card-content {
+  flex-direction: row-reverse;
+}
+
 /* 响应式设计 */
+@media (max-width: 992px) {
+  .card-cover {
+    width: 150px;
+    height: 100px;
+  }
+}
+
 @media (max-width: 768px) {
+  .card-content {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .card-cover {
+    width: 100%;
+    height: 180px;
+  }
+  
   .card-meta {
     gap: 12px;
   }
@@ -256,5 +300,10 @@ const formatTime = (time) => {
   .article-card {
     padding: 16px;
   }
+}
+
+/* 如果没有封面图片时的样式 */
+.article-card:not(:has(.card-cover)) .card-body {
+  width: 100%;
 }
 </style>

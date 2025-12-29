@@ -25,6 +25,10 @@ export default defineConfig({
             console.log(`代理请求: ${req.method} ${req.url} -> ${options.target}`)
           })
         }
+      },
+      '/uploads': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
       }
     }
   }

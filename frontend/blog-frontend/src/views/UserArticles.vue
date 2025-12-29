@@ -280,7 +280,9 @@ const categoryFilter = ref('')
 // 分页参数
 const currentPage = ref(1)
 const pageSize = ref(10)
-const total = ref(0)
+const total = computed(() => {
+  return articles.value.length
+})
 
 // 状态
 const loading = ref(false)
@@ -293,11 +295,11 @@ const selectedArticles = ref([])
 
 // 计算属性
 const publishedCount = computed(() => {
-    return articles.value.filter(article => article.status === 1).length
+  return articles.value.filter(article => article.status === 1).length
 })
 
 const draftCount = computed(() => {
-    return articles.value.filter(article => article.status === 0).length
+  return articles.value.filter(article => article.status === 0).length
 })
 
 const userCategories = computed(() => {
@@ -355,47 +357,94 @@ watch(
 
 // 加载用户文章
 const loadUserArticles = async () => {
-    try {
-        loading.value = true
-        
-        const params = {
-            page: currentPage.value,
-            size: pageSize.value
-        }
-        
-        // 添加搜索关键词
-        if (searchKeyword.value.trim()) {
-            params.keyword = searchKeyword.value.trim()
-        }
-        
-        // 添加状态筛选
-        if (statusFilter.value !== -1) {
-            params.status = statusFilter.value
-        }
-        
-        // 添加分类筛选
-        if (categoryFilter.value) {
-            params.categoryId = categoryFilter.value
-        }
-        
-        const result = await articleStore.fetchMyArticles(params)
-        
-        if (result) {
-            total.value = result.total || 0
-            
-            // 如果当前页没有数据且不是第一页，回到上一页
-            if (articles.value.length === 0 && currentPage.value > 1) {
-                currentPage.value = Math.max(1, currentPage.value - 1)
-                await loadUserArticles()
-            }
-        }
-        
-    } catch (error) {
-        console.error('加载用户文章失败:', error)
-        ElMessage.error('加载文章失败')
-    } finally {
-        loading.value = false
+  try {
+    loading.value = true
+    
+    const params = {
+      page: currentPage.value,
+      size: pageSize.value
     }
+    
+    // 添加搜索关键词
+    if (searchKeyword.value.trim()) {
+      params.keyword = searchKeyword.value.trim()
+    }
+    
+    // 添加分类筛选
+    if (categoryFilter.value) {
+      params.categoryId = categoryFilter.value
+    }
+    
+    let result = null
+    
+    // 根据状态筛选调用不同的 API
+    if (statusFilter.value === 0) {
+      // 草稿：调用草稿接口
+      result = await articleStore.fetchMyDrafts(params)
+      
+      // 从 store 获取数据
+      articles.value = articleStore.myDrafts.list || []
+      total.value = articleStore.myDrafts.total || 0
+      
+    } else if (statusFilter.value === 1) {
+      // 已发布：调用发布文章接口
+      result = await articleStore.fetchMyArticles(params)
+      
+      // 从 store 获取数据
+      articles.value = articleStore.myArticles.list || []
+      total.value = articleStore.myArticles.total || 0
+      
+    } else {
+      // 全部：同时获取草稿和已发布文章
+      const [draftsResult, publishedResult] = await Promise.all([
+        articleStore.fetchMyDrafts({ page: 1, size: 1000 }), // 获取所有草稿
+        articleStore.fetchMyArticles({ page: 1, size: 1000 }) // 获取所有发布文章
+      ])
+      
+      // 合并数据并过滤（前端过滤）
+      const allArticles = [
+        ...(articleStore.myDrafts.list || []),
+        ...(articleStore.myArticles.list || [])
+      ]
+      
+      // 应用搜索和分类筛选
+      let filteredArticles = allArticles
+      
+      if (searchKeyword.value.trim()) {
+        const keyword = searchKeyword.value.trim().toLowerCase()
+        filteredArticles = filteredArticles.filter(article => 
+          article.title && article.title.toLowerCase().includes(keyword)
+        )
+      }
+      
+      if (categoryFilter.value) {
+        filteredArticles = filteredArticles.filter(article => 
+          article.categoryId == categoryFilter.value
+        )
+      }
+      
+      // 前端分页
+      const startIndex = (currentPage.value - 1) * pageSize.value
+      const endIndex = startIndex + pageSize.value
+      
+      articles.value = filteredArticles.slice(startIndex, endIndex)
+      total.value = filteredArticles.length
+      
+      return // 提前返回，避免下面的代码覆盖数据
+    }
+    
+    // 如果当前页没有数据且不是第一页，回到上一页
+    if (articles.value.length === 0 && currentPage.value > 1) {
+      currentPage.value = Math.max(1, currentPage.value - 1)
+      await loadUserArticles()
+    }
+    
+  } catch (error) {
+    console.error('加载用户文章失败:', error)
+    ElMessage.error('加载文章失败: ' + (error.message || '未知错误'))
+  } finally {
+    loading.value = false
+  }
 }
 
 // 搜索文章
@@ -463,38 +512,32 @@ const createArticle = () => {
     router.push('/article/create')
 }
 
-// 发布文章
+// 发布草稿
 const publishArticle = async (article) => {
-    try {
-        await ElMessageBox.confirm(
-            `确定要发布文章 "${article.title}" 吗？`,
-            '发布确认',
-            {
-                type: 'warning',
-                confirmButtonText: '确定发布',
-                cancelButtonText: '取消'
-            }
-        )
-        
-        // 调用articleStore的发布方法
-        if (articleStore.publishDraft) {
-            await articleStore.publishDraft(article.id)
-            ElMessage.success('文章发布成功')
-        } else {
-            // 如果没有专门的方法，则更新文章状态
-            await articleStore.updateArticle(article.id, { ...article, status: 1 })
-            ElMessage.success('文章发布成功')
-        }
-        
-        // 重新加载文章列表
-        await loadUserArticles()
-        
-    } catch (error) {
-        if (error !== 'cancel') {
-            console.error('发布文章失败:', error)
-            ElMessage.error('发布失败')
-        }
+  try {
+    await ElMessageBox.confirm(
+      `确定要发布文章 "${article.title}" 吗？`,
+      '发布确认',
+      {
+        type: 'warning',
+        confirmButtonText: '确定发布',
+        cancelButtonText: '取消'
+      }
+    )
+    
+    // 调用articleStore的发布方法
+    await articleStore.publishDraft(article.id)
+    ElMessage.success('文章发布成功')
+    
+    // 重新加载文章列表
+    await loadUserArticles()
+    
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('发布文章失败:', error)
+      ElMessage.error(error.message || '发布失败')
     }
+  }
 }
 
 // 删除文章

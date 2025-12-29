@@ -70,7 +70,7 @@ export const getArticlesByTag = (tagId, params = {}) => {
 
 // 获取我的文章
 export const getMyArticles = (params = {}) => {
-  return request.get('/api/articles/my', { params })
+  return request.get('/api/articles/my-published', { params })
 }
 
 // 获取我的草稿列表
