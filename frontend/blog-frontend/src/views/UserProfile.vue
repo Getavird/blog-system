@@ -566,7 +566,8 @@ const changePassword = async () => {
     // 调用API修改密码
     await authStore.changePassword(
       passwordForm.oldPassword,
-      passwordForm.newPassword
+      passwordForm.newPassword,
+      passwordForm.confirmPassword
     )
     
     ElMessage.success('密码修改成功')

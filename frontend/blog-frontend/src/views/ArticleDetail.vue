@@ -1658,6 +1658,7 @@ const toLoginPage = () => {
   
   .author-bio {
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     max-height: 40px;
   }
   
