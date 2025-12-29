@@ -12,7 +12,7 @@ export const useArticleStore = defineStore('article', () => {
   const myArticles = ref({ list: [], total: 0 }) // 我的文章（含分页）
   const myDrafts = ref({ list: [], total: 0 })   // 我的草稿（含分页）
   const total = ref(0)
-  
+
   // 拆分的loading状态
   const articlesLoading = ref(false)       // 文章列表加载
   const detailLoading = ref(false)         // 文章详情加载
@@ -26,14 +26,111 @@ export const useArticleStore = defineStore('article', () => {
   const likeLoading = ref(false)           // 点赞操作加载
   const publishLoading = ref(false)        // 发布草稿加载
 
+const prepareArticleDataForApi = (articleData) => {
+  const data = { ...articleData };
+  
+  // 调试：打印原始数据
+  console.log('prepareArticleDataForApi 原始数据:', articleData);
+  
+  // 确保布尔值转换为整数
+  if (typeof data.isPublic === 'boolean') {
+    data.isPublic = data.isPublic ? 1 : 0;
+  }
+  
+  if (typeof data.allowComment === 'boolean') {
+    data.allowComment = data.allowComment ? 1 : 0;
+  }
+  
+  if (typeof data.isTop === 'boolean') {
+    data.isTop = data.isTop ? 1 : 0;
+  }
+  
+  // 确保标签是字符串格式（逗号分隔）
+  if (Array.isArray(data.tags)) {
+    data.tags = data.tags.length > 0 ? data.tags.join(',') : null;
+  } else if (data.tags === '' || data.tags === undefined) {
+    data.tags = null;
+  }
+  
+  // 确保数字字段是数字类型
+  if (data.categoryId !== undefined && data.categoryId !== null) {
+    data.categoryId = parseInt(data.categoryId);
+  }
+  
+  if (data.status !== undefined && data.status !== null) {
+    data.status = parseInt(data.status);
+  }
+  
+  // 确保字符串字段正确（去除多余空格）
+  if (typeof data.title === 'string') {
+    data.title = data.title.trim();
+  }
+  
+  if (typeof data.content === 'string') {
+    data.content = data.content.trim();
+  }
+  
+  // 确保封面图片为空时是null而不是空字符串
+  if (data.coverImage === '') {
+    data.coverImage = null;
+  }
+  
+  console.log('prepareArticleDataForApi 转换后:', data);
+  return data;
+}
+  
   // 获取文章列表
   const fetchArticles = async (params = {}) => {
     try {
       articlesLoading.value = true
-      const data = await articleApi.getArticles(params)
-      articles.value = transformArticles(data.list || [])
-      total.value = data.total || 0
-      return data
+      console.log('fetchArticles 参数:', params)
+
+      const response = await articleApi.getArticles(params)
+      console.log('fetchArticles 响应数据:', response)
+      console.log('响应数据类型:', typeof response)
+      console.log('响应是否数组:', Array.isArray(response))
+
+      // 检查返回的数据结构
+      let list = []
+      let totalCount = 0
+
+      // 情况1: 如果返回的是数组
+      if (Array.isArray(response)) {
+        list = response
+        totalCount = response.length
+      }
+      // 情况2: 如果返回的是对象且有 data 字段
+      else if (response && response.data && Array.isArray(response.data)) {
+        list = response.data
+        totalCount = response.total || response.data.length
+      }
+      // 情况3: 如果返回的是对象且有 list 字段
+      else if (response && response.list && Array.isArray(response.list)) {
+        list = response.list
+        totalCount = response.total || response.list.length
+      }
+      // 情况4: 如果返回的是 Result 格式 (code, data, message)
+      else if (response && response.code === 200 && response.data) {
+        // 检查 data 是数组还是包含数组的对象
+        if (Array.isArray(response.data)) {
+          list = response.data
+          totalCount = response.data.length
+        } else if (response.data.list && Array.isArray(response.data.list)) {
+          list = response.data.list
+          totalCount = response.data.total || response.data.list.length
+        }
+      }
+
+      console.log('提取的文章列表:', list)
+      console.log('提取的文章数量:', list.length)
+
+      // 转换数据
+      articles.value = transformArticles(list)
+      total.value = totalCount
+
+      console.log('转换后的文章:', articles.value)
+
+      return response
     } catch (error) {
       console.error('获取文章列表失败:', error)
       throw error
@@ -43,108 +140,145 @@ export const useArticleStore = defineStore('article', () => {
   }
 
   // 获取文章详情
-  const fetchArticleDetail = async (id) => {
-    try {
-      detailLoading.value = true
-      const data = await articleApi.getArticleById(id)
-      currentArticle.value = transformArticle(data)
-      return data
-    } catch (error) {
-      console.error('获取文章详情失败:', error)
-      throw error
-    } finally {
-      detailLoading.value = false
-    }
+const fetchArticleDetail = async (id) => {
+  try {
+    detailLoading.value = true
+    const data = await articleApi.getArticleById(id)
+    currentArticle.value = transformArticle(data)
+    return data
+  } catch (error) {
+    console.error('获取文章详情失败:', error)
+    throw error
+  } finally {
+    detailLoading.value = false
   }
+}
 
   // 创建文章
-  const createArticle = async (articleData) => {
-    try {
-      createLoading.value = true
-      const newArticle = await articleApi.createArticle(articleData)
-      // 创建成功后同步更新状态
-      const transformedArticle = transformArticle(newArticle)
-      articles.value.unshift(transformedArticle)
-      total.value += 1
-      return newArticle
-    } catch (error) {
-      console.error('创建文章失败:', error)
-      throw error
-    } finally {
-      createLoading.value = false
+const createArticle = async (articleData) => {
+  try {
+    createLoading.value = true
+    
+    // 准备发送给后端的数据
+    const preparedData = prepareArticleDataForApi(articleData);
+    console.log('createArticle 发送的数据:', preparedData);
+    
+    const newArticle = await articleApi.createArticle(preparedData);
+    
+    // 创建成功后同步更新状态
+    const transformedArticle = transformArticle(newArticle);
+    articles.value.unshift(transformedArticle);
+    total.value += 1;
+    
+    // 如果当前正在查看我的文章，也添加到我的文章列表
+    if (myArticles.value.list.length > 0) {
+      myArticles.value.list.unshift(transformedArticle);
+      myArticles.value.total += 1;
     }
+    
+    console.log('创建文章成功:', transformedArticle);
+    return newArticle;
+  } catch (error) {
+    console.error('创建文章失败:', error)
+    throw error
+  } finally {
+    createLoading.value = false
   }
+}
 
   // 更新文章
-  const updateArticle = async (id, articleData) => {
-    try {
-      updateLoading.value = true
-      const data = await articleApi.updateArticle(id, articleData)
+ const updateArticle = async (id, articleData) => {
+  try {
+    updateLoading.value = true
+    
+    // 准备发送给后端的数据
+    const preparedData = prepareArticleDataForApi(articleData);
+    console.log('updateArticle 发送的数据 (id=' + id + '):', preparedData);
+    
+    const data = await articleApi.updateArticle(id, preparedData);
 
-      // 更新本地状态
-      if (currentArticle.value && currentArticle.value.id === id) {
-        currentArticle.value = transformArticle({ ...currentArticle.value, ...articleData })
-      }
-      
-      // 更新列表中的文章
-      const index = articles.value.findIndex(article => article.id === id)
-      if (index !== -1) {
-        articles.value[index] = transformArticle({ ...articles.value[index], ...articleData })
-      }
-
-      return data
-    } catch (error) {
-      console.error('更新文章失败:', error)
-      throw error
-    } finally {
-      updateLoading.value = false
+    // 更新本地状态
+    if (currentArticle.value && currentArticle.value.id === id) {
+      currentArticle.value = transformArticle({ ...currentArticle.value, ...articleData })
     }
+
+    // 更新列表中的文章
+    const index = articles.value.findIndex(article => article.id === id)
+    if (index !== -1) {
+      articles.value[index] = transformArticle({ ...articles.value[index], ...articleData })
+    }
+    
+    // 更新我的文章列表
+    const myIndex = myArticles.value.list.findIndex(article => article.id === id)
+    if (myIndex !== -1) {
+      myArticles.value.list[myIndex] = transformArticle({ ...myArticles.value.list[myIndex], ...articleData })
+    }
+    
+    // 更新草稿列表
+    const draftIndex = myDrafts.value.list.findIndex(draft => draft.id === id)
+    if (draftIndex !== -1) {
+      myDrafts.value.list[draftIndex] = transformArticle({ ...myDrafts.value.list[draftIndex], ...articleData })
+    }
+
+    console.log('更新文章成功:', data);
+    return data
+  } catch (error) {
+    console.error('更新文章失败:', error)
+    throw error
+  } finally {
+    updateLoading.value = false
   }
+}
 
   // 删除文章
-  const deleteArticle = async (id) => {
-    try {
-      deleteLoading.value = true
-      const data = await articleApi.deleteArticle(id)
+const deleteArticle = async (id) => {
+  try {
+    deleteLoading.value = true
+    const data = await articleApi.deleteArticle(id)
 
-      // 从列表中移除
-      articles.value = articles.value.filter(article => article.id !== id)
-      total.value = Math.max(0, total.value - 1)
-      
-      // 从我的文章列表中移除
-      myArticles.value.list = myArticles.value.list.filter(article => article.id !== id)
-      myArticles.value.total = Math.max(0, myArticles.value.total - 1)
-      
-      if (currentArticle.value && currentArticle.value.id === id) {
-        currentArticle.value = null
-      }
+    // 从列表中移除
+    articles.value = articles.value.filter(article => article.id !== id)
+    total.value = Math.max(0, total.value - 1)
 
-      return data
-    } catch (error) {
-      console.error('删除文章失败:', error)
-      throw error
-    } finally {
-      deleteLoading.value = false
+    // 从我的文章列表中移除
+    myArticles.value.list = myArticles.value.list.filter(article => article.id !== id)
+    myArticles.value.total = Math.max(0, myArticles.value.total - 1)
+    
+    // 从草稿列表中移除
+    myDrafts.value.list = myDrafts.value.list.filter(draft => draft.id !== id)
+    myDrafts.value.total = Math.max(0, myDrafts.value.total - 1)
+
+    if (currentArticle.value && currentArticle.value.id === id) {
+      currentArticle.value = null
     }
+
+    console.log('删除文章成功:', data);
+    return data
+  } catch (error) {
+    console.error('删除文章失败:', error)
+    throw error
+  } finally {
+    deleteLoading.value = false
   }
+}
 
   // 文章阅读量+1
- const incrementViewCount = async (id) => {
+  const incrementViewCount = async (id) => {
     try {
       // 由于后端已经在获取文章详情时更新了阅读量
       // 我们只需要更新本地状态，不需要调用额外的API
-      
+
       // 更新本地状态
       if (currentArticle.value && currentArticle.value.id === id) {
         currentArticle.value.viewCount += 1
       }
-      
+
       // 更新列表中的阅读量
       const index = articles.value.findIndex(article => article.id === id)
       if (index !== -1) {
         articles.value[index].viewCount += 1
       }
-      
+
       // 注意：这里我们不调用 API，因为后端已经在 GET /api/articles/{id} 中处理了阅读量
       // 如果你的后端确实需要单独的接口增加阅读量，可以取消下面的注释
       // await articleApi.incrementArticleView(id)
@@ -153,64 +287,88 @@ export const useArticleStore = defineStore('article', () => {
       // 这里不抛出错误，因为只是本地状态更新失败
     }
   }
-  
+
   // 点赞/取消点赞文章
-const toggleLike = async (id) => {
-  try {
-    likeLoading.value = true
-    const response = await articleApi.toggleArticleLike(id)
-    
-    console.log('点赞API返回:', response) // 添加这行查看实际返回结构
-    
-    // 检查响应是否成功
-    if (response && response.code === 200) {
-      // 获取返回的数据
-      const result = response.data
-      
-      if (result && result.success !== false) {
-        // 更新本地状态
-        if (currentArticle.value && currentArticle.value.id === id) {
-          currentArticle.value.isLiked = result.isLiked || true
-          currentArticle.value.likeCount = result.likeCount || 0
-        }
-        
-        // 更新列表中的点赞数
-        const index = articles.value.findIndex(article => article.id === id)
-        if (index !== -1) {
-          articles.value[index].isLiked = result.isLiked || true
-          articles.value[index].likeCount = result.likeCount || 0
-        }
-        
-        return {
-          success: true,
-          isLiked: result.isLiked,
-          likeCount: result.likeCount,
-          message: result.message || '操作成功'
+  const toggleLike = async (id) => {
+    try {
+      likeLoading.value = true
+      const response = await articleApi.toggleArticleLike(id)
+
+      console.log('点赞API返回:', response) // 添加这行查看实际返回结构
+
+      // 检查响应是否成功
+      if (response && response.code === 200) {
+        // 获取返回的数据
+        const result = response.data
+
+        if (result && result.success !== false) {
+          // 更新本地状态
+          if (currentArticle.value && currentArticle.value.id === id) {
+            currentArticle.value.isLiked = result.isLiked || true
+            currentArticle.value.likeCount = result.likeCount || 0
+          }
+
+          // 更新列表中的点赞数
+          const index = articles.value.findIndex(article => article.id === id)
+          if (index !== -1) {
+            articles.value[index].isLiked = result.isLiked || true
+            articles.value[index].likeCount = result.likeCount || 0
+          }
+
+          return {
+            success: true,
+            isLiked: result.isLiked,
+            likeCount: result.likeCount,
+            message: result.message || '操作成功'
+          }
+        } else {
+          // 如果success为false，抛出错误信息
+          throw new Error(result?.message || '操作失败')
         }
       } else {
-        // 如果success为false，抛出错误信息
-        throw new Error(result?.message || '操作失败')
+        // 响应code不是200，抛出错误
+        throw new Error(response?.message || '操作失败')
       }
-    } else {
-      // 响应code不是200，抛出错误
-      throw new Error(response?.message || '操作失败')
+
+    } catch (error) {
+      console.error('操作点赞失败:', error)
+      throw error
+    } finally {
+      likeLoading.value = false
     }
-    
-  } catch (error) {
-    console.error('操作点赞失败:', error)
-    throw error
-  } finally {
-    likeLoading.value = false
   }
-}
 
   // 获取热门文章
   const fetchHotArticles = async (limit = 10) => {
     try {
       hotLoading.value = true
-      const data = await articleApi.getHotArticles(limit)
-      hotArticles.value = transformArticles(data)
-      return data
+      console.log('fetchHotArticles 调用，limit:', limit)
+
+      const response = await articleApi.getHotArticles(limit)
+      console.log('fetchHotArticles 响应:', response)
+
+      // 检查数据结构
+      let list = []
+
+      if (Array.isArray(response)) {
+        list = response
+      } else if (response && response.data && Array.isArray(response.data)) {
+        list = response.data
+      } else if (response && response.list && Array.isArray(response.list)) {
+        list = response.list
+      } else if (response && response.code === 200 && response.data) {
+        if (Array.isArray(response.data)) {
+          list = response.data
+        } else if (response.data.list && Array.isArray(response.data.list)) {
+          list = response.data.list
+        }
+      }
+
+      console.log('提取的热门文章列表:', list)
+      hotArticles.value = transformArticles(list)
+      console.log('转换后的热门文章:', hotArticles.value)
+
+      return response
     } catch (error) {
       console.error('获取热门文章失败:', error)
       throw error
@@ -218,7 +376,6 @@ const toggleLike = async (id) => {
       hotLoading.value = false
     }
   }
-
   // 获取最新文章
   const fetchNewestArticles = async (limit = 10) => {
     try {
@@ -255,9 +412,9 @@ const toggleLike = async (id) => {
     try {
       myArticlesLoading.value = true
       const data = await articleApi.getMyArticles(params)
-      myArticles.value = { 
-        list: transformArticles(data.list || []), 
-        total: data.total || 0 
+      myArticles.value = {
+        list: transformArticles(data.list || []),
+        total: data.total || 0
       }
       return data
     } catch (error) {
@@ -283,9 +440,9 @@ const toggleLike = async (id) => {
     try {
       myDraftsLoading.value = true
       const data = await articleApi.getMyDrafts(params)
-      myDrafts.value = { 
-        list: transformArticles(data.list || []), 
-        total: data.total || 0 
+      myDrafts.value = {
+        list: transformArticles(data.list || []),
+        total: data.total || 0
       }
       return data
     } catch (error) {
@@ -297,32 +454,34 @@ const toggleLike = async (id) => {
   }
 
   // 发布草稿
-  const publishDraft = async (id) => {
-    try {
-      publishLoading.value = true
-      const data = await articleApi.publishDraft(id)
-      
-      // 从草稿列表移除
-      myDrafts.value.list = myDrafts.value.list.filter(draft => draft.id !== id)
-      myDrafts.value.total = Math.max(0, myDrafts.value.total - 1)
-      
-      // 添加到文章列表
-      if (data.article) {
-        const newArticle = transformArticle(data.article)
-        articles.value.unshift(newArticle)
-        total.value += 1
-        myArticles.value.list.unshift(newArticle)
-        myArticles.value.total += 1
-      }
-      
-      return data
-    } catch (error) {
-      console.error('发布草稿失败:', error)
-      throw error
-    } finally {
-      publishLoading.value = false
+const publishDraft = async (id) => {
+  try {
+    publishLoading.value = true
+    
+    // 先获取草稿的当前状态
+    const draft = myDrafts.value.list.find(d => d.id === id);
+    if (!draft) {
+      throw new Error('草稿不存在');
     }
+    
+    // 准备发布数据
+    const publishData = {
+      ...draft,
+      status: 1 // 发布状态
+    };
+    
+    // 使用 updateArticle 来发布草稿
+    const data = await updateArticle(id, publishData);
+    
+    console.log('发布草稿成功:', data);
+    return data
+  } catch (error) {
+    console.error('发布草稿失败:', error)
+    throw error
+  } finally {
+    publishLoading.value = false
   }
+}
 
   return {
     // 状态
@@ -333,7 +492,7 @@ const toggleLike = async (id) => {
     myArticles,
     myDrafts,
     total,
-    
+
     // 加载状态
     articlesLoading,
     detailLoading,
@@ -348,6 +507,7 @@ const toggleLike = async (id) => {
     publishLoading,
 
     // 方法
+    prepareArticleDataForApi,
     setArticles,
     fetchArticles,
     fetchArticleDetail,

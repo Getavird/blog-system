@@ -17,15 +17,15 @@
         <div class="article-body">
           <!-- 左侧：作者模块（固定不滚动） -->
           <aside class="left-sidebar">
-            <div class="author-card" @click="goToAuthorPage">
-              <div class="author-header">
-                <div class="author-avatar-large">
+            <div class="author-card">
+              <div class="author-header" @click="goToAuthorPage">
+                <div class="author-avatar-large" @click.stop="goToAuthorPage">
                   <img v-if="article.avatar" :src="article.avatar" alt="作者头像">
                   <div v-else class="avatar-placeholder-large">
                     {{ article.username ? article.username.charAt(0) : 'A' }}
                   </div>
                 </div>
-                <h3 class="author-name">{{ article.username }}</h3>
+                <h3 class="author-name" @click.stop="goToAuthorPage">{{ article.username }}</h3>
                 <p class="author-bio" v-if="article.bio">{{ article.bio }}</p>
               </div>
               <div class="author-stats">
@@ -46,7 +46,7 @@
                 v-if="!isArticleAuthor && isLoggedIn"
                 :type="article.isFollowing ? 'default' : 'primary'"
                 size="small"
-                @click.stop="toggleFollow"
+                @click="toggleFollow"
                 :loading="followLoading"
                 class="follow-btn"
               >
@@ -87,11 +87,6 @@
                 <el-icon><Star /></el-icon>
                 <span>{{ article.likeCount || 0 }} 点赞</span>
               </div>
-            </div>
-            
-            <!-- 文章封面 -->
-            <div v-if="article.coverImage" class="article-cover">
-              <img :src="article.coverImage" :alt="article.title" />
             </div>
             
             <!-- 文章分类和标签 -->
@@ -227,7 +222,6 @@
                           <div class="comment-time">{{ formatTime(comment.createTime) }}</div>
                         </div>
                       </div>
-                      <!-- 关键修复：使用 checkCommentOwnership 方法 -->
                       <div v-if="checkCommentOwnership(comment)" class="comment-actions">
                         <el-button type="text" @click="editComment(comment)">编辑</el-button>
                         <el-button type="text" @click="deleteComment(comment.id)">删除</el-button>
@@ -521,7 +515,7 @@ const formatTime = (time) => {
   }
 }
 
-// 点赞文章
+// 点赞文章 - 修复版
 const toggleLike = async () => {
   if (!isLoggedIn.value) {
     showLogin.value = true
@@ -532,16 +526,40 @@ const toggleLike = async () => {
   try {
     likeLoading.value = true
     const isLike = !article.value.isLiked
-    await articleStore.toggleLike(articleId.value, isLike)
+    const result = await articleStore.toggleLike(articleId.value, isLike)
     
-    if (isLike) {
-      ElMessage.success('点赞成功')
+    console.log('点赞操作结果:', result)
+    
+    // 根据结果显示消息
+    if (result?.success === true) {
+      if (isLike) {
+        ElMessage.success('点赞成功')
+      } else {
+        ElMessage.info('已取消点赞')
+      }
     } else {
-      ElMessage.info('已取消点赞')
+      // 如果API没有返回success，但是也没有抛出错误，显示默认消息
+      if (isLike) {
+        ElMessage.success('点赞成功')
+      } else {
+        ElMessage.info('已取消点赞')
+      }
     }
   } catch (error) {
     console.error('操作点赞失败:', error)
-    // 更友好的错误提示
+    
+    // 特殊处理"点赞成功"这个错误消息
+    if (error.message === '点赞成功') {
+      console.warn('收到"点赞成功"的错误消息，按成功处理')
+      if (!article.value.isLiked) {
+        ElMessage.success('点赞成功')
+      } else {
+        ElMessage.info('已取消点赞')
+      }
+      return
+    }
+    
+    // 其他错误处理
     if (error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
       ElMessage.error('网络错误，请检查连接')
     } else if (error.response?.status === 401) {
@@ -631,7 +649,7 @@ const goToTag = (tagId) => {
   }
 }
 
-// 跳转到作者主页 - 使用 username
+// 跳转到作者主页 - 修复版
 const goToAuthorPage = () => {
   if (!article.value) return
   
@@ -640,9 +658,14 @@ const goToAuthorPage = () => {
     authorId: article.value.authorId
   })
   
-  // 使用 username 跳转到用户主页
-  if (article.value.username) {
-    router.push(`/user/${encodeURIComponent(article.value.username)}`)
+  // 确保 username 不为空且有效
+  if (article.value.username && article.value.username.trim()) {
+    // 使用 encodeURIComponent 对中文进行编码
+    const encodedUsername = encodeURIComponent(article.value.username.trim())
+    console.log('编码后的用户名:', encodedUsername)
+    
+    // 使用路由跳转
+    router.push(`/user/${encodedUsername}`)
   } else {
     console.warn('无法获取作者用户名，无法跳转')
     ElMessage.warning('无法获取作者信息')
@@ -652,8 +675,9 @@ const goToAuthorPage = () => {
 // 跳转到用户主页 - 评论作者点击
 const goToUserPage = (userId, username) => {
   // 优先使用 username
-  if (username) {
-    router.push(`/user/${encodeURIComponent(username)}`)
+  if (username && username.trim()) {
+    const encodedUsername = encodeURIComponent(username.trim())
+    router.push(`/user/${encodedUsername}`)
   } else {
     console.warn('无法跳转：缺少用户名')
     ElMessage.warning('无法跳转到用户主页')
@@ -951,25 +975,6 @@ const toLoginPage = () => {
   color: #999;
 }
 
-/* 文章封面 */
-.article-cover {
-  margin-bottom: 30px;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-}
-
-.article-cover img {
-  width: 100%;
-  max-height: 400px;
-  object-fit: cover;
-  transition: transform 0.3s;
-}
-
-.article-cover img:hover {
-  transform: scale(1.02);
-}
-
 /* 文章标签 */
 .article-tags {
   display: flex;
@@ -1152,6 +1157,7 @@ const toLoginPage = () => {
 .author-header {
   text-align: center;
   margin-bottom: 20px;
+  cursor: pointer;
 }
 
 .author-avatar-large {
@@ -1169,6 +1175,7 @@ const toLoginPage = () => {
   overflow: hidden;
   border: 4px solid white;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
 }
 
 .author-avatar-large img {
@@ -1183,6 +1190,7 @@ const toLoginPage = () => {
   margin-bottom: 8px;
   color: #333;
   transition: color 0.3s;
+  cursor: pointer;
 }
 
 .author-card:hover .author-name {

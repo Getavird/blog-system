@@ -1,3 +1,4 @@
+<!-- Home.vue -->
 <template>
   <div class="home-page">
     <Header @show-login="showLoginDialog = true" />
@@ -41,12 +42,17 @@
 
             <!-- 文章列表为空 -->
             <div v-else-if="articles.length === 0" class="empty-state">
-              <el-empty description="暂无文章" />
+              <div class="empty-content">
+                <el-empty description="暂无文章" />
+                <el-button v-if="isLoggedIn" type="primary" @click="toWriteArticle">
+                  写第一篇文章
+                </el-button>
+              </div>
             </div>
 
             <!-- 文章列表 -->
             <ArticleList v-else :articles="articles" :loading="articleStore.articlesLoading" 
-              :show-time="true" :show-views="true" :show-author="true" 
+              :show-time="true" :show-views="true" :show-author="true" :show-cover="true"
               :show-summary="true" :show-pagination="true" :total="total"
               :current-page="currentPage" :page-size="pageSize" 
               @article-click="viewArticle" @create-click="toWriteArticle"
@@ -68,7 +74,7 @@
               <ul v-else class="hot-list">
                 <li v-for="article in hotArticles" :key="article.id">
                   <a href="javascript:;" class="hot-item" @click="viewArticle(article.id)">
-                    <span class="hot-title">{{ article.title }}</span>
+                    <span class="hot-title">{{ article.title || '无标题' }}</span>
                     <span class="hot-views">👁 {{ article.viewCount || 0 }}</span>
                   </a>
                 </li>
@@ -91,7 +97,7 @@
               <ul v-else class="category-list">
                 <li v-for="category in categoriesWithStats" :key="category.id">
                   <a href="javascript:;" class="category-item" @click="viewCategory(category.id)">
-                    <span class="category-name">{{ category.name }}</span>
+                    <span class="category-name">{{ category.name || '未分类' }}</span>
                     <span class="category-count">({{ category.articleCount || 0 }})</span>
                   </a>
                 </li>
@@ -112,10 +118,15 @@
               </div>
               
               <div v-else class="tags-cloud">
-                <el-tag v-for="tag in tagsWithStats" :key="tag.id" 
-                  :type="tagTypes[tag.id % tagTypes.length]" size="medium"
-                  class="tag-cloud-item" @click="viewTag(tag)">
-                  {{ tag.name }} ({{ tag.articleCount || 0 }})
+                <!-- 修复：使用有效的type和size值 -->
+                <el-tag 
+                  v-for="(tag, index) in tagsWithStats" 
+                  :key="tag.id" 
+                  :type="getTagType(index)" 
+                  size="small"
+                  class="tag-cloud-item" 
+                  @click="viewTag(tag)">
+                  {{ tag.name || '未命名标签' }} ({{ tag.articleCount || 0 }})
                 </el-tag>
                 <div v-if="tagsWithStats.length === 0" class="empty-tags">
                   暂无标签
@@ -249,8 +260,11 @@ const tagsWithStats = computed(() => {
   }))
 })
 
-// 标签类型数组
-const tagTypes = ['', 'success', 'info', 'warning', 'danger']
+// 修复：标签类型函数
+const getTagType = (index) => {
+  const types = ['primary', 'success', 'info', 'warning', 'danger']
+  return types[index % types.length] || 'info'
+}
 
 // 登录/注册弹窗相关
 const showLoginDialog = ref(false)
@@ -385,9 +399,12 @@ const loadData = async () => {
     
     console.log('首页数据加载完成')
     console.log('文章数量:', articles.value.length)
+    console.log('文章数据:', articles.value)
     console.log('热门文章数量:', hotArticles.value.length)
+    console.log('热门文章数据:', hotArticles.value)
     console.log('分类数量:', categories.value.length)
     console.log('标签数量:', tags.value.length)
+    console.log('标签数据:', tags.value)
 
   } catch (error) {
     console.error('加载首页数据失败:', error)
@@ -546,52 +563,6 @@ const resetForm = () => {
 </script>
 
 <style scoped>
-.loading-container {
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-}
-
-.empty-state {
-  padding: 40px;
-  background: white;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.loading-mini {
-  padding: 10px;
-}
-
-.hot-list .empty-item,
-.category-list .empty-item,
-.empty-tags {
-  padding: 10px;
-  text-align: center;
-  color: #999;
-  font-size: 14px;
-}
-
-.tag-cloud-item {
-  margin: 4px;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.tag-cloud-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-
-.hero-banner {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 80px 0;
-  text-align: center;
-  margin-bottom: 40px;
-}
-
 .home-page {
   min-height: 100vh;
   display: flex;
@@ -602,6 +573,13 @@ const resetForm = () => {
   flex: 1;
 }
 
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
 .hero-banner {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -610,37 +588,25 @@ const resetForm = () => {
   margin-bottom: 40px;
 }
 
-.hero-banner .container {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-.hero-banner .hero-content {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.hero-banner .hero-title {
+.hero-title {
   font-size: 48px;
   margin-bottom: 20px;
   font-weight: bold;
 }
 
-.hero-banner .hero-subtitle {
+.hero-subtitle {
   font-size: 20px;
   margin-bottom: 40px;
   opacity: 0.9;
 }
 
-.hero-banner .hero-actions {
+.hero-actions {
   display: flex;
   gap: 20px;
   justify-content: center;
 }
 
-.hero-banner .hero-actions .el-button {
+.hero-actions .el-button {
   padding: 12px 32px;
   font-weight: bold;
 }
@@ -651,20 +617,11 @@ const resetForm = () => {
   margin-bottom: 50px;
 }
 
-.home-content .container {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-  display: flex;
-  gap: 30px;
-}
-
-.home-content .articles-section {
+.articles-section {
   flex: 1;
 }
 
-.home-content .articles-section h2 {
+.articles-section h2 {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -673,7 +630,7 @@ const resetForm = () => {
   color: #333;
 }
 
-.home-content .sidebar {
+.sidebar {
   width: 320px;
   flex-shrink: 0;
 }
@@ -702,20 +659,43 @@ const resetForm = () => {
   border-bottom: 1px solid #eee;
 }
 
-.hot-list,
-.category-list {
+/* 加载状态 */
+.loading-container {
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+}
+
+.loading-mini {
+  padding: 10px;
+}
+
+.empty-state {
+  padding: 40px;
+  background: white;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+/* 热门文章列表 */
+.hot-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.hot-list li,
-.category-list li {
+.hot-list li {
   margin-bottom: 10px;
 }
 
-.hot-list li:last-child,
-.category-list li:last-child {
+.hot-list li:last-child {
   margin-bottom: 0;
 }
 
@@ -738,7 +718,7 @@ const resetForm = () => {
   color: #409eff;
 }
 
-.hot-item .hot-title {
+.hot-title {
   flex: 1;
   font-size: 14px;
   overflow: hidden;
@@ -747,10 +727,25 @@ const resetForm = () => {
   margin-right: 10px;
 }
 
-.hot-item .hot-views {
+.hot-views {
   color: #999;
   font-size: 12px;
   white-space: nowrap;
+}
+
+/* 分类列表 */
+.category-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.category-list li {
+  margin-bottom: 10px;
+}
+
+.category-list li:last-child {
+  margin-bottom: 0;
 }
 
 .category-item {
@@ -772,11 +767,11 @@ const resetForm = () => {
   color: #409eff;
 }
 
-.category-item .category-name {
+.category-name {
   flex: 1;
 }
 
-.category-item .category-count {
+.category-count {
   color: #999;
   font-size: 12px;
 }
@@ -789,12 +784,22 @@ const resetForm = () => {
 }
 
 .tag-cloud-item {
+  margin: 4px;
   cursor: pointer;
   transition: transform 0.2s;
 }
 
 .tag-cloud-item:hover {
   transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.empty-item,
+.empty-tags {
+  padding: 10px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
 }
 
 /* 登录/注册弹窗样式 */
@@ -869,11 +874,11 @@ const resetForm = () => {
 
 /* 响应式设计 */
 @media (max-width: 992px) {
-  .home-content .container {
+  .home-content {
     flex-direction: column;
   }
 
-  .home-content .sidebar {
+  .sidebar {
     width: 100%;
   }
 

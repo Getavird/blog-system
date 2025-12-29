@@ -6,28 +6,57 @@
  * @returns {Object} - 前端需要的文章格式
  */
 export const transformArticle = (apiData) => {
-  return {
-    id: apiData.id,
-    title: apiData.title,
-    content: apiData.content,
-    summary: apiData.summary,
-    coverImage: apiData.coverImage ? `/uploads/${apiData.coverImage}` : '',
-    status: apiData.status,
-    viewCount: apiData.viewCount || 0,
-    likeCount: apiData.likeCount || 0,
-    commentCount: apiData.commentCount || 0,
-    categoryId: apiData.categoryId,
-    categoryName: apiData.categoryName,
-    authorName: apiData.authorName || apiData.username,
-    authorAvatar: apiData.authorAvatar ? `/uploads/${apiData.authorAvatar}` : '',
-    authorId: apiData.userId,
-    tags: apiData.tags ? apiData.tags.split(',').map(tag => tag.trim()) : [],
-    isTop: apiData.isTop === 1,
-    allowComment: apiData.allowComment === 1,
-    createTime: apiData.createTime,
-    updateTime: apiData.updateTime || apiData.createTime,
-    publishTime: apiData.publishTime || apiData.createTime
+  if (!apiData) {
+    console.warn('transformArticle: apiData为空')
+    return null
   }
+  
+  console.log('转换文章原始数据:', apiData)
+  
+  // 处理tags字段：可能已经是数组，也可能是逗号分隔的字符串
+  let tagsArray = []
+  if (apiData.tags) {
+    if (Array.isArray(apiData.tags)) {
+      tagsArray = apiData.tags
+    } else if (typeof apiData.tags === 'string') {
+      tagsArray = apiData.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+    }
+  }
+  
+  // 构建转换后的对象
+  const transformed = {
+    id: apiData.id || apiData.articleId || 0,
+    title: apiData.title || '无标题',
+    content: apiData.content || '',
+    summary: apiData.summary || apiData.content?.substring(0, 100) || '暂无摘要',
+    coverImage: apiData.coverImage 
+      ? (apiData.coverImage.startsWith('http') ? apiData.coverImage : `/uploads/${apiData.coverImage}`)
+      : '',
+    status: apiData.status || 1,
+    viewCount: apiData.viewCount || apiData.viewCount || 0,
+    likeCount: apiData.likeCount || apiData.likeCount || 0,
+    commentCount: apiData.commentCount || 0,
+    categoryId: apiData.categoryId || apiData.categoryId,
+    categoryName: apiData.categoryName || apiData.category?.name || '未分类',
+    // 作者信息可能有多种字段名
+    authorName: apiData.authorName || apiData.author?.name || apiData.username || apiData.user?.username || '未知作者',
+    authorAvatar: apiData.authorAvatar 
+      ? (apiData.authorAvatar.startsWith('http') ? apiData.authorAvatar : `/uploads/${apiData.authorAvatar}`)
+      : (apiData.author?.avatar 
+          ? (apiData.author.avatar.startsWith('http') ? apiData.author.avatar : `/uploads/${apiData.author.avatar}`)
+          : ''),
+    authorId: apiData.userId || apiData.authorId || apiData.user?.id || 0,
+    tags: tagsArray,
+    isTop: apiData.isTop === 1 || apiData.isTop === true,
+    allowComment: apiData.allowComment === 1 || apiData.allowComment === true || apiData.allowComment === undefined,
+    // 时间字段可能有多种名称
+    createTime: apiData.createTime || apiData.createdAt || apiData.createdTime || new Date().toISOString(),
+    updateTime: apiData.updateTime || apiData.updatedAt || apiData.updatedTime || apiData.createTime,
+    publishTime: apiData.publishTime || apiData.publishedAt || apiData.createTime
+  }
+  
+  console.log('转换后的文章:', transformed)
+  return transformed
 }
 
 /**
@@ -97,9 +126,19 @@ export const transformComment = (apiData) => {
  * @returns {Array}
  */
 export const transformArticles = (articles) => {
-  return Array.isArray(articles) 
-    ? articles.map(transformArticle)
-    : []
+  console.log('transformArticles输入:', articles)
+  
+  if (!Array.isArray(articles)) {
+    console.warn('transformArticles: 输入不是数组', articles)
+    return []
+  }
+  
+  const transformed = articles
+    .map(transformArticle)
+    .filter(article => article !== null) // 过滤掉转换失败的文章
+  
+  console.log('transformArticles输出:', transformed)
+  return transformed
 }
 
 /**

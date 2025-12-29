@@ -45,7 +45,7 @@ export const getHotArticles = (limit = 10) => {
 
 // 最新文章
 export const getNewestArticles = (limit = 10) => {
-  return request.get('/api/articles/newest', { params: { limit } })
+  return request.get('/api/articles/latest', { params: { limit } })
 }
 
 // 搜索文章
@@ -64,7 +64,7 @@ export const getArticlesByTag = (tagId, params = {}) => {
 
 // 获取我的文章
 export const getMyArticles = (params = {}) => {
-  return request.get('/api/articles/my', { params })
+  return request.get('/api/articles/my-published', { params })
 }
 
 // 获取我的草稿列表
