@@ -155,36 +155,54 @@ export const useArticleStore = defineStore('article', () => {
   }
   
   // 点赞/取消点赞文章
-  const toggleLike = async (id, isLike) => {
-    try {
-      likeLoading.value = true
-      await articleApi.toggleArticleLike(id, isLike)
-
-      // 更新本地状态
-      if (currentArticle.value && currentArticle.value.id === id) {
-        if (isLike) {
-          currentArticle.value.likeCount += 1
-        } else {
-          currentArticle.value.likeCount = Math.max(0, currentArticle.value.likeCount - 1)
-        }
-      }
+const toggleLike = async (id) => {
+  try {
+    likeLoading.value = true
+    const response = await articleApi.toggleArticleLike(id)
+    
+    console.log('点赞API返回:', response) // 添加这行查看实际返回结构
+    
+    // 检查响应是否成功
+    if (response && response.code === 200) {
+      // 获取返回的数据
+      const result = response.data
       
-      // 更新列表中的点赞数
-      const index = articles.value.findIndex(article => article.id === id)
-      if (index !== -1) {
-        if (isLike) {
-          articles.value[index].likeCount += 1
-        } else {
-          articles.value[index].likeCount = Math.max(0, articles.value[index].likeCount - 1)
+      if (result && result.success !== false) {
+        // 更新本地状态
+        if (currentArticle.value && currentArticle.value.id === id) {
+          currentArticle.value.isLiked = result.isLiked || true
+          currentArticle.value.likeCount = result.likeCount || 0
         }
+        
+        // 更新列表中的点赞数
+        const index = articles.value.findIndex(article => article.id === id)
+        if (index !== -1) {
+          articles.value[index].isLiked = result.isLiked || true
+          articles.value[index].likeCount = result.likeCount || 0
+        }
+        
+        return {
+          success: true,
+          isLiked: result.isLiked,
+          likeCount: result.likeCount,
+          message: result.message || '操作成功'
+        }
+      } else {
+        // 如果success为false，抛出错误信息
+        throw new Error(result?.message || '操作失败')
       }
-    } catch (error) {
-      console.error('操作点赞失败:', error)
-      throw error
-    } finally {
-      likeLoading.value = false
+    } else {
+      // 响应code不是200，抛出错误
+      throw new Error(response?.message || '操作失败')
     }
+    
+  } catch (error) {
+    console.error('操作点赞失败:', error)
+    throw error
+  } finally {
+    likeLoading.value = false
   }
+}
 
   // 获取热门文章
   const fetchHotArticles = async (limit = 10) => {

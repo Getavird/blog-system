@@ -34,8 +34,8 @@ export const incrementArticleView = (id) => {
 }
 
 // 文章点赞/取消
-export const toggleArticleLike = (id, isLike) => {
-  return request.post(`/api/articles/${id}/like`, { isLike })
+export const toggleArticleLike = (id) => {
+  return request.post(`/api/articles/${id}/toggle-like`)
 }
 
 // 热门文章

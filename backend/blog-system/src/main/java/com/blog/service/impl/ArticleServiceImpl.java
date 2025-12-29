@@ -1,9 +1,12 @@
 package com.blog.service.impl;
 
+import com.blog.dao.ArticleLikeMapper;
 import com.blog.dao.ArticleMapper;
 import com.blog.dao.ArticleTagMapper;
 import com.blog.dao.TagMapper;
 import com.blog.dao.UploadFileMapper;
+import com.blog.dao.UserLikeMapper;
+
 import com.blog.entity.Article;
 import com.blog.entity.Tag;
 import com.blog.entity.UploadFile;
@@ -27,6 +30,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -56,6 +60,9 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Autowired
     private UploadFileMapper uploadFileMapper;
+
+    @Autowired
+    private ArticleLikeMapper articleLikeMapper;
 
     @Override
     public List<Article> getArticles(int page, int size) {
@@ -444,4 +451,192 @@ public class ArticleServiceImpl implements ArticleService {
         }
     }
 
+    /**
+     * 点赞文章
+     */
+    @Override
+    public boolean likeArticle(Integer articleId, Integer userId) {
+        try {
+            System.out.println("👍 用户 " + userId + " 点赞文章 " + articleId);
+
+            // 1. 检查是否已经点赞
+            if (isArticleLikedByUser(articleId, userId)) {
+                System.out.println("⚠️ 用户已点赞过此文章");
+                throw new RuntimeException("您已点赞过该文章");
+            }
+
+            // 2. 添加点赞记录（使用article_like表）
+            int result = articleLikeMapper.insert(userId, articleId);
+
+            // 3. 更新文章点赞数
+            if (result > 0) {
+                Article article = articleMapper.findById(articleId);
+                if (article != null) {
+                    int currentLikes = article.getLikeCount() != null ? article.getLikeCount() : 0;
+                    article.setLikeCount(currentLikes + 1);
+                    articleMapper.update(article);
+                    System.out.println("✅ 点赞成功，文章 " + articleId + " 点赞数: " + (currentLikes + 1));
+                    return true;
+                }
+            }
+
+            return false;
+
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            System.err.println("❌ 点赞文章异常: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("点赞失败");
+        }
+    }
+
+    /**
+     * 取消点赞文章
+     */
+    @Override
+    public boolean unlikeArticle(Integer articleId, Integer userId) {
+        try {
+            System.out.println("👎 用户 " + userId + " 取消点赞文章 " + articleId);
+
+            // 1. 检查是否已经点赞
+            if (!isArticleLikedByUser(articleId, userId)) {
+                System.out.println("⚠️ 用户未点赞过此文章");
+                throw new RuntimeException("您还未点赞该文章");
+            }
+
+            // 2. 删除点赞记录（从article_like表）
+            int result = articleLikeMapper.delete(userId, articleId);
+
+            // 3. 更新文章点赞数
+            if (result > 0) {
+                Article article = articleMapper.findById(articleId);
+                if (article != null) {
+                    int currentLikes = article.getLikeCount() != null ? article.getLikeCount() : 0;
+                    article.setLikeCount(Math.max(0, currentLikes - 1));
+                    articleMapper.update(article);
+                    System.out.println("✅ 取消点赞成功，文章 " + articleId + " 点赞数: " + Math.max(0, currentLikes - 1));
+                    return true;
+                }
+            }
+
+            return false;
+
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            System.err.println("❌ 取消点赞异常: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("取消点赞失败");
+        }
+    }
+
+    /**
+     * 检查用户是否已点赞文章
+     */
+    @Override
+    public boolean isArticleLikedByUser(Integer articleId, Integer userId) {
+        try {
+            int count = articleLikeMapper.exists(userId, articleId);
+            return count > 0;
+        } catch (Exception e) {
+            System.err.println("❌ 检查文章点赞状态异常: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 获取文章点赞数
+     */
+    @Override
+    public int getArticleLikeCount(Integer articleId) {
+        try {
+            return articleLikeMapper.countByArticleId(articleId);
+        } catch (Exception e) {
+            System.err.println("❌ 获取文章点赞数异常: " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * 切换点赞状态（点赞/取消点赞）
+     */
+    @Override
+    public Map<String, Object> toggleLike(Integer articleId, Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+
+        try {
+            boolean isLiked = isArticleLikedByUser(articleId, userId);
+
+            if (isLiked) {
+                // 已点赞，执行取消点赞
+                boolean success = unlikeArticle(articleId, userId);
+                result.put("success", success);
+                result.put("action", "unlike");
+                result.put("message", success ? "取消点赞成功" : "取消点赞失败");
+            } else {
+                // 未点赞，执行点赞
+                boolean success = likeArticle(articleId, userId);
+                result.put("success", success);
+                result.put("action", "like");
+                result.put("message", success ? "点赞成功" : "点赞失败");
+            }
+
+            // 获取更新后的点赞状态和数量
+            Article article = articleMapper.findById(articleId);
+            if (article != null) {
+                result.put("likeCount", article.getLikeCount() != null ? article.getLikeCount() : 0);
+                result.put("isLiked", !isLiked); // 切换后的状态
+            }
+
+            return result;
+
+        } catch (Exception e) {
+            System.err.println("❌ 切换点赞状态异常: " + e.getMessage());
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取用户点赞的文章列表
+     */
+    @Override
+    public List<Article> getLikedArticles(Integer userId, Integer page, Integer size) {
+        try {
+            System.out.println("📋 获取用户点赞文章列表: userId=" + userId);
+
+            // 获取用户点赞的文章ID列表
+            List<Integer> likedArticleIds = articleLikeMapper.findLikedArticleIds(userId);
+
+            if (likedArticleIds == null || likedArticleIds.isEmpty()) {
+                return new ArrayList<>();
+            }
+
+            // 分页参数
+            if (page == null || page < 1)
+                page = 1;
+            if (size == null || size < 1)
+                size = 10;
+
+            // 这里简化处理：返回前N个点赞的文章
+            // 实际项目中应该实现分页查询
+            List<Article> likedArticles = new ArrayList<>();
+            int start = Math.min((page - 1) * size, likedArticleIds.size());
+            int end = Math.min(start + size, likedArticleIds.size());
+
+            for (int i = start; i < end; i++) {
+                Integer articleId = likedArticleIds.get(i);
+                Article article = articleMapper.findById(articleId);
+                if (article != null && article.getStatus() == 1) {
+                    likedArticles.add(article);
+                }
+            }
+
+            return likedArticles;
+
+        } catch (Exception e) {
+            System.err.println("❌ 获取点赞文章列表异常: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
 }

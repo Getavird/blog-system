@@ -108,6 +108,7 @@ public interface ArticleService {
      */
     Article getArticleByIdAndUserId(Integer id, Integer userId);
 
+
     /**
      * 根据用户ID和状态查询文章（分页）
      * 
@@ -145,4 +146,34 @@ public interface ArticleService {
      * @return 文章数量
      */
     Long countArticlesByUserId(Integer userId);
+
+    /**
+     * 点赞文章
+     */
+    boolean likeArticle(Integer articleId, Integer userId);
+    
+    /**
+     * 取消点赞文章
+     */
+    boolean unlikeArticle(Integer articleId, Integer userId);
+    
+    /**
+     * 切换点赞状态（点赞/取消点赞）
+     */
+    Map<String, Object> toggleLike(Integer articleId, Integer userId);
+    
+    /**
+     * 检查用户是否已点赞文章
+     */
+    boolean isArticleLikedByUser(Integer articleId, Integer userId);
+    
+    /**
+     * 获取文章点赞数
+     */
+    int getArticleLikeCount(Integer articleId);
+    
+    /**
+     * 获取用户点赞的文章列表
+     */
+    List<Article> getLikedArticles(Integer userId, Integer page, Integer size);
 }

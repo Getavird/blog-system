@@ -363,4 +363,117 @@ public class ArticleController {
 
         return success ? Result.success("草稿删除成功") : Result.error("删除失败");
     }
+    /**
+ * 点赞文章
+ * POST /api/articles/{id}/like
+ */
+@PostMapping("/{id}/like")
+public Result<String> likeArticle(@PathVariable Integer id, HttpServletRequest request) {
+    // 检查登录
+    User currentUser = SessionUtil.getCurrentUser(request);
+    if (currentUser == null) {
+        return Result.unauthorized("请先登录");
+    }
+
+    try {
+        boolean success = articleService.likeArticle(id, currentUser.getId());
+        return success ? Result.success("点赞成功") : Result.error("点赞失败");
+    } catch (RuntimeException e) {
+        return Result.error(e.getMessage());
+    }
+}
+
+/**
+ * 取消点赞文章
+ * DELETE /api/articles/{id}/like
+ */
+@DeleteMapping("/{id}/like")
+public Result<String> unlikeArticle(@PathVariable Integer id, HttpServletRequest request) {
+    // 检查登录
+    User currentUser = SessionUtil.getCurrentUser(request);
+    if (currentUser == null) {
+        return Result.unauthorized("请先登录");
+    }
+
+    try {
+        boolean success = articleService.unlikeArticle(id, currentUser.getId());
+        return success ? Result.success("取消点赞成功") : Result.error("取消点赞失败");
+    } catch (RuntimeException e) {
+        return Result.error(e.getMessage());
+    }
+}
+
+/**
+ * 获取文章点赞状态（当前用户是否已点赞）
+ * GET /api/articles/{id}/like/status
+ */
+@GetMapping("/{id}/like/status")
+public Result<Boolean> getLikeStatus(@PathVariable Integer id, HttpServletRequest request) {
+    // 检查登录
+    User currentUser = SessionUtil.getCurrentUser(request);
+    if (currentUser == null) {
+        return Result.unauthorized("请先登录");
+    }
+
+    try {
+        boolean isLiked = articleService.isArticleLikedByUser(id, currentUser.getId());
+        return Result.success(isLiked);
+    } catch (RuntimeException e) {
+        return Result.error(e.getMessage());
+    }
+}
+
+/**
+ * 获取文章点赞数
+ * GET /api/articles/{id}/likes/count
+ */
+@GetMapping("/{id}/likes/count")
+public Result<Integer> getLikeCount(@PathVariable Integer id) {
+    try {
+        int count = articleService.getArticleLikeCount(id);
+        return Result.success(count);
+    } catch (RuntimeException e) {
+        return Result.error(e.getMessage());
+    }
+}
+
+/**
+ * 获取用户点赞的文章列表
+ * GET /api/articles/liked
+ */
+@GetMapping("/liked")
+public Result<List<Article>> getLikedArticles(
+        @RequestParam(defaultValue = "1") Integer page,
+        @RequestParam(defaultValue = "10") Integer size,
+        HttpServletRequest request) {
+    
+    // 检查登录
+    User currentUser = SessionUtil.getCurrentUser(request);
+    if (currentUser == null) {
+        return Result.unauthorized("请先登录");
+    }
+
+    List<Article> likedArticles = articleService.getLikedArticles(currentUser.getId(), page, size);
+    return Result.success(likedArticles);
+}
+
+/**
+ * 切换点赞状态（点赞/取消点赞）
+ * POST /api/articles/{id}/toggle-like
+ */
+@PostMapping("/{id}/toggle-like")
+public Result<Map<String, Object>> toggleLike(@PathVariable Integer id, HttpServletRequest request) {
+    // 检查登录
+    User currentUser = SessionUtil.getCurrentUser(request);
+    if (currentUser == null) {
+        return Result.unauthorized("请先登录");
+    }
+
+    try {
+        Map<String, Object> result = articleService.toggleLike(id, currentUser.getId());
+        return Result.success(result);
+    } catch (RuntimeException e) {
+        return Result.error(e.getMessage());
+    }
+}
 }

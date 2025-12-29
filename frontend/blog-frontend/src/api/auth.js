@@ -1,4 +1,3 @@
-// api/auth.js
 import request from '@/utils/request'
 
 // 登录接口（对应后端 UserController.login）
@@ -25,10 +24,11 @@ export const getCurrentUser = () => {
 }
 
 // 修改密码接口（对应后端 UserController.changePassword）
-export const updatePassword = (oldPassword, newPassword) => {
+export const updatePassword = (oldPassword, newPassword, confirmPassword) => {
   return request.post('/api/user/change-password', {
     oldPassword,
-    newPassword
+    newPassword,
+    confirmPassword
   })
 }
 
