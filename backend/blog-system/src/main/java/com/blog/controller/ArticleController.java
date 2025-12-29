@@ -39,9 +39,6 @@ public class ArticleController {
     @GetMapping("/{id}")
     public Result<Article> getArticle(@PathVariable Integer id) {
         Article article = articleService.getArticleById(id);
-        if (article == null) {
-            return Result.notFound("文章不存在");
-        }
         return Result.success(article);
     }
 

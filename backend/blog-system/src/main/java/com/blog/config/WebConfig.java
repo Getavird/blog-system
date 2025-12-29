@@ -27,7 +27,15 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/user/login",
                         "/api/user/register",
                         "/api/test/**",
-                        "/api/debug/**");
+                        "/api/debug/**",
+                        // 添加公开访问的路径
+                        "/api/articles/**",
+                        "/api/categories/**",
+                        "/api/tags/**",
+                        "/api/archives/**",
+                        "/api/comments/article/**",
+                        "/api/user/public/**",
+                        "/api/search/**");
     }
 
     @Override

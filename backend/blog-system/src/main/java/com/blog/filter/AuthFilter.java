@@ -24,7 +24,28 @@ public class AuthFilter implements Filter {
         "/api/debug/**",
         "/traditional/**",
         "/static/**",
-        "/error"
+        "/error",
+        // 添加文章相关的不需要登录的路径
+        "/api/articles",
+        "/api/articles/**",
+        "/api/article/**",
+        // 添加分类相关的不需要登录的路径
+        "/api/categories",
+        "/api/categories/**",
+        // 添加标签相关的不需要登录的路径
+        "/api/tags",
+        "/api/tags/**",
+        // 添加归档相关的不需要登录的路径
+        "/api/archives",
+        "/api/archives/**",
+        // 添加评论相关的不需要登录的路径（查看评论不需要登录）
+        "/api/comments/**",
+        "/api/comment/**",
+        // 添加用户公开信息路径
+        "/api/user/public/**",
+        "/api/user/profile/**",
+        // 添加搜索路径
+        "/api/search/**"
     };
     
     @Override
@@ -41,6 +62,7 @@ public class AuthFilter implements Filter {
         HttpServletResponse response = (HttpServletResponse) servletResponse;
         
         String uri = request.getRequestURI();
+        String method = request.getMethod();
         
         // 检查是否在排除列表中
         for (String path : EXCLUDE_PATHS) {
@@ -49,6 +71,18 @@ public class AuthFilter implements Filter {
                 return;
             }
             if (uri.equals(path)) {
+                chain.doFilter(request, response);
+                return;
+            }
+        }
+        
+        // 特殊处理：GET请求可能不需要登录
+        if ("GET".equalsIgnoreCase(method)) {
+            // 检查是否是公开资源的GET请求（可以进一步细化）
+            if (uri.startsWith("/api/user/public/") || 
+                uri.startsWith("/api/user/profile/") ||
+                uri.startsWith("/api/comments/article/") ||
+                uri.startsWith("/api/comment/article/")) {
                 chain.doFilter(request, response);
                 return;
             }

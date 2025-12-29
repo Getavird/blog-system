@@ -14,7 +14,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Autowired
     private UserService userService;
     
-    // 不需要拦截的路径
+    // 不需要拦截的路径 - 这里主要处理需要登录的请求，公开请求已在Filter中排除
     private static final String[] EXCLUDE_PATHS = {
         "/api/user/login",
         "/api/user/register",
@@ -35,6 +35,32 @@ public class AuthInterceptor implements HandlerInterceptor {
                 return true;
             }
             if (uri.equals(path)) {
+                return true;
+            }
+        }
+        
+        // 对GET请求进行特殊处理（查看类的操作）
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            // 允许游客查看的内容
+            if (uri.startsWith("/api/articles") && 
+                !uri.contains("/my-") && 
+                !uri.contains("/draft") && 
+                !uri.contains("/publish")) {
+                return true;
+            }
+            if (uri.startsWith("/api/categories")) {
+                return true;
+            }
+            if (uri.startsWith("/api/tags")) {
+                return true;
+            }
+            if (uri.startsWith("/api/archives")) {
+                return true;
+            }
+            if (uri.startsWith("/api/comments/article/")) {
+                return true;
+            }
+            if (uri.startsWith("/api/user/public/")) {
                 return true;
             }
         }
