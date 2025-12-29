@@ -10,18 +10,21 @@
           <h1 class="search-title">搜索</h1>
           <p class="search-subtitle">发现你感兴趣的内容</p>
           
-          <!-- 搜索框 -->
-          <div class="search-box-wrapper">
-            <div class="search-box">
+          <!-- 搜索框区域 -->
+          <div class="search-wrapper">
+            <!-- 搜索框 -->
+            <div class="search-box" ref="searchBoxRef">
               <el-input
                 v-model="keyword"
                 placeholder="输入关键词搜索文章、用户、标签..."
                 @keyup.enter="doSearch"
                 @input="handleInput"
                 @clear="handleClear"
+                @focus="handleFocus"
                 clearable
                 size="large"
                 class="search-input"
+                ref="searchInputRef"
               >
                 <template #prepend>
                   <el-select 
@@ -49,7 +52,11 @@
               </el-input>
               
               <!-- 搜索建议 -->
-              <div v-if="showSuggestions" class="search-suggestions">
+              <div 
+                v-if="showSuggestions && searchStore.searchSuggestions.length > 0" 
+                class="search-suggestions"
+                ref="suggestionsRef"
+              >
                 <div 
                   v-for="suggestion in searchStore.searchSuggestions" 
                   :key="suggestion"
@@ -58,6 +65,31 @@
                 >
                   <el-icon><Search /></el-icon>
                   {{ suggestion }}
+                </div>
+              </div>
+            </div>
+            
+            <!-- 搜索历史（在搜索框下方） -->
+            <div 
+              v-if="showHistory && !keyword && searchHistory.length > 0" 
+              class="search-history-dropdown"
+              ref="historyRef"
+            >
+              <div class="history-header">
+                <h4>搜索历史</h4>
+                <el-button type="text" size="small" @click="clearHistory">清空</el-button>
+              </div>
+              <div class="history-list">
+                <div 
+                  v-for="item in searchHistory" 
+                  :key="item"
+                  class="history-item"
+                >
+                  <span @click="selectHistory(item)">
+                    <el-icon><Clock /></el-icon>
+                    {{ item }}
+                  </span>
+                  <el-icon @click="removeHistory(item)"><Close /></el-icon>
                 </div>
               </div>
             </div>
@@ -71,13 +103,6 @@
                 搜索类型: {{ searchTypeLabel }}
               </span>
             </div>
-          </div>
-          
-          <!-- 搜索历史提示 -->
-          <div v-if="searchHistory.length > 0 && !keyword" class="search-history-tip">
-            <p class="tip-text">
-              您有 {{ searchHistory.length }} 条搜索历史记录
-            </p>
           </div>
         </div>
         
@@ -93,7 +118,7 @@
             </div>
           </div>
           
-          <!-- 空状态 -->
+          <!-- 空状态（未输入关键词） -->
           <div v-else-if="!keyword" class="empty-state">
             <div class="empty-content">
               <el-icon :size="80" color="#c0c4cc">
@@ -101,32 +126,6 @@
               </el-icon>
               <h3>输入关键词开始搜索</h3>
               <p>搜索文章、用户、标签等内容</p>
-              
-              <!-- 搜索历史 -->
-              <div v-if="searchHistory.length > 0" class="search-history">
-                <h4>搜索历史</h4>
-                <div class="history-list">
-                  <el-tag
-                    v-for="item in searchHistory"
-                    :key="item"
-                    class="history-tag"
-                    @click="selectHistory(item)"
-                    closable
-                    @close="removeHistory(item)"
-                    size="medium"
-                  >
-                    {{ item }}
-                  </el-tag>
-                </div>
-                <el-button 
-                  v-if="searchHistory.length > 0" 
-                  type="text" 
-                  size="small" 
-                  @click="clearHistory"
-                >
-                  清空历史
-                </el-button>
-              </div>
             </div>
           </div>
           
@@ -144,7 +143,6 @@
                   <li>检查输入的关键词是否正确</li>
                   <li>尝试使用不同的关键词</li>
                   <li>尝试使用更通用的关键词</li>
-                  <li>减少筛选条件</li>
                 </ul>
               </div>
             </div>
@@ -301,7 +299,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSearchStore } from '@/stores/search'
 import { ElMessage } from 'element-plus'
@@ -313,7 +311,9 @@ import {
   Calendar,
   View,
   Star,
-  CollectionTag
+  CollectionTag,
+  Clock,
+  Close
 } from '@element-plus/icons-vue'
 
 // 组件导入
@@ -326,10 +326,17 @@ const router = useRouter()
 // Pinia Store
 const searchStore = useSearchStore()
 
+// DOM引用
+const searchBoxRef = ref(null)
+const searchInputRef = ref(null)
+const suggestionsRef = ref(null)
+const historyRef = ref(null)
+
 // 搜索状态
 const keyword = ref('')
 const searchType = ref('full')
 const showSuggestions = ref(false)
+const showHistory = ref(false)
 
 // 计算属性
 const searchTypeLabel = computed(() => {
@@ -345,6 +352,39 @@ const searchTypeLabel = computed(() => {
 // 从本地存储加载搜索历史
 const searchHistory = computed(() => searchStore.searchHistory)
 
+// 全局点击事件处理器 - 修复版本
+const handleGlobalClick = (e) => {
+  // 延迟执行，确保点击事件完成
+  setTimeout(() => {
+    // 检查点击的目标
+    const target = e.target
+    const inputEl = searchInputRef.value?.$el?.querySelector('input') || searchInputRef.value?.$el
+    const suggestionsEl = suggestionsRef.value
+    const historyEl = historyRef.value
+    const searchBoxEl = searchBoxRef.value
+    
+    // 检查点击是否在搜索框相关元素内部
+    const isClickInsideInput = inputEl && (inputEl === target || inputEl.contains(target))
+    const isClickInsideSuggestions = suggestionsEl && (suggestionsEl === target || suggestionsEl.contains(target))
+    const isClickInsideHistory = historyEl && (historyEl === target || historyEl.contains(target))
+    const isClickInsideSearchBox = searchBoxEl && (searchBoxEl === target || searchBoxEl.contains(target))
+    
+    // 如果点击的是输入框或下拉框内部，不处理
+    if (isClickInsideInput || isClickInsideSuggestions || isClickInsideHistory || isClickInsideSearchBox) {
+      return
+    }
+    
+    // 点击外部，隐藏下拉框
+    if (showSuggestions.value) {
+      showSuggestions.value = false
+    }
+    
+    if (showHistory.value) {
+      showHistory.value = false
+    }
+  }, 10)
+}
+
 // 生命周期
 onMounted(() => {
   // 从路由参数获取搜索关键词
@@ -359,6 +399,16 @@ onMounted(() => {
   
   // 加载搜索历史
   searchStore.loadSearchHistoryFromStorage()
+  
+  // 添加全局点击事件监听器
+  setTimeout(() => {
+    document.addEventListener('click', handleGlobalClick)
+  }, 100)
+})
+
+onUnmounted(() => {
+  // 移除全局点击事件监听器
+  document.removeEventListener('click', handleGlobalClick)
 })
 
 // 监听路由参数变化
@@ -378,10 +428,30 @@ watch(
 
 // 监听输入变化
 const handleInput = () => {
-  if (keyword.value.trim()) {
+  const trimmedKeyword = keyword.value.trim()
+  
+  if (trimmedKeyword) {
     showSuggestions.value = true
-    searchStore.fetchSearchSuggestions(keyword.value)
+    showHistory.value = false
+    searchStore.fetchSearchSuggestions(trimmedKeyword)
   } else {
+    showSuggestions.value = false
+    showHistory.value = true
+  }
+}
+
+// 输入框获得焦点
+const handleFocus = () => {
+  const trimmedKeyword = keyword.value.trim()
+  
+  if (trimmedKeyword) {
+    showSuggestions.value = true
+    showHistory.value = false
+    // 获取搜索建议
+    searchStore.fetchSearchSuggestions(trimmedKeyword)
+  } else {
+    // 显示搜索历史
+    showHistory.value = true
     showSuggestions.value = false
   }
 }
@@ -389,6 +459,7 @@ const handleInput = () => {
 // 清空输入
 const handleClear = () => {
   showSuggestions.value = false
+  showHistory.value = true
   searchStore.clearSearchResults()
 }
 
@@ -404,11 +475,17 @@ const doSearch = async () => {
   const searchKeyword = keyword.value.trim()
   
   if (!searchKeyword) {
-    ElMessage.warning('请输入搜索关键词')
+    // 如果关键词为空，显示搜索历史
+    showHistory.value = true
+    showSuggestions.value = false
     return
   }
   
   try {
+    // 隐藏下拉框
+    showSuggestions.value = false
+    showHistory.value = false
+    
     // 更新URL参数
     router.replace({
       path: '/search',
@@ -458,14 +535,27 @@ const doSearch = async () => {
 // 选择搜索建议
 const selectSuggestion = (suggestion) => {
   keyword.value = suggestion
-  showSuggestions.value = false
-  doSearch()
+  // 聚焦到输入框
+  if (searchInputRef.value) {
+    searchInputRef.value.focus()
+  }
+  // 延迟执行搜索，确保输入框更新
+  setTimeout(() => {
+    doSearch()
+  }, 50)
 }
 
 // 选择搜索历史
 const selectHistory = (historyItem) => {
   keyword.value = historyItem
-  doSearch()
+  // 聚焦到输入框
+  if (searchInputRef.value) {
+    searchInputRef.value.focus()
+  }
+  // 延迟执行搜索，确保输入框更新
+  setTimeout(() => {
+    doSearch()
+  }, 50)
 }
 
 // 移除搜索历史
@@ -479,6 +569,7 @@ const clearHistory = async () => {
   try {
     await searchStore.clearSearchHistory()
     ElMessage.success('搜索历史已清空')
+    showHistory.value = false
   } catch (error) {
     console.error('清空历史失败:', error)
     ElMessage.error('清空历史失败')
@@ -602,21 +693,22 @@ const handleSizeChange = async (size) => {
   margin-bottom: 30px;
 }
 
-/* 搜索框 */
-.search-box-wrapper {
+/* 搜索包装器 */
+.search-wrapper {
   max-width: 800px;
-  margin: 0 auto 30px;
+  margin: 0 auto;
   position: relative;
 }
 
+/* 搜索框 */
 .search-box {
   position: relative;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
 }
 
 .search-input {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  border-radius: 50px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -642,12 +734,13 @@ const handleSizeChange = async (size) => {
   left: 0;
   right: 0;
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   margin-top: 5px;
   z-index: 1000;
   max-height: 300px;
   overflow-y: auto;
+  border: 1px solid #e4e7ed;
 }
 
 .suggestion-item {
@@ -669,6 +762,77 @@ const handleSizeChange = async (size) => {
   color: #409eff;
 }
 
+/* 搜索历史下拉框 */
+.search-history-dropdown {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  margin-top: 10px;
+  z-index: 999;
+  border: 1px solid #e4e7ed;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.history-header h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.history-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-item:hover {
+  background-color: #f5f7fa;
+}
+
+.history-item span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  width: 100%;
+}
+
+.history-item .el-icon {
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.history-item .el-icon:hover {
+  background-color: #f0f0f0;
+  color: #f56c6c;
+}
+
 /* 搜索统计 */
 .search-stats {
   display: flex;
@@ -676,28 +840,13 @@ const handleSizeChange = async (size) => {
   gap: 20px;
   color: #666;
   font-size: 14px;
+  margin-top: 15px;
 }
 
 .stats-item {
-  padding: 4px 12px;
+  padding: 6px 12px;
   background: #f0f2f5;
   border-radius: 4px;
-}
-
-/* 搜索历史提示 */
-.search-history-tip {
-  margin-top: 20px;
-  padding: 10px 20px;
-  background: #f0f9ff;
-  border-radius: 8px;
-  border: 1px solid #d9ecff;
-  display: inline-block;
-}
-
-.tip-text {
-  color: #409eff;
-  font-size: 14px;
-  margin: 0;
 }
 
 /* 搜索结果区域 */
@@ -744,38 +893,6 @@ const handleSizeChange = async (size) => {
   margin-bottom: 30px;
 }
 
-/* 搜索历史 */
-.search-history {
-  max-width: 600px;
-  margin: 40px auto 0;
-  text-align: left;
-}
-
-.search-history h4 {
-  font-size: 16px;
-  color: #333;
-  margin-bottom: 15px;
-  text-align: center;
-}
-
-.history-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
-  margin-bottom: 15px;
-}
-
-.history-tag {
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.history-tag:hover {
-  background: #409eff;
-  color: white;
-}
-
 /* 无结果状态 */
 .no-results {
   padding: 60px 20px;
@@ -799,7 +916,7 @@ const handleSizeChange = async (size) => {
   text-align: left;
   background: #f8f9fa;
   padding: 20px;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .suggestions p {
@@ -866,7 +983,7 @@ const handleSizeChange = async (size) => {
 .article-item {
   padding: 20px;
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: all 0.3s;
@@ -939,7 +1056,7 @@ const handleSizeChange = async (size) => {
   gap: 15px;
   padding: 20px;
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: all 0.3s;
@@ -1046,7 +1163,7 @@ const handleSizeChange = async (size) => {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -1092,10 +1209,6 @@ const handleSizeChange = async (size) => {
   
   .search-input :deep(.el-input-group__append .el-button) {
     padding: 0 15px;
-  }
-  
-  .history-list {
-    justify-content: flex-start;
   }
 }
 </style>

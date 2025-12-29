@@ -95,54 +95,74 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTagStore } from '@/stores/tag'
 import { useArticleStore } from '@/stores/article'
+import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
-import { ArrowRight, PriceTag, Clock, View, Star } from '@element-plus/icons-vue'
-
-// 组件导入
 import Header from '@/components/layout/Header.vue'
 import Footer from '@/components/layout/Footer.vue'
 import ArticleList from '@/components/article/ArticleList.vue'
 
+// 图标导入
+import { 
+  ArrowRight, Clock, View, Star, 
+  Folder, Document, Collection, Flag,
+  Setting, Share, Help, ChatDotRound 
+} from '@element-plus/icons-vue'
+
 const route = useRoute()
 const router = useRouter()
-
-// Pinia Stores
 const tagStore = useTagStore()
 const articleStore = useArticleStore()
+const userStore = useUserStore()
 
-// 路由参数
-const tagName = ref('')
-const originalTagName = ref('') // 保存原始标签名用于API调用
+// 路由参数（支持ID或名称）
+const tagId = ref(parseInt(route.params.id) || 0)
+const tagName = ref(route.params.name || '')
 
-// 分页和排序
+// 本地状态管理 - 使用 ref
+const tagInfo = ref({})
+const articles = ref([])
+const total = ref(0)
+const loading = ref(false)
+
+// 分页和排序 - 使用 ref
 const currentPage = ref(1)
 const pageSize = ref(10)
 const sortBy = ref('createTime')
 
-// 状态
-const loading = ref(false)
-const tagData = ref(null)
+// 计算属性 - 从 ref 派生
+const displayTagName = computed(() => {
+  if (tagInfo.value.name) return tagInfo.value.name
+  if (tagInfo.value.tagName) return tagInfo.value.tagName
+  return tagName.value || '未知标签'
+})
 
-// 安全解码URL参数
-const safeDecodeURI = (str) => {
-  try {
-    return decodeURIComponent(str)
-  } catch (error) {
-    console.warn('URL解码失败:', str, error)
-    return str
-  }
-}
+const tagDescription = computed(() => {
+  if (tagInfo.value.description) return tagInfo.value.description
+  return '暂无描述'
+})
 
-// 标签详情
-const tagDescription = computed(() => tagData.value?.description || '')
+// 标签图标和颜色
+const tagIcon = computed(() => {
+  const icons = [
+    Collection, Flag, Star, Document,
+    Setting, Share, Help, ChatDotRound,
+    Folder
+  ]
+  return icons[tagId.value % icons.length]
+})
 
-// 文章列表
-const articles = computed(() => articleStore.articles || [])
-const total = computed(() => articleStore.total || 0)
+const tagColor = computed(() => {
+  const colors = [
+    '#409eff', '#67c23a', '#e6a23c', '#f56c6c',
+    '#909399', '#ff69b4', '#9b30ff', '#00bfff',
+    '#32cd32', '#ff4500'
+  ]
+  return colors[tagId.value % colors.length]
+})
 
 // 统计信息（从文章列表中计算）
 const viewCount = computed(() => {
@@ -159,90 +179,39 @@ const commentCount = computed(() => {
 
 // 数字格式化
 const formatNumber = (num) => {
-  if (!num && num !== 0) return 0
-  
-  const number = parseInt(num)
-  if (isNaN(number)) return 0
-  
-  if (number >= 1000000) {
-    return (number / 1000000).toFixed(1) + '百万'
+  if (num >= 10000) {
+    return (num / 10000).toFixed(1) + '万'
   }
-  if (number >= 10000) {
-    return (number / 10000).toFixed(1) + '万'
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1) + '千'
   }
-  if (number >= 1000) {
-    return (number / 1000).toFixed(1) + '千'
-  }
-  return number.toString()
+  return num
 }
-
-// 组件挂载
-onMounted(async () => {
-  await initializeTagPage()
-})
-
-// 初始化标签页面
-const initializeTagPage = async () => {
-  const routeName = route.params.name
-  if (!routeName) {
-    ElMessage.warning('标签名称不能为空')
-    router.push('/tags')
-    return
-  }
-  
-  try {
-    // 安全解码标签名
-    const decodedName = safeDecodeURI(routeName)
-    tagName.value = decodedName
-    originalTagName.value = decodedName
-    
-    await loadTagData()
-  } catch (error) {
-    console.error('初始化标签页面失败:', error)
-    ElMessage.error('加载标签页面失败')
-    router.push('/tags')
-  }
-}
-
-// 监听路由参数变化
-watch(
-  () => route.params.name,
-  async (newName) => {
-    if (newName) {
-      const decodedName = safeDecodeURI(newName)
-      tagName.value = decodedName
-      originalTagName.value = decodedName
-      currentPage.value = 1 // 重置分页
-      await loadTagData()
-    }
-  }
-)
 
 // 加载标签数据
 const loadTagData = async () => {
   try {
     loading.value = true
     
-    // 1. 获取标签详情（通过标签名称）
-    const detailResult = await tagStore.fetchTagDetailByName(tagName.value)
-    
-    if (!detailResult || detailResult.error) {
-      throw new Error('标签不存在或获取失败')
+    // 1. 加载标签详情
+    if (tagName.value) {
+      // 优先使用标签名称获取详情
+      const detail = await tagStore.fetchTagDetailByName(tagName.value)
+      console.log('标签详情:', detail)
+      tagInfo.value = detail.data || detail || {}
+    } else if (tagId.value) {
+      // 如果传的是ID，使用ID获取详情
+      const detail = await tagStore.fetchTagDetail(tagId.value)
+      console.log('标签详情:', detail)
+      tagInfo.value = detail.data || detail || {}
     }
     
-    tagData.value = detailResult
-    
-    // 2. 获取标签下的文章
+    // 2. 加载标签文章
     await loadTagArticles()
     
   } catch (error) {
     console.error('加载标签数据失败:', error)
-    ElMessage.error(error.message || '加载标签数据失败')
-    
-    // 如果获取详情失败，尝试通过标签名获取文章
-    if (tagName.value) {
-      await loadTagArticles()
-    }
+    ElMessage.error('加载标签数据失败: ' + (error.message || '未知错误'))
   } finally {
     loading.value = false
   }
@@ -251,33 +220,101 @@ const loadTagData = async () => {
 // 加载标签文章
 const loadTagArticles = async () => {
   try {
+    // 映射排序参数
+    const sortMapping = {
+      createTime: 'latest',
+      viewCount: 'hot',
+      likeCount: 'likes'
+    }
+    
+    const backendSort = sortMapping[sortBy.value] || 'latest'
+    
     const params = {
       page: currentPage.value,
       size: pageSize.value,
-      sort: sortBy.value,
-      tagName: originalTagName.value
+      sort: backendSort
     }
     
-    // 使用标签名获取文章
-    const result = await tagStore.fetchTagArticles(originalTagName.value, params)
+    console.log('加载标签文章，参数:', params)
     
-    // 更新文章Store
-    if (result && (result.articles || result.list)) {
-      articleStore.setArticles(result.articles || result.list || [])
-      articleStore.total = result.total || result.count || 0
+    let result
+    if (tagName.value) {
+      // 使用标签名称获取文章
+      result = await tagStore.fetchTagArticlesByName(tagName.value, params)
+    } else if (tagId.value) {
+      // 使用标签ID获取文章
+      result = await tagStore.fetchTagArticles(tagId.value, params)
+    }
+    
+    console.log('标签文章返回:', result)
+    
+    // 处理返回数据
+    if (result) {
+      let articlesData = []
+      let totalCount = 0
+      
+      // 尝试多种可能的返回结构
+      if (result.articles !== undefined) {
+        articlesData = result.articles || []
+        totalCount = result.total || 0
+      } else if (result.data && result.data.articles !== undefined) {
+        articlesData = result.data.articles || []
+        totalCount = result.data.total || 0
+      } else if (result.data && result.data.data && result.data.data.articles !== undefined) {
+        articlesData = result.data.data.articles || []
+        totalCount = result.data.data.total || 0
+      } else if (Array.isArray(result)) {
+        articlesData = result
+        totalCount = result.length
+      } else if (Array.isArray(result.data)) {
+        articlesData = result.data
+        totalCount = result.data.length
+      }
+      
+      console.log('提取的文章数据:', articlesData)
+      console.log('文章总数:', totalCount)
+      
+      // 设置到本地状态
+      articles.value = articlesData
+      total.value = totalCount
+      
+      // 设置到store
+      articleStore.setArticles(articlesData)
+      articleStore.total = totalCount
     }
   } catch (error) {
     console.error('加载标签文章失败:', error)
-    ElMessage.error('加载文章列表失败')
     throw error
   }
 }
+
+// 监听路由参数变化
+watch(
+  () => route.params,
+  (newParams) => {
+    if (newParams.name) {
+      tagName.value = newParams.name
+      tagId.value = 0 // 重置ID
+      currentPage.value = 1
+      articles.value = [] // 清空旧文章
+      tagInfo.value = {} // 清空旧标签信息
+      loadTagData()
+    } else if (newParams.id) {
+      tagId.value = parseInt(newParams.id)
+      tagName.value = '' // 重置名称
+      currentPage.value = 1
+      articles.value = []
+      tagInfo.value = {}
+      loadTagData()
+    }
+  }
+)
 
 // 监听分页和排序变化
 watch(
   [currentPage, sortBy],
   () => {
-    if (tagName.value) {
+    if (tagName.value || tagId.value) {
       loadTagArticles()
     }
   }
@@ -287,12 +324,19 @@ watch(
 watch(
   pageSize,
   () => {
-    if (tagName.value) {
+    if (tagName.value || tagId.value) {
       currentPage.value = 1
       loadTagArticles()
     }
   }
 )
+
+// 组件挂载
+onMounted(() => {
+  if (tagName.value || tagId.value) {
+    loadTagData()
+  }
+})
 
 // 排序改变
 const handleSortChange = () => {
@@ -313,6 +357,17 @@ const handlePageChange = (page) => {
 // 每页数量改变
 const handleSizeChange = (size) => {
   pageSize.value = size
+}
+
+// 跳转到写文章页面
+const toWriteArticle = () => {
+  if (!userStore.isLoggedIn()) {
+    ElMessage.warning('请先登录后再发布文章')
+    router.push('/')
+    return
+  }
+  
+  router.push('/article/create')
 }
 </script>
 

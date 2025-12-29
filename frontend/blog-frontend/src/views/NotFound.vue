@@ -5,7 +5,7 @@
     
     <div class="error-container">
       <div class="error-content">
-        <!-- 404动画/图标 -->
+        <!-- 404图标 -->
         <div class="error-icon">
           <svg width="200" height="200" viewBox="0 0 24 24" fill="none">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
@@ -23,13 +23,13 @@
           
           <!-- 返回按钮组 -->
           <div class="action-buttons">
-            <el-button type="primary" @click="goHome" :icon="HomeFilled" size="large">
+            <el-button type="primary" @click="goHome" size="large">
+              <el-icon><HomeFilled /></el-icon>
               返回首页
             </el-button>
-            <el-button @click="goBack" :icon="Back" size="large">
-              返回上一页
-            </el-button>
-            <el-button @click="goToSearch" :icon="Search" size="large">
+            
+            <el-button @click="goToSearch" size="large">
+              <el-icon><Search /></el-icon>
               搜索内容
             </el-button>
           </div>
@@ -38,20 +38,25 @@
           <div class="quick-links">
             <h3>快速导航</h3>
             <div class="link-items">
-              <a @click="goToArticles">📝 浏览文章</a>
-              <a @click="goToCategories">📂 查看分类</a>
-              <a @click="goToTags">🏷️ 标签云</a>
-              <a @click="goToArchives">📅 文章归档</a>
+              <el-button type="text" @click="goToArticles">
+                <el-icon><Document /></el-icon>
+                浏览文章
+              </el-button>
+              <el-button type="text" @click="goToCategories">
+                <el-icon><Folder /></el-icon>
+                查看分类
+              </el-button>
+              <el-button type="text" @click="goToTags">
+                <el-icon><CollectionTag /></el-icon>
+                标签云
+              </el-button>
+              <el-button type="text" @click="goToArchives">
+                <el-icon><Calendar /></el-icon>
+                文章归档
+              </el-button>
             </div>
           </div>
         </div>
-      </div>
-      
-      <!-- 装饰元素 -->
-      <div class="decoration">
-        <div class="circle circle-1"></div>
-        <div class="circle circle-2"></div>
-        <div class="circle circle-3"></div>
       </div>
     </div>
     
@@ -62,7 +67,14 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
-import { HomeFilled, Back, Search } from '@element-plus/icons-vue'
+import { 
+  HomeFilled, 
+  Search, 
+  Document, 
+  Folder, 
+  CollectionTag, 
+  Calendar 
+} from '@element-plus/icons-vue'
 
 // 组件导入
 import Header from '@/components/layout/Header.vue'
@@ -72,14 +84,6 @@ const router = useRouter()
 
 const goHome = () => {
   router.push('/')
-}
-
-const goBack = () => {
-  if (window.history.length > 1) {
-    router.go(-1)
-  } else {
-    router.push('/')
-  }
 }
 
 const goToSearch = () => {
@@ -108,7 +112,7 @@ const goToArchives = () => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: #f8f9fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
@@ -118,8 +122,6 @@ const goToArchives = () => {
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
-  position: relative;
-  overflow: hidden;
 }
 
 .error-content {
@@ -130,37 +132,32 @@ const goToArchives = () => {
   max-width: 800px;
   padding: 40px;
   background: white;
-  border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  position: relative;
-  z-index: 2;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   animation: fadeIn 0.8s ease-out;
 }
 
 .error-icon {
   margin-bottom: 30px;
-  animation: float 3s ease-in-out infinite;
 }
 
 .error-text h1 {
-  font-size: 120px;
+  font-size: 100px;
   font-weight: 800;
   margin: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #333;
   line-height: 1;
 }
 
 .error-text h2 {
-  font-size: 32px;
+  font-size: 28px;
   color: #333;
   margin: 10px 0 15px;
   font-weight: 600;
 }
 
 .error-description {
-  font-size: 18px;
+  font-size: 16px;
   color: #666;
   line-height: 1.6;
   margin-bottom: 40px;
@@ -176,20 +173,10 @@ const goToArchives = () => {
 }
 
 .action-buttons .el-button {
-  min-width: 160px;
+  min-width: 140px;
   padding: 12px 30px;
-  border-radius: 50px;
+  border-radius: 8px;
   font-size: 16px;
-  transition: all 0.3s ease;
-}
-
-.action-buttons .el-button:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 5px 20px rgba(64, 158, 255, 0.3);
-}
-
-.action-buttons .el-button:active {
-  transform: translateY(0);
 }
 
 .quick-links {
@@ -201,80 +188,26 @@ const goToArchives = () => {
 }
 
 .quick-links h3 {
-  font-size: 18px;
+  font-size: 16px;
   color: #333;
   margin-bottom: 20px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .link-items {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 20px;
+  gap: 15px;
 }
 
-.link-items a {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background: #f8f9fa;
-  border-radius: 50px;
+.link-items .el-button {
+  padding: 10px 20px;
   color: #409eff;
-  text-decoration: none;
-  font-size: 16px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  border: 1px solid transparent;
 }
 
-.link-items a:hover {
-  background: #409eff;
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(64, 158, 255, 0.3);
-}
-
-/* 装饰元素 */
-.decoration {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
-
-.circle {
-  position: absolute;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-  animation: float 6s ease-in-out infinite;
-}
-
-.circle-1 {
-  width: 300px;
-  height: 300px;
-  top: 10%;
-  left: 5%;
-  animation-delay: 0s;
-}
-
-.circle-2 {
-  width: 200px;
-  height: 200px;
-  bottom: 15%;
-  right: 10%;
-  animation-delay: 2s;
-}
-
-.circle-3 {
-  width: 150px;
-  height: 150px;
-  top: 50%;
-  left: 80%;
-  animation-delay: 4s;
+.link-items .el-button:hover {
+  background-color: #f0f7ff;
 }
 
 /* 动画 */
@@ -286,15 +219,6 @@ const goToArchives = () => {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-20px);
   }
 }
 
@@ -314,7 +238,7 @@ const goToArchives = () => {
   }
   
   .error-description {
-    font-size: 16px;
+    font-size: 14px;
   }
   
   .action-buttons {
@@ -332,16 +256,10 @@ const goToArchives = () => {
     align-items: center;
   }
   
-  .link-items a {
+  .link-items .el-button {
     width: 100%;
     max-width: 280px;
     justify-content: center;
-  }
-  
-  .circle-1,
-  .circle-2,
-  .circle-3 {
-    display: none;
   }
 }
 
@@ -352,11 +270,6 @@ const goToArchives = () => {
   
   .error-text h2 {
     font-size: 20px;
-  }
-  
-  .action-buttons .el-button {
-    padding: 10px 20px;
-    font-size: 14px;
   }
 }
 </style>

@@ -5,15 +5,41 @@ export const getAllTags = () => {
   return request.get('/api/tags')
 }
 
-// 标签详情
+// 标签详情（通过ID）
 export const getTagDetail = (id) => {
   return request.get(`/api/tags/${id}`)
 }
 
-// 标签下的文章
+// 标签详情（通过名称） - 新增
+export const getTagDetailByName = (name) => {
+  return request.get(`/api/tags/name/${name}/detail`)
+}
+
+// 标签下的文章（通过ID）
 export const getTagArticles = (id, params = {}) => {
   return request.get(`/api/tags/${id}/articles`, { 
     params: { page: 1, size: 10, ...params }
+  })
+}
+
+// 标签下的文章（通过名称） - 新增
+export const getTagArticlesByName = (name, params = {}) => {
+  // 映射排序参数
+  const sortMapping = {
+    createTime: 'latest',
+    viewCount: 'hot',
+    likeCount: 'likes'
+  }
+  
+  const mappedParams = {
+    page: params.page || 1,
+    size: params.size || 15,
+    sort: sortMapping[params.sort] || 'latest',
+    ...params
+  }
+  
+  return request.get(`/api/tags/name/${name}/articles`, { 
+    params: mappedParams
   })
 }
 
@@ -32,7 +58,7 @@ export const deleteTag = (id) => {
   return request.delete(`/api/tags/${id}`)
 }
 
-// 获取标签云数据（如果后端有专门接口）
+// 获取标签云数据
 export const getTagCloud = () => {
   return request.get('/api/tags/cloud')
 }

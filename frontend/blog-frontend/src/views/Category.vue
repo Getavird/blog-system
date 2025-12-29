@@ -127,11 +127,25 @@ const pageSize = ref(10)
 const sortBy = ref('createTime')
 
 // 计算属性
-const categoryName = computed(() => categoryStore.currentCategory?.name || '未知分类')
-const categoryDescription = computed(() => categoryStore.currentCategory?.description || '')
-const loading = computed(() => categoryStore.loading || articleStore.articlesLoading)
-const articles = computed(() => articleStore.articles || [])
-const total = computed(() => articleStore.total || 0)
+const categoryInfo = ref({})
+const categoryName = computed(() => {
+  // 尝试从不同地方获取分类名称
+  if (categoryInfo.value.name) return categoryInfo.value.name
+  if (categoryInfo.value.categoryName) return categoryInfo.value.categoryName
+  if (categoryInfo.value.category && categoryInfo.value.category.name) 
+    return categoryInfo.value.category.name
+  return '未知分类'
+})
+
+const categoryDescription = computed(() => {
+  if (categoryInfo.value.description) return categoryInfo.value.description
+  if (categoryInfo.value.category && categoryInfo.value.category.description)
+    return categoryInfo.value.category.description
+  return '暂无描述'
+})
+const loading = ref(false)
+const articles = ref([])
+const total = ref(0)
 
 // 分类图标和颜色
 const categoryIcon = computed(() => {
@@ -179,29 +193,60 @@ const formatNumber = (num) => {
 // 加载分类数据
 const loadCategoryData = async () => {
   try {
+    loading.value = true  
+    
     // 1. 加载分类详情
     if (categoryId.value) {
-      await categoryStore.fetchCategoryDetail(categoryId.value)
+      const detail = await categoryStore.fetchCategoryDetail(categoryId.value)
+      console.log('分类详情:', detail)
+      // 设置分类信息到 ref，不是 computed
+      categoryInfo.value = detail.data || detail || {}
     }
     
-    // 2. 加载该分类下的文章
+    // 2. 构建请求参数
+    const sortMapping = {
+      createTime: 'latest',
+      viewCount: 'hot',
+      likeCount: 'likes'
+    }
+    
+    const backendSort = sortMapping[sortBy.value] || 'latest'
+    
     const params = {
       page: currentPage.value,
       size: pageSize.value,
-      sort: sortBy.value
+      sort: backendSort
     }
     
+    console.log('请求参数:', params)
+    
+    // 3. 加载分类文章
     const result = await categoryStore.fetchCategoryArticles(categoryId.value, params)
     
-    // 3. 将分类文章同步到文章Store
-    if (result?.articles || result?.list) {
-      const categoryArticles = result.articles || result.list || []
-      articleStore.setArticles(categoryArticles)
-      articleStore.total = result.total || result.count || 0
+    console.log('API返回结果:', result)
+    
+    // 4. 直接使用 result.articles 和 result.total
+    const articlesData = result?.articles || []
+    const totalCount = result?.total || 0
+    
+    console.log('文章数据:', articlesData)
+    console.log('文章总数:', totalCount)
+    
+    // 设置到本地状态 - 使用 ref，不是 computed
+    articles.value = articlesData
+    total.value = totalCount
+    
+    // 如果需要，也设置到store
+    if (articleStore && articleStore.setArticles) {
+      articleStore.setArticles(articlesData)
+      articleStore.total = totalCount
     }
+    
   } catch (error) {
     console.error('加载分类数据失败:', error)
-    ElMessage.error('加载分类数据失败')
+    ElMessage.error('加载失败: ' + (error.message || '未知错误'))
+  } finally {
+    loading.value = false
   }
 }
 

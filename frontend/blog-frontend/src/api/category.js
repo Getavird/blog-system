@@ -5,13 +5,21 @@ export const getCategories = () => {
 }
 
 export const getCategoryDetail = (id) => {
-  return request.get(`/api/categories/${id}`)
+  return request.get(`/api/categories/${id}/detail`)
 }
 
 // 获取分类下的文章
 export const getCategoryArticles = (id, params = {}) => {
+  const requestParams = {
+    page: params.page || 1,
+    size: params.size || 15,
+    sort: params.sort || 'latest'
+  }
+  
+  console.log('发送分类文章请求，参数:', requestParams) 
+  
   return request.get(`/api/categories/${id}/articles`, { 
-    params: { page: 1, size: 10, sort: 'createTime', ...params }
+    params: requestParams
   })
 }
 

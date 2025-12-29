@@ -35,7 +35,6 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('未处理的Promise错误:', event.reason)
 })
 
-
 app.use(router)
 app.use(ElementPlus)
 

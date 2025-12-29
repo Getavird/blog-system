@@ -16,9 +16,9 @@
             <el-skeleton :rows="6" animated />
           </div>
           
-          <div v-else-if="categoriesWithStats.length > 0" class="categories-grid">
+          <div v-else-if="categories.length > 0" class="categories-grid">
             <div 
-              v-for="category in categoriesWithStats" 
+              v-for="category in categories" 
               :key="category.id"
               class="category-card"
               @click="viewCategory(category.id)"
@@ -31,16 +31,6 @@
               <div class="category-content">
                 <h3 class="category-title">{{ category.name }}</h3>
                 <p class="category-description">{{ category.description || '暂无描述' }}</p>
-                <div class="category-stats">
-                  <span class="stat-item">
-                    <el-icon><Document /></el-icon>
-                    {{ category.articleCount || 0 }} 篇文章
-                  </span>
-                  <span class="stat-item">
-                    <el-icon><View /></el-icon>
-                    {{ formatNumber(category.viewCount || 0) }} 次阅读
-                  </span>
-                </div>
               </div>
               <div class="category-arrow">
                 <el-icon><ArrowRight /></el-icon>
@@ -76,9 +66,6 @@
         <el-form-item label="分类描述" prop="description">
           <el-input v-model="newCategory.description" type="textarea" rows="3" placeholder="请输入分类描述" />
         </el-form-item>
-        <el-form-item label="排序权重" prop="sort">
-          <el-input-number v-model="newCategory.sort" :min="0" :max="999" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -95,9 +82,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCategoryStore } from '@/stores/category'
 import { useUserStore } from '@/stores/user'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { 
-  ArrowRight, Folder, Document, View, 
+  ArrowRight, Folder,
   Grid, Collection, Flag, Star, 
   Setting, Share, Help, ChatDotRound 
 } from '@element-plus/icons-vue'
@@ -120,8 +107,7 @@ const categoryFormRef = ref(null)
 // 新分类数据
 const newCategory = ref({
   name: '',
-  description: '',
-  sort: 0
+  description: ''
 })
 
 // 验证规则
@@ -136,24 +122,12 @@ const categoryRules = {
 const categories = computed(() => categoryStore.categories || [])
 const isAdmin = computed(() => userStore.user?.role === 1)
 
-// 处理分类统计信息
-const categoriesWithStats = computed(() => {
-  return categories.value.map(category => ({
-    ...category,
-    articleCount: category.articleCount || category.count || 0,
-    viewCount: category.viewCount || 0,
-    // 添加图标和颜色
-    icon: getCategoryIcon(category.id),
-    color: getCategoryColor(category.id)
-  }))
-})
-
 // 获取分类图标（基于分类ID选择）
 const getCategoryIcon = (id) => {
   const icons = [
-    Document, Collection, Flag, Star, 
+    Collection, Flag, Star, Grid,
     Setting, Share, Help, ChatDotRound,
-    Grid, Folder
+    Folder
   ]
   return icons[id % icons.length]
 }
@@ -166,17 +140,6 @@ const getCategoryColor = (id) => {
     '#32cd32', '#ff4500'
   ]
   return colors[id % colors.length]
-}
-
-// 格式化数字
-const formatNumber = (num) => {
-  if (num >= 10000) {
-    return (num / 10000).toFixed(1) + '万'
-  }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(1) + '千'
-  }
-  return num
 }
 
 // 组件挂载
@@ -240,8 +203,7 @@ const resetCategoryForm = () => {
   }
   newCategory.value = {
     name: '',
-    description: '',
-    sort: 0
+    description: ''
   }
 }
 </script>
@@ -329,10 +291,6 @@ const resetCategoryForm = () => {
   justify-content: center;
 }
 
-.category-icon .el-icon {
-  color: #666;
-}
-
 .category-content {
   flex: 1;
   min-width: 0;
@@ -349,7 +307,6 @@ const resetCategoryForm = () => {
   color: #666;
   font-size: 14px;
   line-height: 1.5;
-  margin-bottom: 12px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -393,24 +350,9 @@ const resetCategoryForm = () => {
   color: #666;
 }
 
-.category-stats {
-  display: flex;
-  gap: 15px;
-  margin-top: 10px;
-}
-
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #666;
-}
-
 .empty-content .create-button {
   margin-top: 15px;
 }
-
 
 /* 响应式设计 */
 @media (max-width: 992px) {
@@ -446,11 +388,6 @@ const resetCategoryForm = () => {
 
   .categories-grid {
     grid-template-columns: 1fr;
-  }
-  
-  .category-stats {
-    flex-direction: column;
-    gap: 5px;
   }
 }
 </style>

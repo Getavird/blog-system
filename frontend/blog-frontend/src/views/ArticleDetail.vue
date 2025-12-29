@@ -13,84 +13,87 @@
     <!-- 文章内容 -->
     <div v-else-if="article" class="article-container">
       <div class="container">
-        <!-- 文章头部 -->
-        <div class="article-header">
-          <!-- 面包屑导航 -->
-          <div class="breadcrumb">
-            <router-link to="/">首页</router-link>
-            <el-icon><ArrowRight /></el-icon>
-            <span v-if="article.category">{{ article.category.name }}</span>
-            <el-icon><ArrowRight /></el-icon>
-            <span class="current">{{ article.title }}</span>
-          </div>
-          
-          <!-- 文章标题 -->
-          <h1 class="article-title">{{ article.title }}</h1>
-          
-          <!-- 文章元信息 -->
-          <div class="article-meta">
-            <!-- 作者信息（可点击） -->
-            <div class="author-info" @click="goToAuthorPage">
-              <div class="author-avatar">
-                <img v-if="article.authorAvatar" :src="article.authorAvatar" alt="作者头像">
-                <div v-else class="avatar-placeholder">
-                  {{ article.authorName ? article.authorName.charAt(0) : 'A' }}
+        <!-- 左中右三栏布局 -->
+        <div class="article-body">
+          <!-- 左侧：作者模块（固定不滚动） -->
+          <aside class="left-sidebar">
+            <div class="author-card" @click="goToAuthorPage">
+              <div class="author-header">
+                <div class="author-avatar-large">
+                  <img v-if="article.avatar" :src="article.avatar" alt="作者头像">
+                  <div v-else class="avatar-placeholder-large">
+                    {{ article.username ? article.username.charAt(0) : 'A' }}
+                  </div>
+                </div>
+                <h3 class="author-name">{{ article.username }}</h3>
+                <p class="author-bio" v-if="article.bio">{{ article.bio }}</p>
+              </div>
+              <div class="author-stats">
+                <div class="stat-item">
+                  <div class="stat-number">{{ article.articleCount || 0 }}</div>
+                  <div class="stat-label">文章</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-number">{{ article.totalLikeCount || 0 }}</div>
+                  <div class="stat-label">获赞</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-number">{{ article.fansCount || 0 }}</div>
+                  <div class="stat-label">粉丝</div>
                 </div>
               </div>
-              <div class="author-details">
-                <div class="author-name">{{ article.authorName }}</div>
-                <div class="meta-items">
-                  <span class="meta-item">
-                    <el-icon><Calendar /></el-icon>
-                    {{ formatTime(article.createTime) }}
-                  </span>
-                  <span class="meta-item">
-                    <el-icon><View /></el-icon>
-                    {{ article.viewCount || 0 }} 阅读
-                  </span>
-                  <span class="meta-item">
-                    <el-icon><ChatDotRound /></el-icon>
-                    {{ article.commentCount || 0 }} 评论
-                  </span>
-                </div>
+              <el-button 
+                v-if="!isArticleAuthor && isLoggedIn"
+                :type="article.isFollowing ? 'default' : 'primary'"
+                size="small"
+                @click.stop="toggleFollow"
+                :loading="followLoading"
+                class="follow-btn"
+              >
+                {{ article.isFollowing ? '已关注' : '关注作者' }}
+              </el-button>
+            </div>
+          </aside>
+          
+          <!-- 中间：文章模块 -->
+          <main class="main-content">
+            <!-- 面包屑导航 -->
+            <div class="breadcrumb">
+              <router-link to="/">首页</router-link>
+              <el-icon><ArrowRight /></el-icon>
+              <span v-if="article.category">{{ article.category.name }}</span>
+              <el-icon><ArrowRight /></el-icon>
+              <span class="current">{{ article.title }}</span>
+            </div>
+            
+            <!-- 文章标题 -->
+            <h1 class="article-title">{{ article.title }}</h1>
+            
+            <!-- 文章信息（标题下面） -->
+            <div class="article-info">
+              <div class="info-item">
+                <el-icon><Calendar /></el-icon>
+                <span>{{ formatTime(article.createTime) }}</span>
+              </div>
+              <div class="info-item">
+                <el-icon><View /></el-icon>
+                <span>{{ article.viewCount || 0 }} 阅读</span>
+              </div>
+              <div class="info-item">
+                <el-icon><ChatDotRound /></el-icon>
+                <span>{{ article.commentCount || 0 }} 评论</span>
+              </div>
+              <div class="info-item">
+                <el-icon><Star /></el-icon>
+                <span>{{ article.likeCount || 0 }} 点赞</span>
               </div>
             </div>
             
-            <!-- 操作按钮 -->
-            <div class="action-buttons">
-              <el-button 
-                v-if="isArticleAuthor && isLoggedIn"
-                type="primary" 
-                size="small"
-                @click="editArticle"
-                class="edit-btn"
-              >
-                <el-icon><Edit /></el-icon>
-                编辑
-              </el-button>
-              <el-button 
-                :type="article.isLiked ? 'danger' : 'default'" 
-                size="small"
-                @click="toggleLike"
-                :loading="likeLoading"
-                :disabled="!isLoggedIn"
-                class="like-btn"
-              >
-                <el-icon><Star /></el-icon>
-                {{ article.isLiked ? '已点赞' : '点赞' }} ({{ article.likeCount || 0 }})
-              </el-button>
+            <!-- 文章封面 -->
+            <div v-if="article.coverImage" class="article-cover">
+              <img :src="article.coverImage" :alt="article.title" />
             </div>
-          </div>
-          
-          <!-- 文章封面 -->
-          <div v-if="article.coverImage" class="article-cover">
-            <img :src="article.coverImage" :alt="article.title" />
-          </div>
-        </div>
-        
-        <!-- 文章主体 -->
-        <div class="article-body">
-          <div class="content-wrapper">
+            
             <!-- 文章分类和标签 -->
             <div class="article-tags">
               <el-tag 
@@ -126,11 +129,11 @@
               
               <!-- 版权声明 -->
               <div class="copyright">
-                <p>© 本文由 {{ article.authorName }} 发布，转载请注明出处</p>
+                <p>© 本文由 {{ article.username }} 发布，转载请注明出处</p>
               </div>
             </div>
             
-            <!-- 互动操作 -->
+            <!-- 点赞操作 -->
             <div class="interaction-actions">
               <el-button 
                 :type="article.isLiked ? 'danger' : 'primary'" 
@@ -143,51 +146,127 @@
                 <el-icon><Star /></el-icon>
                 {{ article.isLiked ? '已点赞' : '点赞' }} ({{ article.likeCount || 0 }})
               </el-button>
-            </div>
-          </div>
-          
-          <!-- 侧边栏 -->
-          <aside class="sidebar">
-            <!-- 作者信息卡片（可点击） -->
-            <div class="author-card" @click="goToAuthorPage">
-              <div class="author-header">
-                <div class="author-avatar-large">
-                  <img v-if="article.authorAvatar" :src="article.authorAvatar" alt="作者头像">
-                  <div v-else class="avatar-placeholder-large">
-                    {{ article.authorName ? article.authorName.charAt(0) : 'A' }}
-                  </div>
-                </div>
-                <h3 class="author-name">{{ article.authorName }}</h3>
-                <p class="author-bio" v-if="article.authorBio">{{ article.authorBio }}</p>
-              </div>
-              <div class="author-stats">
-                <div class="stat-item">
-                  <div class="stat-number">{{ article.authorArticleCount || 0 }}</div>
-                  <div class="stat-label">文章</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-number">{{ article.authorLikeCount || 0 }}</div>
-                  <div class="stat-label">获赞</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-number">{{ article.authorFansCount || 0 }}</div>
-                  <div class="stat-label">粉丝</div>
-                </div>
-              </div>
+              
+              <!-- 编辑按钮（如果是作者） -->
               <el-button 
-                v-if="!isArticleAuthor && isLoggedIn"
-                :type="article.isFollowing ? 'default' : 'primary'"
-                size="small"
-                @click.stop="toggleFollow"
-                :loading="followLoading"
-                class="follow-btn"
+                v-if="isArticleAuthor && isLoggedIn"
+                type="primary" 
+                size="large"
+                @click="editArticle"
+                class="edit-btn"
               >
-                {{ article.isFollowing ? '已关注' : '关注作者' }}
+                <el-icon><Edit /></el-icon>
+                编辑文章
               </el-button>
             </div>
             
-            <!-- 目录导航 -->
-            <div v-if="showToc" class="toc-card">
+            <!-- 评论区域 -->
+            <div class="comments-section">
+              <div class="comments-wrapper">
+                <h2 class="comments-title">
+                  <el-icon><ChatDotRound /></el-icon>
+                  评论 ({{ article.commentCount || 0 }})
+                </h2>
+                
+                <!-- 登录提示 -->
+                <div v-if="!isLoggedIn" class="login-prompt">
+                  <p>请先<a href="javascript:;" @click="showLogin = true">登录</a>后发表评论</p>
+                </div>
+                
+                <!-- 发表评论 -->
+                <div v-else class="comment-form-card">
+                  <div class="form-header">
+                    <div class="user-avatar">
+                      <img v-if="currentUserAvatar" :src="currentUserAvatar" alt="用户头像">
+                      <div v-else class="avatar-placeholder-small">
+                        {{ currentUserName ? currentUserName.charAt(0) : 'U' }}
+                      </div>
+                    </div>
+                    <div class="form-title">发表评论</div>
+                  </div>
+                  <el-input
+                    v-model="commentContent"
+                    type="textarea"
+                    :rows="4"
+                    placeholder="写下你的评论..."
+                    resize="none"
+                    class="comment-textarea"
+                    maxlength="500"
+                    show-word-limit
+                  />
+                  <div class="form-actions">
+                    <el-button @click="cancelComment">取消</el-button>
+                    <el-button 
+                      type="primary" 
+                      @click="submitComment"
+                      :loading="commentLoading"
+                      :disabled="!commentContent.trim()"
+                    >
+                      发表评论
+                    </el-button>
+                  </div>
+                </div>
+                
+                <!-- 评论列表 -->
+                <div v-if="comments.length > 0" class="comments-list">
+                  <div 
+                    v-for="comment in comments" 
+                    :key="comment.id"
+                    class="comment-item"
+                  >
+                    <div class="comment-header">
+                      <div class="comment-author" @click="goToUserPage(comment.userId, comment.username)">
+                        <div class="comment-avatar">
+                          <img v-if="comment.avatar" :src="comment.avatar" alt="用户头像">
+                          <div v-else class="avatar-placeholder-small">
+                            {{ comment.username ? comment.username.charAt(0) : 'U' }}
+                          </div>
+                        </div>
+                        <div class="comment-author-info">
+                          <div class="comment-author-name">{{ comment.username }}</div>
+                          <div class="comment-time">{{ formatTime(comment.createTime) }}</div>
+                        </div>
+                      </div>
+                      <!-- 关键修复：使用 checkCommentOwnership 方法 -->
+                      <div v-if="checkCommentOwnership(comment)" class="comment-actions">
+                        <el-button type="text" @click="editComment(comment)">编辑</el-button>
+                        <el-button type="text" @click="deleteComment(comment.id)">删除</el-button>
+                      </div>
+                    </div>
+                    <div class="comment-content">{{ comment.content }}</div>
+                    <div class="comment-footer">
+                      <el-button 
+                        type="text" 
+                        size="small"
+                        @click="replyToComment(comment)"
+                        :disabled="!isLoggedIn"
+                      >
+                        回复
+                      </el-button>
+                      <el-button 
+                        type="text" 
+                        size="small"
+                        :class="{ 'liked': comment.isLiked }"
+                        @click="likeComment(comment)"
+                        :disabled="!isLoggedIn"
+                      >
+                        <el-icon><Star /></el-icon>
+                        {{ comment.likeCount || 0 }}
+                      </el-button>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="no-comments">
+                  <el-icon size="40" color="#c0c4cc"><Comment /></el-icon>
+                  <p>还没有评论，快来抢沙发吧～</p>
+                </div>
+              </div>
+            </div>
+          </main>
+          
+          <!-- 右侧：目录导航 -->
+          <aside v-if="showToc" class="right-sidebar">
+            <div class="toc-card">
               <h3 class="toc-title">
                 <el-icon><Menu /></el-icon>
                 文章目录
@@ -217,111 +296,6 @@
         <el-button type="primary" @click="$router.push('/')">
           返回首页
         </el-button>
-      </div>
-    </div>
-    
-    <!-- 评论区域 -->
-    <div v-if="article && !loading" class="comments-section">
-      <div class="container">
-        <div class="comments-wrapper">
-          <h2 class="comments-title">
-            <el-icon><ChatDotRound /></el-icon>
-            评论 ({{ article.commentCount || 0 }})
-          </h2>
-          
-          <!-- 登录提示 -->
-          <div v-if="!isLoggedIn" class="login-prompt">
-            <p>请先<a href="javascript:;" @click="showLogin = true">登录</a>后发表评论</p>
-          </div>
-          
-          <!-- 发表评论 -->
-          <div v-else class="comment-form-card">
-            <div class="form-header">
-              <div class="user-avatar">
-                <img v-if="currentUserAvatar" :src="currentUserAvatar" alt="用户头像">
-                <div v-else class="avatar-placeholder-small">
-                  {{ currentUserName ? currentUserName.charAt(0) : 'U' }}
-                </div>
-              </div>
-              <div class="form-title">发表评论</div>
-            </div>
-            <el-input
-              v-model="commentContent"
-              type="textarea"
-              :rows="4"
-              placeholder="写下你的评论..."
-              resize="none"
-              class="comment-textarea"
-              maxlength="500"
-              show-word-limit
-            />
-            <div class="form-actions">
-              <el-button @click="cancelComment">取消</el-button>
-              <el-button 
-                type="primary" 
-                @click="submitComment"
-                :loading="commentLoading"
-                :disabled="!commentContent.trim()"
-              >
-                发表评论
-              </el-button>
-            </div>
-          </div>
-          
-          <!-- 评论列表 -->
-          <div v-if="comments.length > 0" class="comments-list">
-            <div 
-              v-for="comment in comments" 
-              :key="comment.id"
-              class="comment-item"
-            >
-              <div class="comment-header">
-                <div class="comment-author" @click="goToUserPage(comment.userId, comment.userName)">
-                  <div class="comment-avatar">
-                    <img v-if="comment.userAvatar" :src="comment.userAvatar" alt="用户头像">
-                    <div v-else class="avatar-placeholder-small">
-                      {{ comment.userName ? comment.userName.charAt(0) : 'U' }}
-                    </div>
-                  </div>
-                  <div class="comment-author-info">
-                    <div class="comment-author-name">{{ comment.userName }}</div>
-                    <div class="comment-time">{{ formatTime(comment.createTime) }}</div>
-                  </div>
-                </div>
-                <!-- 关键修复：使用 checkCommentOwnership 方法 -->
-                <div v-if="checkCommentOwnership(comment)" class="comment-actions">
-                  <el-button type="text" @click="editComment(comment)">编辑</el-button>
-                  <el-button type="text" @click="deleteComment(comment.id)">删除</el-button>
-                </div>
-              </div>
-              <div class="comment-content">{{ comment.content }}</div>
-              <div class="comment-footer">
-                <el-button 
-                  type="text" 
-                  size="small"
-                  @click="replyToComment(comment)"
-                  :disabled="!isLoggedIn"
-                >
-                  回复
-                </el-button>
-                <el-button 
-                  type="text" 
-                  size="small"
-                  :class="{ 'liked': comment.isLiked }"
-                  @click="likeComment(comment)"
-                  :disabled="!isLoggedIn"
-                >
-                  <el-icon><Star /></el-icon>
-                  {{ comment.likeCount || 0 }}
-                </el-button>
-              </div>
-            </div>
-          </div>
-          <div v-else class="no-comments">
-            <el-icon size="40" color="#c0c4cc"><Comment /></el-icon>
-            <p>还没有评论，快来抢沙发吧～</p>
-          </div>
-        </div>
       </div>
     </div>
     
@@ -449,25 +423,18 @@ const loadArticleDetail = async () => {
     // 1. 加载文章详情
     await articleStore.fetchArticleDetail(articleId.value)
     
-    // 2. 增加阅读量（使用 try-catch 包装，避免失败影响后续）
-    try {
-      await articleStore.incrementViewCount(articleId.value)
-    } catch (error) {
-      console.warn('增加阅读量失败（可能接口不存在）:', error.message)
-      // 不显示错误提示，避免干扰用户体验
-    }
+    // 2. 不需要单独调用阅读量接口，因为 GET /api/articles/{id} 已经返回了最新的阅读量
     
     // 3. 加载文章评论
     await loadArticleComments()
     
-    // 4. 检查当前用户是否关注了作者（如果有作者ID且不是文章作者）
+    // 4. 检查当前用户是否关注了作者
     if (isLoggedIn.value && article.value && article.value.authorId && !isArticleAuthor.value) {
       try {
         const isFollowing = await followStore.checkFollowStatus(article.value.authorId)
         article.value.isFollowing = isFollowing
       } catch (error) {
         console.error('检查关注状态失败:', error)
-        // 忽略关注状态检查失败的错误
       }
     }
     
@@ -588,7 +555,6 @@ const toggleLike = async () => {
   }
 }
 
-
 // 关注作者
 const toggleFollow = async () => {
   if (!isLoggedIn.value) {
@@ -617,8 +583,8 @@ const toggleFollow = async () => {
     
     // 更新本地状态
     article.value.isFollowing = newStatus
-    article.value.authorFansCount = article.value.authorFansCount || 0
-    article.value.authorFansCount += newStatus ? 1 : -1
+    article.value.fansCount = article.value.fansCount || 0
+    article.value.fansCount += newStatus ? 1 : -1
     
   } catch (error) {
     console.error('操作关注失败:', error)
@@ -665,36 +631,32 @@ const goToTag = (tagId) => {
   }
 }
 
-// 跳转到作者主页
+// 跳转到作者主页 - 使用 username
 const goToAuthorPage = () => {
   if (!article.value) return
   
   console.log('跳转到作者主页，作者信息:', {
-    username: article.value.authorUsername,
-    authorName: article.value.authorName,
+    username: article.value.username,
     authorId: article.value.authorId
   })
   
-  // 优先使用 username，因为路由是 /user/:username
-  if (article.value.authorUsername) {
-    router.push(`/user/${encodeURIComponent(article.value.authorUsername)}`)
+  // 使用 username 跳转到用户主页
+  if (article.value.username) {
+    router.push(`/user/${encodeURIComponent(article.value.username)}`)
   } else {
-    console.warn('无法获取作者信息，无法跳转')
+    console.warn('无法获取作者用户名，无法跳转')
     ElMessage.warning('无法获取作者信息')
   }
 }
 
-
-// 跳转到用户主页
+// 跳转到用户主页 - 评论作者点击
 const goToUserPage = (userId, username) => {
   // 优先使用 username
   if (username) {
     router.push(`/user/${encodeURIComponent(username)}`)
   } else {
-    // 如果评论数据中没有 username，可以尝试通过 userId 获取
-    // 或者显示提示
     console.warn('无法跳转：缺少用户名')
-    ElMessage.warning('无法跳转到用户主页：缺少用户信息')
+    ElMessage.warning('无法跳转到用户主页')
   }
 }
 
@@ -805,7 +767,7 @@ const replyToComment = (comment) => {
     return
   }
   
-  commentContent.value = `@${comment.userName} `
+  commentContent.value = `@${comment.username} `
   // 聚焦到评论框
   nextTick(() => {
     const textarea = document.querySelector('.comment-textarea textarea')
@@ -892,13 +854,43 @@ const toLoginPage = () => {
 /* 文章容器 */
 .article-container {
   padding-top: 20px;
+  flex: 1;
 }
 
 .container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 20px;
+}
+
+/* 三栏布局 */
+.article-body {
+  display: grid;
+  grid-template-columns: 280px 1fr 280px;
+  gap: 30px;
+  margin-bottom: 40px;
+  position: relative;
+}
+
+/* 左侧：作者模块 */
+.left-sidebar {
+  height: fit-content;
+}
+
+/* 右侧：目录导航 */
+.right-sidebar {
+  position: sticky;
+  top: 20px;
+  height: fit-content;
+}
+
+/* 中间：文章模块 */
+.main-content {
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* 面包屑导航 */
@@ -909,7 +901,6 @@ const toLoginPage = () => {
   color: #666;
   font-size: 14px;
   margin-bottom: 20px;
-  padding: 8px 0;
 }
 
 .breadcrumb a {
@@ -929,104 +920,35 @@ const toLoginPage = () => {
 
 /* 文章标题 */
 .article-title {
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   font-weight: 700;
   line-height: 1.3;
   color: #1a1a1a;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.2rem;
   text-align: left;
   font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
-/* 文章元信息 */
-.article-meta {
+/* 文章信息（标题下面） */
+.article-info {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e8e8e8;
-}
-
-.author-info {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  cursor: pointer;
-  transition: all 0.3s;
-  padding: 8px 12px;
-  border-radius: 8px;
-}
-
-.author-info:hover {
-  background: rgba(64, 158, 255, 0.1);
-}
-
-.author-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  font-weight: bold;
-  flex-shrink: 0;
-  border: 2px solid white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.author-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.author-details {
-  flex: 1;
-}
-
-.author-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 6px;
-  transition: color 0.3s;
-}
-
-.author-info:hover .author-name {
-  color: #409eff;
-}
-
-.meta-items {
-  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.2rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: #666;
   font-size: 14px;
 }
 
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.meta-item .el-icon {
-  margin-right: 4px;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.edit-btn, .like-btn {
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-weight: 500;
+.info-item .el-icon {
+  color: #999;
 }
 
 /* 文章封面 */
@@ -1046,27 +968,6 @@ const toLoginPage = () => {
 
 .article-cover img:hover {
   transform: scale(1.02);
-}
-
-/* 文章主体 */
-.article-body {
-  display: flex;
-  gap: 40px;
-  margin-bottom: 40px;
-}
-
-.content-wrapper {
-  flex: 1;
-  min-width: 0;
-  background: white;
-  border-radius: 12px;
-  padding: 40px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-}
-
-.sidebar {
-  width: 320px;
-  flex-shrink: 0;
 }
 
 /* 文章标签 */
@@ -1207,24 +1108,25 @@ const toLoginPage = () => {
 
 /* 互动操作 */
 .interaction-actions {
-  margin: 40px 0 20px;
-  text-align: center;
+  margin: 40px 0;
+  display: flex;
+  gap: 20px;
+  justify-content: center;
 }
 
-.action-btn {
-  min-width: 160px;
+.action-btn, .edit-btn {
+  min-width: 140px;
   height: 48px;
   border-radius: 24px;
   font-size: 16px;
   font-weight: 500;
 }
 
-/* 侧边栏卡片 */
+/* 作者卡片 */
 .author-card {
   background: white;
   border-radius: 12px;
   padding: 24px;
-  margin-bottom: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: all 0.3s;
@@ -1329,14 +1231,14 @@ const toLoginPage = () => {
   font-weight: 500;
 }
 
+/* 目录卡片 */
 .toc-card {
   background: white;
   border-radius: 12px;
   padding: 24px;
-  margin-bottom: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   position: sticky;
-  top: 80px;
+  top: 20px;
 }
 
 /* 目录导航 */
@@ -1415,15 +1317,13 @@ const toLoginPage = () => {
 
 /* 评论区域 */
 .comments-section {
-  background: white;
+  margin-top: 60px;
+  padding-top: 40px;
   border-top: 1px solid #e8e8e8;
-  padding: 40px 0;
-  margin-top: 40px;
 }
 
 .comments-wrapper {
-  max-width: 800px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .comments-title {
@@ -1649,9 +1549,8 @@ const toLoginPage = () => {
 }
 
 /* 未登录时的按钮样式 */
-.action-buttons .el-button:disabled,
-.comment-footer .el-button:disabled,
-.interaction-actions .el-button:disabled {
+.action-btn:disabled,
+.comment-footer .el-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -1675,7 +1574,6 @@ const toLoginPage = () => {
 }
 
 /* 头像占位符 */
-.avatar-placeholder,
 .avatar-placeholder-large,
 .avatar-placeholder-small {
   display: flex;
@@ -1684,9 +1582,6 @@ const toLoginPage = () => {
   color: white;
 }
 
-.avatar-placeholder {
-  font-size: 20px;
-}
 .avatar-placeholder-large {
   font-size: 36px;
 }
@@ -1704,122 +1599,125 @@ const toLoginPage = () => {
 }
 
 /* 响应式设计 */
-@media (max-width: 992px) {
+@media (max-width: 1200px) {
   .article-body {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: 100%;
-    margin-top: 40px;
-  }
-
-  .article-meta {
-    flex-direction: column;
-    align-items: flex-start;
+    grid-template-columns: 250px 1fr;
     gap: 20px;
   }
-
-  .action-buttons {
-    align-self: flex-start;
-    width: 100%;
-    justify-content: flex-start;
-  }
   
-  .toc-card {
-    position: static;
+  .right-sidebar {
+    display: none;
   }
 }
 
-@media (max-width: 768px) {
-  .container {
-    padding: 0 15px;
+@media (max-width: 992px) {
+  .article-body {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  
+  .left-sidebar,
+  .right-sidebar {
+    display: block; /* 显示在移动端 */
+    position: static;
+    margin-bottom: 20px;
+  }
+  
+  .author-card {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+  }
+  
+  .author-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    text-align: left;
+    margin-bottom: 0;
+    flex: 1;
+  }
+  
+  .author-avatar-large {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+    margin: 0;
+  }
+  
+  .author-info {
+    text-align: left;
+    flex: 1;
+  }
+  
+  .author-name {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  
+  .author-bio {
+    -webkit-line-clamp: 2;
+    max-height: 40px;
+  }
+  
+  .author-stats {
+    border: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    justify-content: space-evenly;
+  }
+  
+  .follow-btn {
+    width: auto;
+    min-width: 120px;
+  }
+  
+  .main-content {
+    padding: 25px;
   }
   
   .article-title {
     font-size: 1.8rem;
   }
+}
 
-  .content-wrapper {
-    padding: 25px;
+@media (max-width: 768px) {
+  .author-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .author-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .author-info {
+    text-align: center;
   }
   
   .author-stats {
+    width: 100%;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
     padding: 15px 0;
+    margin: 15px 0;
   }
-
-  .action-group {
-    flex-direction: column;
+  
+  .follow-btn {
     width: 100%;
-  }
-
-  .action-btn {
-    width: 100%;
-  }
-
-  .comments-title {
-    font-size: 18px;
-  }
-  
-  .comment-actions {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-  }
-  
-  .comment-actions .el-button {
-    font-size: 11px;
-    padding: 0 4px;
-  }
-  
-  .article-meta {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .action-buttons {
-    align-self: stretch;
-  }
-  
-  .edit-btn, .like-btn {
-    flex: 1;
   }
 }
 
 @media (max-width: 480px) {
   .article-title {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
   }
   
-  .content-wrapper {
-    padding: 20px;
-  }
-  
-  .meta-items {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .author-avatar {
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
-  }
-  
-  .author-avatar-large {
-    width: 80px;
-    height: 80px;
-    font-size: 28px;
-  }
-  
-  .article-tags {
-    gap: 8px;
-  }
-  
-  .category-tag,
-  .tag-item {
-    padding: 6px 12px;
-    font-size: 12px;
+  .main-content {
+    padding: 16px;
   }
 }
 </style>

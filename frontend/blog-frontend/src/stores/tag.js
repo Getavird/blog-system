@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import * as tagApi from '@/api/tag'
 
-// 提取加载状态处理工具函数
+// 工具函数：包装异步操作，自动管理 loading 状态
 const withLoading = (loadingRef, fn) => {
   return async (...args) => {
     try {
@@ -10,7 +10,7 @@ const withLoading = (loadingRef, fn) => {
       return await fn(...args)
     } catch (error) {
       console.error(`标签操作失败:`, error)
-      throw error // 继续抛出错误供调用者处理
+      throw error
     } finally {
       loadingRef.value = false
     }
@@ -30,21 +30,34 @@ export const useTagStore = defineStore('tag', () => {
     return data
   })
 
-  // 获取标签详情
+  // 通过ID获取标签详情
   const fetchTagDetail = withLoading(loading, async (id) => {
     const data = await tagApi.getTagDetail(id)
     currentTag.value = data
     return data
   })
 
-  // 获取标签下的文章
+  // 通过名称获取标签详情（新增）
+  const fetchTagDetailByName = withLoading(loading, async (name) => {
+    const data = await tagApi.getTagDetailByName(name)
+    currentTag.value = data
+    return data
+  })
+
+  // 通过ID获取标签下的文章
   const fetchTagArticles = withLoading(loading, async (id, params = {}) => {
     return await tagApi.getTagArticles(id, params)
   })
 
-  // 根据名称搜索标签（优先使用后端接口）
-  const searchTagByName = withLoading(loading, async (name) => {
-    return await tagApi.searchTagByName(name)
+  // 通过名称获取标签下的文章（新增）
+  const fetchTagArticlesByName = withLoading(loading, async (name, params = {}) => {
+    const data = await tagApi.getTagArticlesByName(name, params)
+    return data
+  })
+
+  // 搜索标签
+  const searchTags = withLoading(loading, async (keyword) => {
+    return await tagApi.searchTags(keyword)
   })
 
   // 创建标签
@@ -84,37 +97,18 @@ export const useTagStore = defineStore('tag', () => {
     return data
   })
 
-  // 获取标签云数据（包含文章数量统计）
-  const fetchTagCloud = withLoading(loading, async () => {
-    // 若后端有专门的标签云接口，建议替换为 tagApi.getTagCloud()
-    const data = await tagApi.getAllTags()
-    tags.value = data.map(tag => ({
-      ...tag,
-      count: tag.articleCount || 0 // 确保有count字段用于标签云渲染
-    }))
-    return tags.value
-  })
-
-  // 搜索标签（优先使用后端接口）
-  const searchTags = withLoading(loading, async (keyword) => {
-    // 若后端有搜索接口，替换为：return await tagApi.searchTags(keyword)
-    const allTags = await tagApi.getAllTags()
-    return allTags.filter(tag =>
-      tag.name.toLowerCase().includes(keyword.toLowerCase())
-    )
-  })
-
   return {
     // 状态
     tags,
     currentTag,
     loading,
-
+    
     // 方法
     fetchTags,
-    fetchTagCloud,
     fetchTagDetail,
+    fetchTagDetailByName,  // 新增
     fetchTagArticles,
+    fetchTagArticlesByName, // 新增
     searchTags,
     createTag,
     updateTag,
