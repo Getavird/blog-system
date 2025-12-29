@@ -4,30 +4,17 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-/**
- * 跨域配置类
- */
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
     
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        // 简化配置，避免重复
         registry.addMapping("/**")
-                .allowedOriginPatterns("http://localhost:3000")
+                .allowedOrigins("http://localhost:3000") // 使用 allowedOrigins 而不是 allowedOriginPatterns
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
-                .allowCredentials(true)
-                .maxAge(3600);
-
-        registry.addMapping("/api/**")
-                .allowedOriginPatterns("http://localhost:3000")
-                .allowedMethods("*")
-                .allowCredentials(true)
-                .maxAge(3600);
-
-        registry.addMapping("/traditional/**")
-                .allowedOriginPatterns("http://localhost:3000")
-                .allowedMethods("*")
+                .exposedHeaders("Set-Cookie") // 暴露Set-Cookie头部
                 .allowCredentials(true)
                 .maxAge(3600);
     }

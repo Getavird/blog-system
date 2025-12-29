@@ -39,7 +39,7 @@
                     v-if="userForm.avatar" 
                     type="text" 
                     size="small" 
-                    @click="userForm.avatar = ''"
+                    @click="resetAvatar"
                   >
                     移除头像
                   </el-button>
@@ -239,7 +239,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+// 处理头像URL - 简化版本
+const processAvatarUrl = (avatarUrl) => {
+  if (!avatarUrl) {
+    return 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+  }
+  // 如果已经是完整URL，直接使用
+  if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+    return avatarUrl
+  }
+  // 添加基础URL和时间戳
+  const baseUrl = 'http://localhost:8080'
+  const url = avatarUrl.startsWith('/') ? avatarUrl : '/' + avatarUrl
+  return baseUrl + url + '?t=' + new Date().getTime()
+}
+import { ref, computed, onMounted, onUnmounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
@@ -366,44 +380,98 @@ const avatarPlaceholder = computed(() => {
 })
 
 // 组件挂载
-onMounted(async () => {
-  // 初始化用户状态
-  userStore.initFromStorage()
-  
-  // 加载用户信息
-  await loadUserInfo()
-  
-  // 加载用户统计
-  await loadUserStats()
+onMounted(() => {
+  console.log('UserProfile 组件挂载')
+  // 延迟加载数据，避免路由冲突
+  setTimeout(async () => {
+    await loadUserInfo()
+    await loadUserStats()
+  }, 300)
+})
+
+// 组件卸载
+onUnmounted(() => {
+  console.log('UserProfile 组件卸载')
 })
 
 // 加载用户信息
 const loadUserInfo = async () => {
   try {
+    console.log('加载用户信息...')
+    // 先尝试从本地存储获取
+    userStore.initFromStorage()
+    // 如果没有用户信息，再尝试从API获取
     if (!userStore.user) {
-      // 如果store中没有用户信息，尝试从API获取
       await authStore.fetchCurrentUser()
     }
-    
-    // 更新表单数据
-    if (userStore.user) {
-      Object.assign(userForm, {
-        username: userStore.user.username || '',
-        email: userStore.user.email || '',
-        bio: userStore.user.bio || '',
-        avatar: userStore.user.avatar || ''
-      })
-      
-      // 设置注册时间
-      registerTime.value = userStore.user.createTime || ''
-      
-      // 设置最近登录信息
-      lastLoginTime.value = userStore.user.lastLoginTime || ''
-      lastLoginIp.value = userStore.user.lastLoginIp || ''
+    const currentUser = authStore.user || userStore.user
+    if (!currentUser) {
+      console.warn('未找到用户信息')
+      ElMessage.warning('请先登录')
+      router.push('/login')
+      return
     }
+    console.log('当前用户:', currentUser)
+    // 处理头像URL
+    const avatarUrl = getAvatarUrl(currentUser.avatar)
+    console.log('头像URL:', avatarUrl)
+    // 更新表单
+    Object.assign(userForm, {
+      username: currentUser.username || '',
+      email: currentUser.email || '',
+      bio: currentUser.bio || '',
+      avatar: avatarUrl
+    })
+    // 更新页面显示
+    updateAvatarDisplay(avatarUrl)
   } catch (error) {
     console.error('加载用户信息失败:', error)
-    ElMessage.error('加载用户信息失败')
+  }
+}
+
+// 获取头像URL的辅助函数
+const getAvatarUrl = (avatarPath) => {
+  if (!avatarPath) {
+    return 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+  }
+  let path = avatarPath
+  // 如果只有文件名，添加路径
+  if (!path.includes('/') && !path.startsWith('http')) {
+    path = '/uploads/avatars/' + path
+  }
+  // 确保以斜杠开头
+  if (!path.startsWith('/') && !path.startsWith('http')) {
+    path = '/' + path
+  }
+  // 如果是相对路径，添加服务器地址
+  if (path.startsWith('/') && !path.startsWith('http')) {
+    path = 'http://localhost:8080' + path
+  }
+  return path + '?t=' + Date.now()
+}
+
+// (Removed duplicate declaration of updateAvatarDisplay)
+
+// 更新页面上的头像显示
+const updateAvatarDisplay = (avatarUrl) => {
+  const avatarDiv = document.querySelector('.avatar-preview')
+  if (avatarDiv) {
+    // 清空内容
+    avatarDiv.innerHTML = ''
+    // 创建新的图片元素
+    const img = document.createElement('img')
+    img.src = avatarUrl
+    img.alt = '用户头像'
+    img.style.width = '100%'
+    img.style.height = '100%'
+    img.style.objectFit = 'cover'
+    img.style.borderRadius = '50%'
+    // 图片加载失败时使用默认头像
+    img.onerror = () => {
+      console.log('头像加载失败，使用默认头像')
+      img.src = 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+    }
+    avatarDiv.appendChild(img)
   }
 }
 
@@ -480,22 +548,27 @@ const beforeAvatarUpload = (file) => {
   return true
 }
 
-// 修改头像上传方法
+
+// 修改 handleAvatarSuccess 方法
 const handleAvatarSuccess = async (response, uploadFile) => {
+  console.log('上传响应:', response)
   if (response.code === 200) {
-    // 获取头像URL
-    const avatarUrl = response.data?.fullUrl || 
-                     (response.data?.url ? 'http://localhost:8080' + response.data.url : null)
-    
+    // 获取头像URL - 确保使用正确的字段
+    let avatarUrl = response.data?.fullUrl || 
+                   response.data?.url || 
+                   (response.data?.avatar ? 'http://localhost:8080' + response.data.avatar : null)
+    // 如果没有fullUrl但有filename，构建URL
+    if (!avatarUrl && response.data?.filename) {
+      avatarUrl = 'http://localhost:8080/uploads/avatars/' + response.data.filename
+    }
     if (avatarUrl) {
       // 强制刷新用户信息
       await authStore.fetchCurrentUser()
-      
       // 更新本地表单，添加时间戳避免缓存
-      const timestamp = new Date().getTime()
-      userForm.avatar = avatarUrl + (avatarUrl.includes('?') ? '&' : '?') + 't=' + timestamp
-      
+      userForm.avatar = processAvatarUrl(authStore.user?.avatar || avatarUrl)
       ElMessage.success('头像上传成功')
+    } else {
+      ElMessage.error('头像上传成功，但获取头像URL失败')
     }
   } else {
     ElMessage.error(response?.message || '头像上传失败')
@@ -508,30 +581,27 @@ const uploadAvatar = (file) => {
   // 使用 avatarStore 上传头像
   return avatarStore.uploadAvatar(file.file)
 }
-// 重置头像
+
+// 添加重置头像方法
 const resetAvatar = async () => {
   try {
+    const confirm = await ElMessageBox.confirm('确定要移除当前头像并重置为默认头像吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
     const result = await avatarStore.resetToDefault()
-    
     if (result && result.code === 200) {
-      // 获取默认头像URL
-      const defaultAvatarUrl = result.data?.fullAvatarUrl || 
-                              (result.data?.avatarUrl ? 'http://localhost:8080' + result.data.avatarUrl : null)
-      
-      if (defaultAvatarUrl) {
-        // 强制刷新用户信息
-        await authStore.fetchCurrentUser()
-        
-        // 更新本地表单
-        userForm.avatar = defaultAvatarUrl
-        
-        // 强制更新页面中的头像
-        updateAvatarOnPage(defaultAvatarUrl)
-        
-        ElMessage.success('已重置为默认头像')
-      }
+      // 强制刷新用户信息
+      await authStore.fetchCurrentUser()
+      // 重新加载用户信息
+      await loadUserInfo()
+      ElMessage.success('头像已重置为默认头像')
     }
   } catch (error) {
+    if (error === 'cancel') {
+      return // 用户取消
+    }
     console.error('重置头像失败:', error)
     ElMessage.error(error.response?.data?.message || error.message || '重置头像失败')
   }
@@ -598,7 +668,7 @@ const resetInfoForm = () => {
       username: userStore.user.username || '',
       email: userStore.user.email || '',
       bio: userStore.user.bio || '',
-      avatar: userStore.user.avatar || ''
+      avatar: processAvatarUrl(userStore.user.avatar)
     })
   }
 }

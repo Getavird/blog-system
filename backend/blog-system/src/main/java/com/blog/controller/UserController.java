@@ -12,6 +12,7 @@ import com.blog.service.UserService;
 import com.blog.utils.SessionUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -69,14 +70,30 @@ public class UserController {
     /**
      * 获取当前用户信息
      */
-    @GetMapping("/info")
-    public Result<User> getUserInfo(HttpServletRequest request) {
-        User currentUser = SessionUtil.getCurrentUser(request);
-        if (currentUser == null) {
-            return Result.unauthorized("请先登录");
-        }
-        return Result.success(currentUser);
+    /**
+ * 获取当前用户信息
+ */
+@GetMapping("/info")
+public Result<User> getUserInfo(HttpServletRequest request) {
+    User currentUser = SessionUtil.getCurrentUser(request);
+    if (currentUser == null) {
+        return Result.unauthorized("请先登录");
     }
+    
+    // 处理头像路径
+    String avatar = currentUser.getAvatar();
+    if (StringUtils.hasText(avatar)) {
+        if (avatar.equals("default_avatar.png")) {
+            currentUser.setAvatar("/static/images/default-avatars/default_avatar.png");
+        } else if (!avatar.startsWith("/uploads/avatars/")) {
+            currentUser.setAvatar("/uploads/avatars/" + avatar);
+        }
+    } else {
+        currentUser.setAvatar("/static/images/default-avatars/default_avatar.png");
+    }
+    
+    return Result.success(currentUser);
+}
 
     /**
      * 获取个人中心完整信息
@@ -307,4 +324,5 @@ public class UserController {
             return Result.error("获取统计信息失败");
         }
     }
+    
 }
