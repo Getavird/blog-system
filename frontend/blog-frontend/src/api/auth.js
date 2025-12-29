@@ -24,7 +24,7 @@ export const getCurrentUser = () => {
 }
 
 // 修改密码接口（对应后端 UserController.changePassword）
-export const updatePassword = (oldPassword, newPassword, confirmPassword) => {
+export const updatePassword = (oldPassword, newPassword,confirmPassword) => {
   return request.post('/api/user/change-password', {
     oldPassword,
     newPassword,
