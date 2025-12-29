@@ -28,7 +28,7 @@ public interface FollowMapper {
      * 重新关注（恢复）
      */
     @Update("UPDATE user_follow SET status = 1, update_time = NOW() " +
-            "WHERE follower_id = #{followerId} AND followingId = #{followingId}")
+        "WHERE follower_id = #{followerId} AND following_id = #{followingId}")
     int reFollow(@Param("followerId") Integer followerId, 
                  @Param("followingId") Integer followingId);
 

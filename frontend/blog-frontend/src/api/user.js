@@ -3,13 +3,14 @@ import request from '@/utils/request'
 
 // 获取用户详情
 export const getUserInfo = (id) => {
-  return request.get(`/api/user/info/${id}`)
+  return request.get(`/api/user/public/${id}`) // 注意：后端没有直接通过ID获取的接口，只有通过用户名
 }
 
-// 更新用户基本信息
-export const updateUserInfo = (id, userData) => {
-  return request.put(`/api/user/info/${id}`, userData)
+// // 更新用户基本信息
+export const updateUserInfo = (userData) => {
+  return request.put('/api/user/profile', userData)
 }
+
 
 // 上传用户头像
 export const uploadAvatar = (file) => {
@@ -120,4 +121,24 @@ export const unfollowUser = (userId) => {
  */
 export const getFollowCounts = (userId) => {
   return request.get(`/api/follow/counts/${userId}`)
+}
+
+// 获取当前用户信息（已存在）
+export const getCurrentUserInfo = () => {
+  return request.get('/api/user/info')
+}
+
+// 获取当前用户个人中心信息（包括统计）
+export const getCurrentUserProfile = () => {
+  return request.get('/api/user/profile')
+}
+
+// 获取当前用户统计信息
+export const getCurrentUserStats = () => {
+  return request.get('/api/user/stats')
+}
+
+// 获取当前用户账户状态
+export const getCurrentUserStatus = () => {
+  return request.get('/api/user/status')
 }

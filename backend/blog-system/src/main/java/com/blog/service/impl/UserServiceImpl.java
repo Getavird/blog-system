@@ -16,6 +16,7 @@ import com.blog.utils.PasswordUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -413,7 +414,27 @@ public class UserServiceImpl implements UserService {
             profileVO.setId(user.getId());
             profileVO.setUsername(user.getUsername());
             profileVO.setEmail(user.getEmail());
-            profileVO.setAvatar(user.getAvatar());
+
+            // 处理头像路径 - 添加完整路径前缀
+            String avatar = user.getAvatar();
+            if (StringUtils.hasText(avatar)) {
+                // 检查是否是默认头像
+                if (avatar.equals("default_avatar.png")) {
+                    // 默认头像使用静态资源路径
+                    profileVO.setAvatar("/static/images/default-avatars/default_avatar.png");
+                } else {
+                    // 上传的头像，确保有完整路径
+                    if (!avatar.startsWith("/uploads/avatars/")) {
+                        profileVO.setAvatar("/uploads/avatars/" + avatar);
+                    } else {
+                        profileVO.setAvatar(avatar);
+                    }
+                }
+            } else {
+                // 头像为空时使用默认头像
+                profileVO.setAvatar("/static/images/default-avatars/default_avatar.png");
+            }
+
             profileVO.setBio(user.getBio());
             profileVO.setCreateTime(user.getCreateTime());
             profileVO.setLastLoginTime(user.getLastLoginTime());
@@ -454,6 +475,8 @@ public class UserServiceImpl implements UserService {
                     ", 阅读=" + statsVO.getViewCount() +
                     ", 关注=" + statsVO.getFollowingCount() +
                     ", 粉丝=" + statsVO.getFollowerCount());
+
+            System.out.println("🖼️ 头像路径设置: " + profileVO.getAvatar());
 
             return profileVO;
 
@@ -694,5 +717,21 @@ public class UserServiceImpl implements UserService {
     @Override
     public User getUserByUsername(String username) {
         return userMapper.findByUsername(username);
+    }
+
+    @Override
+    public boolean updateAvatar(Integer userId, String avatarFilename) {
+        User user = userMapper.findById(userId);
+        if (user != null) {
+            user.setAvatar(avatarFilename);
+            int updateResult = userMapper.update(user);
+            if (updateResult > 0) {
+                System.out.println("✅ 数据库更新成功（备用方案）");
+                return true;
+            }
+        }
+
+        System.err.println("❌ 数据库更新失败");
+        return false;
     }
 }

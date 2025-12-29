@@ -53,3 +53,8 @@ export const updateBio = (bio) => {
     params: { bio }
   })
 }
+
+// 获取用户个人中心信息
+export const getUserProfile = () => {
+  return request.get('/api/user/profile')
+}

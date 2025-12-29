@@ -110,27 +110,15 @@ public class UploadFile extends BaseEntity {
         }
     }
 
-    /**
-     * 获取文件完整URL
-     */
     public String getFileUrl() {
-        if (filePath == null)
-            return null;
-
-        // 清理路径，确保不会重复添加 "uploads/"
-        String cleanedPath = filePath;
-
-        // 如果路径以 "./uploads/" 开头，移除 "./"
-        if (cleanedPath.startsWith("./uploads/")) {
-            cleanedPath = cleanedPath.substring(2);
+        // 如果没有单独存储 fileUrl，则动态生成
+        if (this.fileUrl == null && this.filePath != null) {
+            return "/uploads/" + this.filePath;
         }
+        return this.fileUrl;
+    }
 
-        // 如果路径以 "uploads/" 开头，直接使用
-        if (cleanedPath.startsWith("uploads/")) {
-            return "/" + cleanedPath;
-        }
-
-        // 否则添加 "/uploads/" 前缀
-        return "/uploads/" + cleanedPath;
+    public void setFileUrl(String fileUrl) {
+        this.fileUrl = fileUrl;
     }
 }

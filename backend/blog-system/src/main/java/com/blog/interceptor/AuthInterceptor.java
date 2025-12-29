@@ -63,6 +63,9 @@ public class AuthInterceptor implements HandlerInterceptor {
             if (uri.startsWith("/api/user/public/")) {
                 return true;
             }
+            if (uri.startsWith("/static/") || uri.startsWith("/traditional/")) {
+                return true;
+            }
         }
         
         // 检查登录状态

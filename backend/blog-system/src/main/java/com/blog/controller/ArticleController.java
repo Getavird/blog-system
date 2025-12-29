@@ -129,8 +129,9 @@ public class ArticleController {
     /**
      * 获取最新文章（按创建时间排序）
      * GET /api/articles/latest?limit=10
+     * 同时支持 /api/articles/newest 路径以兼容前端
      */
-    @GetMapping("/latest")
+    @GetMapping({"/latest", "/newest"})
     public Result<List<Article>> getLatestArticles(
             @RequestParam(defaultValue = "10") Integer limit) {
         List<Article> articles = articleService.getLatestArticles(limit);
@@ -363,117 +364,196 @@ public class ArticleController {
 
         return success ? Result.success("草稿删除成功") : Result.error("删除失败");
     }
-    /**
- * 点赞文章
- * POST /api/articles/{id}/like
- */
-@PostMapping("/{id}/like")
-public Result<String> likeArticle(@PathVariable Integer id, HttpServletRequest request) {
-    // 检查登录
-    User currentUser = SessionUtil.getCurrentUser(request);
-    if (currentUser == null) {
-        return Result.unauthorized("请先登录");
-    }
-
-    try {
-        boolean success = articleService.likeArticle(id, currentUser.getId());
-        return success ? Result.success("点赞成功") : Result.error("点赞失败");
-    } catch (RuntimeException e) {
-        return Result.error(e.getMessage());
-    }
-}
-
-/**
- * 取消点赞文章
- * DELETE /api/articles/{id}/like
- */
-@DeleteMapping("/{id}/like")
-public Result<String> unlikeArticle(@PathVariable Integer id, HttpServletRequest request) {
-    // 检查登录
-    User currentUser = SessionUtil.getCurrentUser(request);
-    if (currentUser == null) {
-        return Result.unauthorized("请先登录");
-    }
-
-    try {
-        boolean success = articleService.unlikeArticle(id, currentUser.getId());
-        return success ? Result.success("取消点赞成功") : Result.error("取消点赞失败");
-    } catch (RuntimeException e) {
-        return Result.error(e.getMessage());
-    }
-}
-
-/**
- * 获取文章点赞状态（当前用户是否已点赞）
- * GET /api/articles/{id}/like/status
- */
-@GetMapping("/{id}/like/status")
-public Result<Boolean> getLikeStatus(@PathVariable Integer id, HttpServletRequest request) {
-    // 检查登录
-    User currentUser = SessionUtil.getCurrentUser(request);
-    if (currentUser == null) {
-        return Result.unauthorized("请先登录");
-    }
-
-    try {
-        boolean isLiked = articleService.isArticleLikedByUser(id, currentUser.getId());
-        return Result.success(isLiked);
-    } catch (RuntimeException e) {
-        return Result.error(e.getMessage());
-    }
-}
-
-/**
- * 获取文章点赞数
- * GET /api/articles/{id}/likes/count
- */
-@GetMapping("/{id}/likes/count")
-public Result<Integer> getLikeCount(@PathVariable Integer id) {
-    try {
-        int count = articleService.getArticleLikeCount(id);
-        return Result.success(count);
-    } catch (RuntimeException e) {
-        return Result.error(e.getMessage());
-    }
-}
-
-/**
- * 获取用户点赞的文章列表
- * GET /api/articles/liked
- */
-@GetMapping("/liked")
-public Result<List<Article>> getLikedArticles(
-        @RequestParam(defaultValue = "1") Integer page,
-        @RequestParam(defaultValue = "10") Integer size,
-        HttpServletRequest request) {
     
-    // 检查登录
-    User currentUser = SessionUtil.getCurrentUser(request);
-    if (currentUser == null) {
-        return Result.unauthorized("请先登录");
+    /**
+     * 点赞文章
+     * POST /api/articles/{id}/like
+     */
+    @PostMapping("/{id}/like")
+    public Result<String> likeArticle(@PathVariable Integer id, HttpServletRequest request) {
+        // 检查登录
+        User currentUser = SessionUtil.getCurrentUser(request);
+        if (currentUser == null) {
+            return Result.unauthorized("请先登录");
+        }
+
+        try {
+            boolean success = articleService.likeArticle(id, currentUser.getId());
+            return success ? Result.success("点赞成功") : Result.error("点赞失败");
+        } catch (RuntimeException e) {
+            return Result.error(e.getMessage());
+        }
     }
 
-    List<Article> likedArticles = articleService.getLikedArticles(currentUser.getId(), page, size);
-    return Result.success(likedArticles);
-}
+    /**
+     * 取消点赞文章
+     * DELETE /api/articles/{id}/like
+     */
+    @DeleteMapping("/{id}/like")
+    public Result<String> unlikeArticle(@PathVariable Integer id, HttpServletRequest request) {
+        // 检查登录
+        User currentUser = SessionUtil.getCurrentUser(request);
+        if (currentUser == null) {
+            return Result.unauthorized("请先登录");
+        }
 
-/**
- * 切换点赞状态（点赞/取消点赞）
- * POST /api/articles/{id}/toggle-like
- */
-@PostMapping("/{id}/toggle-like")
-public Result<Map<String, Object>> toggleLike(@PathVariable Integer id, HttpServletRequest request) {
-    // 检查登录
-    User currentUser = SessionUtil.getCurrentUser(request);
-    if (currentUser == null) {
-        return Result.unauthorized("请先登录");
+        try {
+            boolean success = articleService.unlikeArticle(id, currentUser.getId());
+            return success ? Result.success("取消点赞成功") : Result.error("取消点赞失败");
+        } catch (RuntimeException e) {
+            return Result.error(e.getMessage());
+        }
     }
 
-    try {
-        Map<String, Object> result = articleService.toggleLike(id, currentUser.getId());
-        return Result.success(result);
-    } catch (RuntimeException e) {
-        return Result.error(e.getMessage());
+    /**
+     * 获取文章点赞状态（当前用户是否已点赞）
+     * GET /api/articles/{id}/like/status
+     */
+    @GetMapping("/{id}/like/status")
+    public Result<Boolean> getLikeStatus(@PathVariable Integer id, HttpServletRequest request) {
+        // 检查登录
+        User currentUser = SessionUtil.getCurrentUser(request);
+        if (currentUser == null) {
+            return Result.unauthorized("请先登录");
+        }
+
+        try {
+            boolean isLiked = articleService.isArticleLikedByUser(id, currentUser.getId());
+            return Result.success(isLiked);
+        } catch (RuntimeException e) {
+            return Result.error(e.getMessage());
+        }
     }
-}
+
+    /**
+     * 获取文章点赞数
+     * GET /api/articles/{id}/likes/count
+     */
+    @GetMapping("/{id}/likes/count")
+    public Result<Integer> getLikeCount(@PathVariable Integer id) {
+        try {
+            int count = articleService.getArticleLikeCount(id);
+            return Result.success(count);
+        } catch (RuntimeException e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取用户点赞的文章列表
+     * GET /api/articles/liked
+     */
+    @GetMapping("/liked")
+    public Result<List<Article>> getLikedArticles(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            HttpServletRequest request) {
+        
+        // 检查登录
+        User currentUser = SessionUtil.getCurrentUser(request);
+        if (currentUser == null) {
+            return Result.unauthorized("请先登录");
+        }
+
+        List<Article> likedArticles = articleService.getLikedArticles(currentUser.getId(), page, size);
+        return Result.success(likedArticles);
+    }
+
+    /**
+     * 切换点赞状态（点赞/取消点赞）
+     * POST /api/articles/{id}/toggle-like
+     */
+    @PostMapping("/{id}/toggle-like")
+    public Result<Map<String, Object>> toggleLike(@PathVariable Integer id, HttpServletRequest request) {
+        // 检查登录
+        User currentUser = SessionUtil.getCurrentUser(request);
+        if (currentUser == null) {
+            return Result.unauthorized("请先登录");
+        }
+
+        try {
+            Map<String, Object> result = articleService.toggleLike(id, currentUser.getId());
+            return Result.success(result);
+        } catch (RuntimeException e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取当前用户的所有文章（包括已发布和草稿，需要登录）
+     * GET /api/articles/my?page=1&size=10
+     * 修复前端的错误调用
+     */
+    @GetMapping("/my")
+    public Result<Map<String, Object>> getMyArticles(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            HttpServletRequest request) {
+        
+        try {
+            // 检查登录
+            User currentUser = SessionUtil.getCurrentUser(request);
+            if (currentUser == null) {
+                return Result.unauthorized("请先登录");
+            }
+            
+            // 获取所有文章然后过滤出当前用户的文章
+            List<Article> allArticles = articleService.getArticles(page, size * 5);
+            List<Article> myArticles = allArticles.stream()
+                    .filter(article -> article.getUserId().equals(currentUser.getId()))
+                    .collect(Collectors.toList());
+            
+            // 分页处理
+            int start = (page - 1) * size;
+            int end = Math.min(start + size, myArticles.size());
+            List<Article> pagedArticles = myArticles.subList(start, end);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("articles", pagedArticles);
+            result.put("page", page);
+            result.put("size", size);
+            result.put("total", myArticles.size());
+            
+            return Result.success(result);
+            
+        } catch (Exception e) {
+            System.err.println("❌ 获取我的文章接口异常: " + e.getMessage());
+            e.printStackTrace();
+            return Result.error("获取文章失败");
+        }
+    }
+
+    /**
+     * 获取当前用户文章数量（用于统计，需要登录）
+     * GET /api/articles/my/count
+     * 用于UserProfile.vue中获取文章数量统计
+     */
+    @GetMapping("/my/count")
+    public Result<Map<String, Object>> getMyArticleCount(HttpServletRequest request) {
+        try {
+            // 检查登录
+            User currentUser = SessionUtil.getCurrentUser(request);
+            if (currentUser == null) {
+                return Result.unauthorized("请先登录");
+            }
+            
+            // 这里需要实现获取用户文章数量的逻辑
+            int articleCount = articleService.getArticleCountByUserId(currentUser.getId());
+            int draftCount = articleService.getDraftCountByUserId(currentUser.getId());
+            int publishedCount = articleService.getPublishedArticleCountByUserId(currentUser.getId());
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalCount", articleCount);
+            result.put("draftCount", draftCount);
+            result.put("publishedCount", publishedCount);
+            result.put("userId", currentUser.getId());
+            
+            return Result.success(result);
+            
+        } catch (Exception e) {
+            System.err.println("❌ 获取我的文章数量接口异常: " + e.getMessage());
+            e.printStackTrace();
+            return Result.error("获取文章数量失败");
+        }
+    }
 }
