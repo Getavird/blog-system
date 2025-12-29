@@ -180,6 +180,46 @@ const fetchPublicUserStats = async (username) => {
     }
   }
 
+  // 获取当前用户的统计信息
+const fetchCurrentUserStats = async () => {
+  try {
+    const data = await userApi.getCurrentUserStats()
+    // 处理返回的数据结构
+    const stats = data?.data || data
+    return stats
+  } catch (error) {
+    console.error('获取当前用户统计失败:', error)
+    throw error
+  }
+}
+
+// 获取当前用户个人中心信息
+const fetchCurrentUserProfile = async () => {
+  try {
+    const data = await userApi.getCurrentUserProfile()
+    // 处理返回的数据结构
+    const profile = data?.data || data
+    return profile
+  } catch (error) {
+    console.error('获取当前用户个人中心失败:', error)
+    throw error
+  }
+}
+
+// 获取当前用户账户状态
+const fetchCurrentUserStatus = async () => {
+  try {
+    const data = await userApi.getCurrentUserStatus()
+    // 处理返回的数据结构
+    const status = data?.data || data
+    return status
+  } catch (error) {
+    console.error('获取当前用户状态失败:', error)
+    throw error
+  }
+}
+
+
   // 清空公开用户数据
   const clearPublicUserData = () => {
     publicUser.value = createDefaultPublicUser()
@@ -218,10 +258,12 @@ const uploadAvatar = async (file) => {
 }
 
 // 更新用户基本信息
+// 更新用户基本信息 - 修复这个方法
 const updateUserInfo = async (id, userData) => {
   try {
     loading.value = true
-    const data = await userApi.updateProfile(userData)
+    // 修正：调用正确的 API 方法，使用正确的参数格式
+    const data = await userApi.updateUserInfo(userData)
     
     // 更新本地用户信息
     if (user.value && user.value.id === id) {
@@ -264,6 +306,11 @@ const updateUserInfo = async (id, userData) => {
     followUser,
     unfollowUser,
     fetchFollowCounts,
-    clearPublicUserData
+    clearPublicUserData,
+
+    // 新增的方法
+  fetchCurrentUserStats,
+  fetchCurrentUserProfile,
+  fetchCurrentUserStatus,
   }
 })

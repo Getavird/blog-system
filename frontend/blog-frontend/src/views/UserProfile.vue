@@ -412,9 +412,9 @@ const loadUserStats = async () => {
   try {
     userStatsLoading.value = true
     
-    // 尝试从authStore获取用户统计
-    if (authStore.getUserStats) {
-      const stats = await authStore.getUserStats()
+    // 方法1：通过用户store获取统计信息
+    try {
+      const stats = await userStore.fetchCurrentUserStats()
       if (stats) {
         Object.assign(userStats, {
           articleCount: stats.articleCount || 0,
@@ -424,18 +424,46 @@ const loadUserStats = async () => {
           followingCount: stats.followingCount || 0
         })
       }
+    } catch (statsError) {
+      console.warn('通过userStore获取统计信息失败，尝试其他方法:', statsError)
+      
+      // 方法2：通过authStore获取用户信息
+      if (authStore.getUserStats) {
+        const stats = await authStore.getUserStats()
+        if (stats) {
+          Object.assign(userStats, {
+            articleCount: stats.articleCount || 0,
+            likeCount: stats.likeCount || 0,
+            viewCount: stats.viewCount || 0,
+            followerCount: stats.followerCount || 0,
+            followingCount: stats.followingCount || 0
+          })
+        }
+      }
+      
+      // 方法3：通过文章store获取文章数
+      if (userStats.articleCount === 0) {
+        try {
+          const result = await articleStore.fetchMyArticles({ page: 1, size: 1 })
+          if (result) {
+            userStats.articleCount = result.total || 0
+          }
+        } catch (articleError) {
+          console.warn('获取文章数量失败:', articleError)
+        }
+      }
     }
     
-    // 如果上面的方法不存在，从文章store获取文章数
-    if (userStats.articleCount === 0) {
-      try {
-        const result = await articleStore.fetchMyArticles({ page: 1, size: 1 })
-        if (result) {
-          userStats.articleCount = result.total || 0
-        }
-      } catch (articleError) {
-        console.warn('获取文章数量失败:', articleError)
+    // 加载登录时间和IP
+    try {
+      const status = await userStore.fetchCurrentUserStatus()
+      if (status) {
+        lastLoginTime.value = status.lastLoginTime || ''
+        lastLoginIp.value = status.lastLoginIp || ''
+        registerTime.value = status.createTime || userStore.user?.createTime || ''
       }
+    } catch (statusError) {
+      console.warn('获取用户状态失败:', statusError)
     }
     
   } catch (error) {
