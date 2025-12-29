@@ -79,4 +79,6 @@ public interface UserService {
      * 根据用户名获取用户
      */
     User getUserByUsername(String username);
+
+    boolean updateAvatar(Integer userId, String avatarFilename);
 }

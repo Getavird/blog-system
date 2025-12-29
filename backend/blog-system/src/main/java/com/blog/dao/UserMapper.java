@@ -275,6 +275,10 @@ public interface UserMapper {
         @Select("SELECT DATABASE()")
         String getDatabaseName();
 
+        /**
+         * 更新用户头像
+         */
+        int updateAvatar(@Param("id") Integer id, @Param("avatar") String avatar);
 }
 
 /**

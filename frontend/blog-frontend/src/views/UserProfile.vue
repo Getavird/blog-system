@@ -253,6 +253,7 @@ import {
   Edit,
   SwitchButton
 } from '@element-plus/icons-vue'
+import { useAvatarStore } from '@/stores/avatar'
 
 // 组件导入
 import Header from '@/components/layout/Header.vue'
@@ -264,6 +265,7 @@ const router = useRouter()
 const userStore = useUserStore()
 const authStore = useAuthStore()
 const articleStore = useArticleStore()
+const avatarStore = useAvatarStore()
 
 // 用户信息表单
 const infoFormRef = ref(null)
@@ -478,32 +480,78 @@ const beforeAvatarUpload = (file) => {
   return true
 }
 
-// 上传头像
-const uploadAvatar = async (file) => {
+// 修改头像上传方法
+const handleAvatarSuccess = async (response, uploadFile) => {
+  if (response.code === 200) {
+    // 获取头像URL
+    const avatarUrl = response.data?.fullUrl || 
+                     (response.data?.url ? 'http://localhost:8080' + response.data.url : null)
+    
+    if (avatarUrl) {
+      // 强制刷新用户信息
+      await authStore.fetchCurrentUser()
+      
+      // 更新本地表单，添加时间戳避免缓存
+      const timestamp = new Date().getTime()
+      userForm.avatar = avatarUrl + (avatarUrl.includes('?') ? '&' : '?') + 't=' + timestamp
+      
+      ElMessage.success('头像上传成功')
+    }
+  } else {
+    ElMessage.error(response?.message || '头像上传失败')
+  }
+  uploadingAvatar.value = false
+}
+
+
+const uploadAvatar = (file) => {
+  // 使用 avatarStore 上传头像
+  return avatarStore.uploadAvatar(file.file)
+}
+// 重置头像
+const resetAvatar = async () => {
   try {
-    uploadingAvatar.value = true
+    const result = await avatarStore.resetToDefault()
     
-    const result = await userStore.uploadAvatar(file.file)
-    
-    if (result) {
-      // 根据返回结果更新头像URL
-      const avatarUrl = result.avatar || result.url || result.data?.url
-      if (avatarUrl) {
-        userForm.avatar = avatarUrl
-        ElMessage.success('头像上传成功')
-      } else {
-        ElMessage.warning('头像上传成功，但未获取到图片地址')
+    if (result && result.code === 200) {
+      // 获取默认头像URL
+      const defaultAvatarUrl = result.data?.fullAvatarUrl || 
+                              (result.data?.avatarUrl ? 'http://localhost:8080' + result.data.avatarUrl : null)
+      
+      if (defaultAvatarUrl) {
+        // 强制刷新用户信息
+        await authStore.fetchCurrentUser()
+        
+        // 更新本地表单
+        userForm.avatar = defaultAvatarUrl
+        
+        // 强制更新页面中的头像
+        updateAvatarOnPage(defaultAvatarUrl)
+        
+        ElMessage.success('已重置为默认头像')
       }
-    } else {
-      ElMessage.error('头像上传失败，服务器无响应')
     }
   } catch (error) {
-    console.error('上传头像失败:', error)
-    const errorMsg = error.response?.data?.message || error.message || '头像上传失败'
-    ElMessage.error(errorMsg)
-  } finally {
-    uploadingAvatar.value = false
+    console.error('重置头像失败:', error)
+    ElMessage.error(error.response?.data?.message || error.message || '重置头像失败')
   }
+}
+
+// 更新页面上的所有头像元素
+const updateAvatarOnPage = (avatarUrl) => {
+  // 添加时间戳避免缓存
+  const timestamp = new Date().getTime()
+  const urlWithTimestamp = avatarUrl + (avatarUrl.includes('?') ? '&' : '?') + 't=' + timestamp
+  
+  // 更新所有头像元素
+  const avatarElements = document.querySelectorAll('.user-avatar, .avatar-img, [class*="avatar"] img')
+  avatarElements.forEach(img => {
+    if (img.src && img.src.includes('avatar')) {
+      img.src = urlWithTimestamp
+      img.onload = () => console.log('头像更新成功')
+      img.onerror = () => console.log('头像更新失败，尝试原URL')
+    }
+  })
 }
 
 // 保存用户信息
