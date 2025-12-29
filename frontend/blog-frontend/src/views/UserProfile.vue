@@ -239,20 +239,6 @@
 </template>
 
 <script setup>
-// 处理头像URL - 简化版本
-const processAvatarUrl = (avatarUrl) => {
-  if (!avatarUrl) {
-    return 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
-  }
-  // 如果已经是完整URL，直接使用
-  if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
-    return avatarUrl
-  }
-  // 添加基础URL和时间戳
-  const baseUrl = 'http://localhost:8080'
-  const url = avatarUrl.startsWith('/') ? avatarUrl : '/' + avatarUrl
-  return baseUrl + url + '?t=' + new Date().getTime()
-}
 import { ref, computed, onMounted, onUnmounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -281,6 +267,9 @@ const authStore = useAuthStore()
 const articleStore = useArticleStore()
 const avatarStore = useAvatarStore()
 
+// 组件挂载状态
+const isMounted = ref(false)
+
 // 用户信息表单
 const infoFormRef = ref(null)
 const userForm = reactive({
@@ -292,7 +281,7 @@ const userForm = reactive({
 
 const savingInfo = ref(false)
 
-// 表单验证规则 - 优化邮箱验证
+// 表单验证规则
 const infoRules = reactive({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
@@ -326,7 +315,7 @@ const passwordForm = reactive({
 
 const changingPassword = ref(false)
 
-// 密码验证规则 - 增强密码强度验证
+// 密码验证规则
 const passwordRules = reactive({
   oldPassword: [
     { required: true, message: '请输入原密码', trigger: 'blur' },
@@ -382,6 +371,8 @@ const avatarPlaceholder = computed(() => {
 // 组件挂载
 onMounted(() => {
   console.log('UserProfile 组件挂载')
+  isMounted.value = true
+  
   // 延迟加载数据，避免路由冲突
   setTimeout(async () => {
     await loadUserInfo()
@@ -392,91 +383,64 @@ onMounted(() => {
 // 组件卸载
 onUnmounted(() => {
   console.log('UserProfile 组件卸载')
+  isMounted.value = false
 })
 
 // 加载用户信息
 const loadUserInfo = async () => {
+  if (!isMounted.value) return
+  
   try {
     console.log('加载用户信息...')
-    // 先尝试从本地存储获取
+    // 初始化用户状态
     userStore.initFromStorage()
-    // 如果没有用户信息，再尝试从API获取
+    
+    // 如果没有用户信息，尝试从API获取
     if (!userStore.user) {
-      await authStore.fetchCurrentUser()
+      try {
+        const userData = await authStore.fetchCurrentUser()
+        if (userData) {
+          userStore.setUser(userData)
+        }
+      } catch (error) {
+        console.warn('获取用户信息失败:', error)
+      }
     }
-    const currentUser = authStore.user || userStore.user
+    
+    const currentUser = userStore.user
     if (!currentUser) {
       console.warn('未找到用户信息')
+      if (!isMounted.value) return
       ElMessage.warning('请先登录')
-      router.push('/login')
+      router.push('/')
       return
     }
+    
     console.log('当前用户:', currentUser)
-    // 处理头像URL
-    const avatarUrl = getAvatarUrl(currentUser.avatar)
-    console.log('头像URL:', avatarUrl)
-    // 更新表单
-    Object.assign(userForm, {
-      username: currentUser.username || '',
-      email: currentUser.email || '',
-      bio: currentUser.bio || '',
-      avatar: avatarUrl
-    })
-    // 更新页面显示
-    updateAvatarDisplay(avatarUrl)
+    console.log('用户头像URL:', currentUser.avatar)
+    
+    // 更新表单 - 确保头像URL是完整的
+    userForm.username = currentUser.username || ''
+    userForm.email = currentUser.email || ''
+    userForm.bio = currentUser.bio || ''
+    
+    // 处理头像URL，添加时间戳避免缓存
+    if (currentUser.avatar) {
+      const separator = currentUser.avatar.includes('?') ? '&' : '?'
+      userForm.avatar = currentUser.avatar + separator + 't=' + Date.now()
+    } else {
+      userForm.avatar = 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+    }
+    
   } catch (error) {
     console.error('加载用户信息失败:', error)
   }
 }
 
-// 获取头像URL的辅助函数
-const getAvatarUrl = (avatarPath) => {
-  if (!avatarPath) {
-    return 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
-  }
-  let path = avatarPath
-  // 如果只有文件名，添加路径
-  if (!path.includes('/') && !path.startsWith('http')) {
-    path = '/uploads/avatars/' + path
-  }
-  // 确保以斜杠开头
-  if (!path.startsWith('/') && !path.startsWith('http')) {
-    path = '/' + path
-  }
-  // 如果是相对路径，添加服务器地址
-  if (path.startsWith('/') && !path.startsWith('http')) {
-    path = 'http://localhost:8080' + path
-  }
-  return path + '?t=' + Date.now()
-}
-
-// (Removed duplicate declaration of updateAvatarDisplay)
-
-// 更新页面上的头像显示
-const updateAvatarDisplay = (avatarUrl) => {
-  const avatarDiv = document.querySelector('.avatar-preview')
-  if (avatarDiv) {
-    // 清空内容
-    avatarDiv.innerHTML = ''
-    // 创建新的图片元素
-    const img = document.createElement('img')
-    img.src = avatarUrl
-    img.alt = '用户头像'
-    img.style.width = '100%'
-    img.style.height = '100%'
-    img.style.objectFit = 'cover'
-    img.style.borderRadius = '50%'
-    // 图片加载失败时使用默认头像
-    img.onerror = () => {
-      console.log('头像加载失败，使用默认头像')
-      img.src = 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
-    }
-    avatarDiv.appendChild(img)
-  }
-}
-
 // 加载用户统计
 const loadUserStats = async () => {
+  if (!isMounted.value) return
+  
   try {
     userStatsLoading.value = true
     
@@ -493,19 +457,23 @@ const loadUserStats = async () => {
         })
       }
     } catch (statsError) {
-      console.warn('通过userStore获取统计信息失败，尝试其他方法:', statsError)
+      console.warn('通过userStore获取统计信息失败:', statsError)
       
       // 方法2：通过authStore获取用户信息
       if (authStore.getUserStats) {
-        const stats = await authStore.getUserStats()
-        if (stats) {
-          Object.assign(userStats, {
-            articleCount: stats.articleCount || 0,
-            likeCount: stats.likeCount || 0,
-            viewCount: stats.viewCount || 0,
-            followerCount: stats.followerCount || 0,
-            followingCount: stats.followingCount || 0
-          })
+        try {
+          const stats = await authStore.getUserStats()
+          if (stats) {
+            Object.assign(userStats, {
+              articleCount: stats.articleCount || 0,
+              likeCount: stats.likeCount || 0,
+              viewCount: stats.viewCount || 0,
+              followerCount: stats.followerCount || 0,
+              followingCount: stats.followingCount || 0
+            })
+          }
+        } catch (error) {
+          console.warn('通过authStore获取统计信息失败:', error)
         }
       }
       
@@ -536,9 +504,13 @@ const loadUserStats = async () => {
     
   } catch (error) {
     console.error('加载用户统计失败:', error)
-    ElMessage.warning('用户统计信息加载失败')
+    if (isMounted.value) {
+      ElMessage.warning('用户统计信息加载失败')
+    }
   } finally {
-    userStatsLoading.value = false
+    if (isMounted.value) {
+      userStatsLoading.value = false
+    }
   }
 }
 
@@ -576,48 +548,48 @@ const beforeAvatarUpload = (file) => {
   return true
 }
 
-
-// 修改 handleAvatarSuccess 方法
-const handleAvatarSuccess = async (response, uploadFile) => {
-  console.log('上传响应:', response)
-  if (response.code === 200) {
-    // 获取头像URL - 确保使用正确的字段
-    let avatarUrl = response.data?.fullUrl || 
-                   response.data?.url || 
-                   (response.data?.avatar ? 'http://localhost:8080' + response.data.avatar : null)
-    // 如果没有fullUrl但有filename，构建URL
-    if (!avatarUrl && response.data?.filename) {
-      avatarUrl = 'http://localhost:8080/uploads/avatars/' + response.data.filename
-    }
-    if (avatarUrl) {
-      // 强制刷新用户信息
-      await authStore.fetchCurrentUser()
-      // 更新本地表单，添加时间戳避免缓存
-      userForm.avatar = processAvatarUrl(authStore.user?.avatar || avatarUrl)
-      ElMessage.success('头像上传成功')
-    } else {
-      ElMessage.error('头像上传成功，但获取头像URL失败')
-    }
-  } else {
-    ElMessage.error(response?.message || '头像上传失败')
-  }
-  uploadingAvatar.value = false
-}
-
-
 const uploadAvatar = (file) => {
-  // 使用 avatarStore 上传头像
+  uploadingAvatar.value = true
+  
   return avatarStore.uploadAvatar(file.file)
+    .then(async (response) => {
+      console.log('头像上传响应:', response)
+      
+      if (response.code === 200 || response.success) {
+        if (response.data) {
+          const avatarUrl = response.data.url || response.data.avatarUrl || response.data.avatar
+          
+          // 使用userStore更新头像
+          userStore.updateUserAvatar(avatarUrl)
+          
+          // 更新当前页面的头像显示
+          const separator = avatarUrl.includes('?') ? '&' : '?'
+          userForm.avatar = avatarUrl + separator + 't=' + Date.now()
+        }
+        
+        ElMessage.success('头像上传成功')
+      }
+    })
+    .catch(error => {
+      console.error('头像上传失败:', error)
+      ElMessage.error(error.response?.data?.message || error.message || '头像上传失败')
+    })
+    .finally(() => {
+      if (isMounted.value) {
+        uploadingAvatar.value = false
+      }
+    })
 }
 
-// 添加重置头像方法
+// 重置头像
 const resetAvatar = async () => {
   try {
-    const confirm = await ElMessageBox.confirm('确定要移除当前头像并重置为默认头像吗？', '提示', {
+    await ElMessageBox.confirm('确定要移除当前头像并重置为默认头像吗？', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
     })
+    
     const result = await avatarStore.resetToDefault()
     if (result && result.code === 200) {
       // 强制刷新用户信息
@@ -635,25 +607,10 @@ const resetAvatar = async () => {
   }
 }
 
-// 更新页面上的所有头像元素
-const updateAvatarOnPage = (avatarUrl) => {
-  // 添加时间戳避免缓存
-  const timestamp = new Date().getTime()
-  const urlWithTimestamp = avatarUrl + (avatarUrl.includes('?') ? '&' : '?') + 't=' + timestamp
-  
-  // 更新所有头像元素
-  const avatarElements = document.querySelectorAll('.user-avatar, .avatar-img, [class*="avatar"] img')
-  avatarElements.forEach(img => {
-    if (img.src && img.src.includes('avatar')) {
-      img.src = urlWithTimestamp
-      img.onload = () => console.log('头像更新成功')
-      img.onerror = () => console.log('头像更新失败，尝试原URL')
-    }
-  })
-}
-
 // 保存用户信息
 const saveUserInfo = async () => {
+  if (!isMounted.value) return
+  
   try {
     // 表单验证
     await infoFormRef.value.validate()
@@ -665,44 +622,47 @@ const saveUserInfo = async () => {
       username: userForm.username,
       email: userForm.email,
       bio: userForm.bio
-      // 注意：avatar通常通过专门的avatar接口更新，这里不传
     })
-    
-    // 如果需要单独更新头像
-    if (userForm.avatar !== userStore.user?.avatar) {
-      // 这里可以调用专门的头像更新接口
-      console.log('头像已更新，需要调用头像更新接口')
-    }
     
     ElMessage.success('用户信息更新成功')
     
-    // 重新加载用户信息
-    await authStore.fetchCurrentUser()
-    await loadUserInfo()
+    // 刷新用户信息
+    const userData = await authStore.fetchCurrentUser()
+    if (userData) {
+      userStore.setUser(userData)
+    }
     
   } catch (error) {
     console.error('保存用户信息失败:', error)
     const errorMsg = error.response?.data?.message || error.message || '保存失败'
     ElMessage.error(errorMsg)
   } finally {
-    savingInfo.value = false
+    if (isMounted.value) {
+      savingInfo.value = false
+    }
   }
 }
 
 // 重置用户信息表单
 const resetInfoForm = () => {
-  if (userStore.user) {
-    Object.assign(userForm, {
-      username: userStore.user.username || '',
-      email: userStore.user.email || '',
-      bio: userStore.user.bio || '',
-      avatar: processAvatarUrl(userStore.user.avatar)
-    })
+  const currentUser = userStore.user
+  if (currentUser) {
+    userForm.username = currentUser.username || ''
+    userForm.email = currentUser.email || ''
+    userForm.bio = currentUser.bio || ''
+    if (currentUser.avatar) {
+      const separator = currentUser.avatar.includes('?') ? '&' : '?'
+      userForm.avatar = currentUser.avatar + separator + 't=' + Date.now()
+    } else {
+      userForm.avatar = 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+    }
   }
 }
 
 // 修改密码
 const changePassword = async () => {
+  if (!isMounted.value) return
+  
   try {
     // 表单验证
     await passwordFormRef.value.validate()
@@ -733,20 +693,20 @@ const changePassword = async () => {
     const errorMsg = error.response?.data?.message || error.message || '修改密码失败'
     ElMessage.error(errorMsg)
   } finally {
-    changingPassword.value = false
+    if (isMounted.value) {
+      changingPassword.value = false
+    }
   }
 }
 
 // 查看登录历史
 const viewLoginHistory = () => {
   ElMessage.info('登录历史功能开发中')
-  // TODO: 实现跳转到登录历史页面
 }
 
 // 查看账户状态
 const showAccountStatus = () => {
   ElMessage.info('账户状态功能开发中')
-  // TODO: 显示账户状态详情
 }
 
 // 跳转到我的文章
@@ -770,6 +730,7 @@ const logout = async () => {
     })
     
     await authStore.logout()
+    userStore.clearUser()
     ElMessage.success('退出登录成功')
     router.push('/')
     

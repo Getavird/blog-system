@@ -66,13 +66,18 @@
               <div class="user-info-dropdown">
                 <!-- 点击头像跳转到用户公开主页 -->
                 <div class="user-avatar" @click="goToUserPublicPage">
-                  <img v-if="userStore.user?.avatar" :src="userStore.user.avatar" alt="用户头像" />
+                  <img 
+                    v-if="avatarUrl" 
+                    :src="avatarUrl" 
+                    alt="用户头像"
+                    @error="handleAvatarError"
+                  />
                   <div v-else class="avatar-placeholder">
-                    {{ userStore.user?.username?.charAt(0)?.toUpperCase() || 'U' }}
+                    {{ userInitial }}
                   </div>
                 </div>
                 
-                <span class="user-name">{{ userStore.user?.username || '' }}</span>
+                <span class="user-name">{{ currentUser?.username || '' }}</span>
                 <el-icon><ArrowDown /></el-icon>
               </div>
               
@@ -121,7 +126,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search,
   ArrowDown,
@@ -144,17 +149,30 @@ const showSearchInput = ref(false)
 const searchInputRef = ref(null)
 const isMobile = ref(false)
 
-// 从Pinia获取用户状态
-const isLoggedIn = computed(() => {
-  return userStore.isLoggedIn()
+// 计算属性
+const isLoggedIn = computed(() => userStore.isLoggedIn())
+const currentUser = computed(() => userStore.user)
+
+// 计算头像URL
+const avatarUrl = computed(() => {
+  if (!currentUser.value || !currentUser.value.avatar) {
+    return 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+  }
+  
+  let url = currentUser.value.avatar
+  // 添加时间戳避免缓存
+  const separator = url.includes('?') ? '&' : '?'
+  return url + separator + 't=' + Date.now()
+})
+
+// 用户名字首字母
+const userInitial = computed(() => {
+  return currentUser.value?.username?.charAt(0)?.toUpperCase() || 'U'
 })
 
 // 生命周期
 onMounted(() => {
-  // 初始化用户状态
   userStore.initFromStorage()
-  
-  // 检测屏幕尺寸
   checkScreenSize()
   window.addEventListener('resize', checkScreenSize)
 })
@@ -167,7 +185,7 @@ onUnmounted(() => {
 const checkScreenSize = () => {
   isMobile.value = window.innerWidth <= 768
   if (!isMobile.value) {
-    showSearchInput.value = true // 桌面端始终显示搜索框
+    showSearchInput.value = true
   }
 }
 
@@ -252,7 +270,7 @@ const goToUserPublicPage = () => {
     return
   }
   
-  const username = userStore.user?.username
+  const username = currentUser.value?.username
   if (username) {
     router.push(`/user/${encodeURIComponent(username)}`)
   } else {
@@ -262,14 +280,31 @@ const goToUserPublicPage = () => {
 
 const logout = async () => {
   try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      center: true
+    })
+    
     await authStore.logout()
+    userStore.clearUser()
     ElMessage.success('已退出登录')
-    // 跳转到首页
     router.push('/')
+    
   } catch (error) {
-    console.error('退出登录失败:', error)
-    ElMessage.error('退出登录失败')
+    if (error !== 'cancel') {
+      console.error('退出登录失败:', error)
+      ElMessage.error('退出登录失败')
+    }
   }
+}
+
+// 头像加载失败处理
+const handleAvatarError = (event) => {
+  console.log('头像加载失败，使用默认头像')
+  event.target.src = 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+  event.target.onerror = null // 防止循环错误
 }
 </script>
 

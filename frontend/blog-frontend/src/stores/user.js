@@ -1,24 +1,67 @@
-// stores/user.js
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import * as userApi from '@/api/user'
 
-// 公开用户信息的数据结构
+// 头像URL处理工具函数
+const normalizeAvatarUrl = (avatarPath) => {
+  if (!avatarPath || avatarPath === 'null' || avatarPath === 'undefined' || avatarPath.trim() === '') {
+    return 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+  }
+  
+  // 已经是完整URL直接返回
+  if (avatarPath.startsWith('http://') || 
+      avatarPath.startsWith('https://') || 
+      avatarPath.startsWith('data:')) {
+    return avatarPath
+  }
+  
+  let fullUrl = avatarPath
+  
+  // 情况1：路径以/uploads/avatars/开头（相对路径）
+  if (fullUrl.startsWith('/uploads/avatars/')) {
+    fullUrl = 'http://localhost:8080' + fullUrl
+  }
+  // 情况2：只有文件名（如default_avatar.png）
+  else if (!fullUrl.includes('/') && !fullUrl.includes('\\')) {
+    if (fullUrl.includes('default_avatar')) {
+      fullUrl = 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+    } else {
+      fullUrl = 'http://localhost:8080/uploads/avatars/' + fullUrl
+    }
+  }
+  // 情况3：其他格式的路径
+  else if (fullUrl.startsWith('/')) {
+    fullUrl = 'http://localhost:8080' + fullUrl
+  }
+  // 情况4：Windows风格的路径或其他
+  else {
+    fullUrl = fullUrl.replace(/\\/g, '/')
+    if (fullUrl.startsWith('uploads/avatars/')) {
+      fullUrl = 'http://localhost:8080/' + fullUrl
+    } else if (fullUrl.startsWith('/')) {
+      fullUrl = 'http://localhost:8080' + fullUrl
+    }
+  }
+  
+  return fullUrl
+}
+
+// 创建默认公开用户
 const createDefaultPublicUser = () => ({
   id: null,
   username: '',
   avatar: '',
   bio: '',
   createTime: '',
-  isFollowed: false  // 当前登录用户是否关注了该用户
+  isFollowed: false
 })
 
 export const useUserStore = defineStore('user', () => {
-  // 状态：当前登录用户信息
+  // 当前登录用户信息
   const user = ref(null)
   const loading = ref(false)
   
-  // 状态：公开用户信息（用于用户公开主页）
+  // 公开用户信息
   const publicUser = ref(createDefaultPublicUser())
   const publicUserArticles = ref([])
   const publicUserStats = ref({
@@ -36,7 +79,12 @@ export const useUserStore = defineStore('user', () => {
     const storedUser = localStorage.getItem('blog_user')
     if (storedUser) {
       try {
-        user.value = JSON.parse(storedUser)
+        const parsedUser = JSON.parse(storedUser)
+        // 确保存储的头像URL是完整的
+        if (parsedUser.avatar) {
+          parsedUser.avatar = normalizeAvatarUrl(parsedUser.avatar)
+        }
+        user.value = parsedUser
       } catch (error) {
         console.error('解析用户数据失败:', error)
         clearUser()
@@ -55,76 +103,153 @@ export const useUserStore = defineStore('user', () => {
     return !!user.value
   }
 
-  // 设置用户信息
+  // 设置用户信息（关键方法）
   const setUser = (userData) => {
-    user.value = userData
-    if (userData) {
-      localStorage.setItem('blog_user', JSON.stringify(userData))
-    } else {
+    if (!userData) {
       clearUser()
+      return
+    }
+    
+    // 处理头像URL
+    const processedUser = { ...userData }
+    if (processedUser.avatar) {
+      processedUser.avatar = normalizeAvatarUrl(processedUser.avatar)
+    }
+    
+    user.value = processedUser
+    
+    // 保存到localStorage
+    const userForStorage = {
+      id: processedUser.id,
+      username: processedUser.username,
+      avatar: processedUser.avatar,
+      email: processedUser.email,
+      bio: processedUser.bio,
+      createTime: processedUser.createTime
+    }
+    
+    localStorage.setItem('blog_user', JSON.stringify(userForStorage))
+  }
+
+  // 上传头像
+  const uploadAvatar = async (file) => {
+    try {
+      loading.value = true
+      const formData = new FormData()
+      formData.append('avatar', file)
+      
+      const response = await userApi.uploadAvatar(formData)
+      const data = response?.data || response
+      
+      // 确保返回完整URL
+      if (data && (data.avatar || data.url)) {
+        const avatarPath = data.avatar || data.url
+        const fullAvatarUrl = normalizeAvatarUrl(avatarPath)
+        
+        // 更新当前用户信息
+        if (user.value) {
+          user.value.avatar = fullAvatarUrl
+          // 重新保存到storage
+          localStorage.setItem('blog_user', JSON.stringify(user.value))
+        }
+        
+        return { ...data, avatar: fullAvatarUrl }
+      }
+      
+      return data
+    } catch (error) {
+      console.error('上传头像失败:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+  
+
+  // 更新用户基本信息
+  const updateUserInfo = async (id, userData) => {
+    try {
+      loading.value = true
+      const response = await userApi.updateUserInfo(userData)
+      const data = response?.data || response
+      
+      // 更新本地用户信息
+      if (user.value && user.value.id === id) {
+        user.value = { ...user.value, ...userData }
+        localStorage.setItem('blog_user', JSON.stringify(user.value))
+      }
+      
+      return data
+    } catch (error) {
+      console.error('更新用户信息失败:', error)
+      throw error
+    } finally {
+      loading.value = false
     }
   }
 
-  // stores/user.js - 修改公开用户相关方法
-
-// 获取公开用户信息
-const fetchPublicUserInfo = async (username) => {
-  try {
-    publicUserLoading.value = true
-    const data = await userApi.getPublicUserInfo(username)
-    
-    // 后端返回的是Result格式，需要处理data字段
-    if (data && typeof data === 'object' && 'id' in data) {
-      publicUser.value = { ...createDefaultPublicUser(), ...data }
-    } else {
-      // 如果后端返回的是Result包装，提取data
-      publicUser.value = { ...createDefaultPublicUser(), ...(data?.data || data) }
+  // 获取公开用户信息
+  const fetchPublicUserInfo = async (username) => {
+    try {
+      publicUserLoading.value = true
+      const response = await userApi.getPublicUserInfo(username)
+      const data = response?.data || response
+      
+      const processedUser = {
+        ...createDefaultPublicUser(),
+        ...data
+      }
+      
+      // 处理头像URL
+      if (processedUser.avatar) {
+        processedUser.avatar = normalizeAvatarUrl(processedUser.avatar)
+      }
+      
+      publicUser.value = processedUser
+      return data
+    } catch (error) {
+      console.error('获取公开用户信息失败:', error)
+      throw error
+    } finally {
+      publicUserLoading.value = false
     }
-    
-    return data
-  } catch (error) {
-    console.error('获取公开用户信息失败:', error)
-    throw error
-  } finally {
-    publicUserLoading.value = false
   }
-}
 
-// 获取用户公开文章
-const fetchPublicUserArticles = async (username, params = {}) => {
-  try {
-    publicUserLoading.value = true
-    const data = await userApi.getPublicUserArticles(username, params)
-    
-    // 处理返回的数据结构
-    const result = data?.data || data
-    publicUserArticles.value = result.list || result.articles || result.data || []
-    publicUserTotal.value = result.total || result.count || 0
-    
-    return data
-  } catch (error) {
-    console.error('获取用户公开文章失败:', error)
-    throw error
-  } finally {
-    publicUserLoading.value = false
+  // 获取用户公开文章
+  const fetchPublicUserArticles = async (username, params = {}) => {
+    try {
+      publicUserLoading.value = true
+      const response = await userApi.getPublicUserArticles(username, params)
+      const data = response?.data || response
+      
+      const result = data?.data || data
+      publicUserArticles.value = result.list || result.articles || result.data || []
+      publicUserTotal.value = result.total || result.count || 0
+      
+      return data
+    } catch (error) {
+      console.error('获取用户公开文章失败:', error)
+      throw error
+    } finally {
+      publicUserLoading.value = false
+    }
   }
-}
 
-// 获取用户公开统计
-const fetchPublicUserStats = async (username) => {
-  try {
-    const data = await userApi.getPublicUserStats(username)
-    
-    // 处理返回的数据结构
-    const stats = data?.data || data
-    publicUserStats.value = { ...publicUserStats.value, ...stats }
-    
-    return data
-  } catch (error) {
-    console.error('获取用户统计失败:', error)
-    throw error
+  // 获取用户公开统计
+  const fetchPublicUserStats = async (username) => {
+    try {
+      const response = await userApi.getPublicUserStats(username)
+      const data = response?.data || response
+      
+      const stats = data?.data || data
+      publicUserStats.value = { ...publicUserStats.value, ...stats }
+      
+      return data
+    } catch (error) {
+      console.error('获取用户统计失败:', error)
+      throw error
+    }
   }
-}
 
   // 检查关注状态
   const checkFollowStatus = async (userId) => {
@@ -180,45 +305,76 @@ const fetchPublicUserStats = async (username) => {
     }
   }
 
-  // 获取当前用户的统计信息
-const fetchCurrentUserStats = async () => {
-  try {
-    const data = await userApi.getCurrentUserStats()
-    // 处理返回的数据结构
-    const stats = data?.data || data
-    return stats
-  } catch (error) {
-    console.error('获取当前用户统计失败:', error)
-    throw error
+  // 获取当前用户统计信息
+  const fetchCurrentUserStats = async () => {
+    try {
+      const response = await userApi.getCurrentUserStats()
+      return response?.data || response
+    } catch (error) {
+      console.error('获取当前用户统计失败:', error)
+      throw error
+    }
   }
-}
 
-// 获取当前用户个人中心信息
-const fetchCurrentUserProfile = async () => {
-  try {
-    const data = await userApi.getCurrentUserProfile()
-    // 处理返回的数据结构
-    const profile = data?.data || data
-    return profile
-  } catch (error) {
-    console.error('获取当前用户个人中心失败:', error)
-    throw error
+  // 获取当前用户状态
+  const fetchCurrentUserStatus = async () => {
+    try {
+      const response = await userApi.getCurrentUserStatus()
+      return response?.data || response
+    } catch (error) {
+      console.error('获取当前用户状态失败:', error)
+      throw error
+    }
   }
-}
-
-// 获取当前用户账户状态
-const fetchCurrentUserStatus = async () => {
-  try {
-    const data = await userApi.getCurrentUserStatus()
-    // 处理返回的数据结构
-    const status = data?.data || data
-    return status
-  } catch (error) {
-    console.error('获取当前用户状态失败:', error)
-    throw error
+  // 设置用户头像
+  const setAvatar = (avatarUrl) => {
+    if (user.value) {
+      user.value.avatar = avatarUrl
+      saveUserToStorage()
+    }
   }
-}
 
+  // 直接更新用户头像（Pinia共享状态最佳实践）
+  const updateUserAvatar = (avatarUrl) => {
+    if (user.value) {
+      user.value.avatar = avatarUrl
+      // 兼容本地存储
+      localStorage.setItem('blog_user', JSON.stringify({
+        ...user.value,
+        avatar: avatarUrl
+      }))
+    }
+  }
+
+  // 清除头像
+  const clearAvatar = () => {
+    if (user.value) {
+      user.value.avatar = null
+      saveUserToStorage()
+    }
+  }
+
+  // 更新用户头像
+  const updateAvatar = async (avatarFile) => {
+    try {
+      const formData = new FormData()
+      formData.append('avatar', avatarFile)
+      
+      const response = await userApi.updateAvatar(formData)
+      
+      if (response.data) {
+        // 更新本地用户信息
+        if (user.value) {
+          user.value.avatar = response.data.avatar
+          saveUserToStorage()
+        }
+        return response.data
+      }
+    } catch (error) {
+      console.error('更新头像失败:', error)
+      throw error
+    }
+  }
 
   // 清空公开用户数据
   const clearPublicUserData = () => {
@@ -234,50 +390,6 @@ const fetchCurrentUserStatus = async () => {
     publicUserTotal.value = 0
   }
 
-  // 上传用户头像
-const uploadAvatar = async (file) => {
-  try {
-    loading.value = true
-    const formData = new FormData()
-    formData.append('avatar', file)
-    
-    const data = await userApi.uploadAvatar(formData)
-    
-    // 更新本地用户信息
-    if (user.value) {
-      user.value.avatar = data.avatar || data.url || ''
-    }
-    
-    return data
-  } catch (error) {
-    console.error('上传头像失败:', error)
-    throw error
-  } finally {
-    loading.value = false
-  }
-}
-
-// 更新用户基本信息
-// 更新用户基本信息 - 修复这个方法
-const updateUserInfo = async (id, userData) => {
-  try {
-    loading.value = true
-    // 修正：调用正确的 API 方法，使用正确的参数格式
-    const data = await userApi.updateUserInfo(userData)
-    
-    // 更新本地用户信息
-    if (user.value && user.value.id === id) {
-      Object.assign(user.value, userData)
-    }
-    
-    return data
-  } catch (error) {
-    console.error('更新用户信息失败:', error)
-    throw error
-  } finally {
-    loading.value = false
-  }
-}
   return {
     // 当前用户状态
     user,
@@ -307,10 +419,13 @@ const updateUserInfo = async (id, userData) => {
     unfollowUser,
     fetchFollowCounts,
     clearPublicUserData,
-
-    // 新增的方法
-  fetchCurrentUserStats,
-  fetchCurrentUserProfile,
-  fetchCurrentUserStatus,
+    
+    // 当前用户方法
+    fetchCurrentUserStats,
+    fetchCurrentUserStatus,
+    setAvatar,
+    clearAvatar,
+    updateAvatar
+    ,updateUserAvatar
   }
 })
