@@ -88,12 +88,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // 修改密码
-  const changePassword = async (oldPassword, newPassword,confirmPassword) => {
+  const changePassword = async (oldPassword, newPassword) => {
     try {
       loading.value = true
       error.value = null
 
-      const data = await authApi.updatePassword(oldPassword, newPassword,confirmPassword)
+      const data = await authApi.updatePassword(oldPassword, newPassword)
       return data
     } catch (err) {
       error.value = err.response?.data?.message || err.message || '修改密码失败'

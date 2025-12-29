@@ -239,4 +239,19 @@ public class TagController {
             return Result.error("搜索标签失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 兼容路径：根据标签名获取文章列表（兼容旧格式）
+     * GET /api/tags/{tagName}/articles?page=1&size=15&sort=latest
+     */
+    @GetMapping("/{tagName}/articles")
+    public Result<Map<String, Object>> getArticlesByTagNameCompatible(
+            @PathVariable String tagName,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "15") Integer size,
+            @RequestParam(defaultValue = "latest") String sort) {
+
+        // 直接调用现有的 getArticlesByTagName 方法
+        return getArticlesByTagName(tagName, page, size, sort);
+    }
 }

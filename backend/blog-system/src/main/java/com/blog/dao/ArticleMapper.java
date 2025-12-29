@@ -51,7 +51,7 @@ public interface ArticleMapper {
         @Update("UPDATE article SET " +
                         "title = #{title}, content = #{content}, summary = #{summary}, " +
                         "cover_image = #{coverImage}, status = #{status}, category_id = #{categoryId}, " +
-                        "is_top = #{isTop}, allow_comment = #{allowComment}, tags = #{tags}, " +
+                        "is_top = #{isTop}, allow_comment = #{allowComment}, tags = #{tags}, " + "like_count = #{likeCount}, " +
                         "update_time = NOW() " +
                         "WHERE id = #{id}")
         int update(Article article);
