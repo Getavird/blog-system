@@ -25,7 +25,12 @@
                     {{ article.username ? article.username.charAt(0) : 'A' }}
                   </div>
                 </div>
-                <h3 class="author-name" @click.stop="goToAuthorPage">{{ article.username }}</h3>
+                <!--这样子不能显示-->
+                <!-- <h3 class="author-name" @click.stop="goToAuthorPage">{{ article.username }}</h3> -->
+                <!--这样子能显示-->
+                <h3 class="author-name" @click.stop="goToAuthorPage">
+                  {{ article.authorName || '未知作者' }}
+                </h3>
                 <p class="author-bio" v-if="article.bio">{{ article.bio }}</p>
               </div>
               <div class="author-stats">
@@ -782,19 +787,25 @@ const goToAuthorPage = () => {
   
   console.log('跳转到作者主页，作者信息:', {
     username: article.value.username,
+    authorName: article.value.authorName,
     authorId: article.value.authorId
   })
   
-  // 确保 username 不为空且有效
-  if (article.value.username && article.value.username.trim()) {
+  // 优先使用 authorName，因为它能显示
+  const userName = article.value.authorName || article.value.username
+  console.log('最终使用的用户名:', userName)
+  
+  if (userName && userName.trim()) {
+    // 移除可能的空白字符
+    const cleanUserName = userName.trim()
     // 使用 encodeURIComponent 对中文进行编码
-    const encodedUsername = encodeURIComponent(article.value.username.trim())
+    const encodedUsername = encodeURIComponent(cleanUserName)
     console.log('编码后的用户名:', encodedUsername)
     
     // 使用路由跳转
     router.push(`/user/${encodedUsername}`)
   } else {
-    console.warn('无法获取作者用户名，无法跳转')
+    console.warn('无法获取作者用户名，无法跳转', article.value)
     ElMessage.warning('无法获取作者信息')
   }
 }
