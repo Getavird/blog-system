@@ -73,7 +73,7 @@ export const getPublicUserInfo = (username) => {
  */
 export const getPublicUserArticles = (username, params = {}) => {
   const defaultParams = { page: 1, size: 10, ...params }
-  return request.get(`/api/user/public/${username}/articles`, { 
+  return request.get(`/api/user/public/${username}/articles`, {
     params: defaultParams
   })
 }
@@ -84,7 +84,7 @@ export const getPublicUserArticles = (username, params = {}) => {
  * 返回：Result<UserStatsVO>
  */
 export const getPublicUserStats = (username) => {
-  return request.get(`/api/user/public/${username}/stats`) 
+  return request.get(`/api/user/public/${username}/stats`)
 }
 
 /**
@@ -141,4 +141,11 @@ export const getCurrentUserStats = () => {
 // 获取当前用户账户状态
 export const getCurrentUserStatus = () => {
   return request.get('/api/user/status')
+}
+
+// 更新个人简介
+export const updateBio = (bio) => {
+  return request.put('/api/user/bio', null, {
+    params: { bio }
+  })
 }

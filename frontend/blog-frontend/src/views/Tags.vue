@@ -109,7 +109,7 @@
                   class="table-row"
                 >
                   <div class="table-cell">
-                    <el-tag :type="getTagType(tag)" size="medium" class="tag-cell">
+                    <el-tag :type="getTagType(tag)" size="small" class="tag-cell">
                       {{ tag.name }}
                     </el-tag>
                   </div>
@@ -158,39 +158,10 @@
             </el-tag>
           </div>
         </div>
-
-        <!-- 创建标签按钮（管理员） -->
-        <div v-if="userStore.user?.role === 1" class="create-tag-section">
-          <el-button type="primary" @click="showCreateDialog = true">
-            <el-icon><Plus /></el-icon>
-            创建新标签
-          </el-button>
-        </div>
       </div>
     </div>
 
     <Footer />
-    
-    <!-- 创建标签对话框 -->
-    <el-dialog v-model="showCreateDialog" title="创建标签" width="500px">
-      <el-form :model="newTag" :rules="tagRules" ref="tagFormRef">
-        <el-form-item label="标签名称" prop="name">
-          <el-input v-model="newTag.name" placeholder="请输入标签名称" />
-        </el-form-item>
-        <el-form-item label="标签描述" prop="description">
-          <el-input v-model="newTag.description" type="textarea" rows="3" placeholder="请输入标签描述" />
-        </el-form-item>
-        <el-form-item label="标签颜色" prop="color">
-          <el-color-picker v-model="newTag.color" show-alpha :predefine="predefineColors" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showCreateDialog = false">取消</el-button>
-          <el-button type="primary" :loading="creating" @click="handleCreateTag">创建</el-button>
-        </span>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -200,7 +171,7 @@ import { useRouter } from 'vue-router'
 import { useTagStore } from '@/stores/tag'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, PriceTag, Plus } from '@element-plus/icons-vue'
+import { Search, PriceTag } from '@element-plus/icons-vue'
 
 // 组件导入
 import Header from '@/components/layout/Header.vue'
@@ -216,31 +187,6 @@ const userStore = useUserStore()
 const loading = ref(false)
 const searchKeyword = ref('')
 const viewMode = ref('cloud') // 'cloud' 或 'list'
-const showCreateDialog = ref(false)
-const creating = ref(false)
-const tagFormRef = ref(null)
-
-// 新标签数据
-const newTag = ref({
-  name: '',
-  description: '',
-  color: '#409eff'
-})
-
-// 预定义颜色
-const predefineColors = ref([
-  '#409eff', '#67c23a', '#e6a23c', '#f56c6c',
-  '#909399', '#ff69b4', '#9b30ff', '#00bfff',
-  '#32cd32', '#ff4500'
-])
-
-// 验证规则
-const tagRules = {
-  name: [
-    { required: true, message: '请输入标签名称', trigger: 'blur' },
-    { min: 2, max: 20, message: '长度在2到20个字符', trigger: 'blur' }
-  ]
-}
 
 // 计算属性
 const tags = computed(() => {
@@ -387,31 +333,6 @@ const getTagType = (tag) => {
   return 'info'
 }
 
-// 创建标签
-const handleCreateTag = async () => {
-  if (!tagFormRef.value) return
-  
-  try {
-    // 表单验证
-    await tagFormRef.value.validate()
-    
-    creating.value = true
-    await tagStore.createTag(newTag.value)
-    
-    ElMessage.success('创建标签成功')
-    showCreateDialog.value = false
-    resetTagForm()
-    
-    // 刷新标签列表
-    await loadTags()
-  } catch (error) {
-    console.error('创建标签失败:', error)
-    ElMessage.error(error.message || '创建标签失败')
-  } finally {
-    creating.value = false
-  }
-}
-
 // 删除标签
 const deleteTag = async (tag) => {
   try {
@@ -436,18 +357,6 @@ const deleteTag = async (tag) => {
       console.error('删除标签失败:', error)
       ElMessage.error('删除标签失败')
     }
-  }
-}
-
-// 重置表单
-const resetTagForm = () => {
-  if (tagFormRef.value) {
-    tagFormRef.value.resetFields()
-  }
-  newTag.value = {
-    name: '',
-    description: '',
-    color: '#409eff'
   }
 }
 </script>
@@ -800,21 +709,6 @@ const resetTagForm = () => {
 .hot-tag-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* 创建标签区域 */
-.create-tag-section {
-  text-align: center;
-  margin-top: 30px;
-}
-
-.create-tag-section .el-button {
-  padding: 12px 32px;
-  font-size: 16px;
-}
-
-.create-tag-section .el-icon {
-  margin-right: 8px;
 }
 
 /* 响应式设计 */

@@ -189,67 +189,73 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // 获取公开用户信息
-  const fetchPublicUserInfo = async (username) => {
-    try {
-      publicUserLoading.value = true
-      const response = await userApi.getPublicUserInfo(username)
-      const data = response?.data || response
-      
-      const processedUser = {
-        ...createDefaultPublicUser(),
-        ...data
-      }
-      
-      // 处理头像URL
-      if (processedUser.avatar) {
-        processedUser.avatar = normalizeAvatarUrl(processedUser.avatar)
-      }
-      
-      publicUser.value = processedUser
-      return data
-    } catch (error) {
-      console.error('获取公开用户信息失败:', error)
-      throw error
-    } finally {
-      publicUserLoading.value = false
+const fetchPublicUserInfo = async (username) => {
+  try {
+    publicUserLoading.value = true
+    const response = await userApi.getPublicUserInfo(username)
+    
+    console.log('fetchPublicUserInfo 响应:', response)
+    
+    let userData = null
+    
+    // 处理返回的数据格式
+    if (response && response.code === 200) {
+      userData = response.data
+    } else if (response) {
+      userData = response
     }
+    
+    if (userData) {
+      // 确保头像路径正确
+      if (userData.avatar) {
+        if (userData.avatar === 'default_avatar.png') {
+          userData.avatar = '/static/images/default-avatars/default_avatar.png'
+        } else if (!userData.avatar.startsWith('http') && !userData.avatar.startsWith('/')) {
+          userData.avatar = `/uploads/avatars/${userData.avatar}`
+        }
+      } else {
+        userData.avatar = '/static/images/default-avatars/default_avatar.png'
+      }
+      
+      publicUser.value = userData
+    }
+    
+    return userData
+  } catch (error) {
+    console.error('获取公开用户信息失败:', error)
+    throw error
+  } finally {
+    publicUserLoading.value = false
   }
+}
 
   // 获取用户公开文章
-  const fetchPublicUserArticles = async (username, params = {}) => {
-    try {
-      publicUserLoading.value = true
-      const response = await userApi.getPublicUserArticles(username, params)
-      const data = response?.data || response
-      
-      const result = data?.data || data
-      publicUserArticles.value = result.list || result.articles || result.data || []
-      publicUserTotal.value = result.total || result.count || 0
-      
-      return data
-    } catch (error) {
-      console.error('获取用户公开文章失败:', error)
-      throw error
-    } finally {
-      publicUserLoading.value = false
-    }
+const fetchPublicUserArticles = async (username, params) => {
+  try {
+    publicUserLoading.value = true
+    const data = await userApi.getPublicUserArticles(username, params)
+    return data
+  } catch (error) {
+    console.error('获取公开用户文章失败:', error)
+    throw error
+  } finally {
+    publicUserLoading.value = false
   }
+}
 
   // 获取用户公开统计
-  const fetchPublicUserStats = async (username) => {
-    try {
-      const response = await userApi.getPublicUserStats(username)
-      const data = response?.data || response
-      
-      const stats = data?.data || data
-      publicUserStats.value = { ...publicUserStats.value, ...stats }
-      
-      return data
-    } catch (error) {
-      console.error('获取用户统计失败:', error)
-      throw error
-    }
+const fetchPublicUserStats = async (username) => {
+  try {
+    publicUserLoading.value = true
+    const data = await userApi.getPublicUserStats(username)
+    return data
+  } catch (error) {
+    console.error('获取公开用户统计失败:', error)
+    throw error
+  } finally {
+    publicUserLoading.value = false
   }
+}
 
   // 检查关注状态
   const checkFollowStatus = async (userId) => {
@@ -376,6 +382,22 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // 设置公开用户文章
+const setPublicUserArticles = (articles) => {
+  publicUserArticles.value = articles
+}
+
+// 设置公开用户统计
+const setPublicUserStats = (stats) => {
+  publicUserStats.value = stats
+}
+
+// 设置公开用户文章总数
+const setPublicUserTotal = (total) => {
+  publicUserTotal.value = total
+}
+
+
   // 清空公开用户数据
   const clearPublicUserData = () => {
     publicUser.value = createDefaultPublicUser()
@@ -403,6 +425,7 @@ export const useUserStore = defineStore('user', () => {
     publicUserLoading,
     
     // 方法
+ 
     uploadAvatar,
     updateUserInfo,
     initFromStorage,
@@ -411,6 +434,9 @@ export const useUserStore = defineStore('user', () => {
     setUser,
     
     // 公开用户方法
+    setPublicUserArticles,
+    setPublicUserStats,
+    setPublicUserTotal,
     fetchPublicUserInfo,
     fetchPublicUserArticles,
     fetchPublicUserStats,
