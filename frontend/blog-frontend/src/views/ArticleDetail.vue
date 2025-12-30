@@ -220,7 +220,7 @@
                     <div class="comment-header">
                       <div class="comment-author" @click="goToUserPage(comment.userId, comment.username)">
                         <div class="comment-avatar">
-                          <img v-if="comment.userAvatar" :src="comment.userAvatar" alt="用户头像">
+                          <img v-if="comment.userAvatar" :src="getAvatarUrl(comment.userAvatar)" alt="用户头像">
                           <div v-else class="avatar-placeholder-small">
                             {{ comment.username ? comment.username.charAt(0) : 'U' }}
                           </div>
@@ -410,6 +410,18 @@ const processedTags = computed(() => {
   
   return []
 })
+
+const getAvatarUrl = (avatarFileName) => {
+  if (!avatarFileName) return ''
+  
+  // 如果是默认头像
+  if (avatarFileName === 'default_avatar.png') {
+    return `/static/images/default-avatars/default_avatar.png`
+  }
+  
+  // 如果是上传的头像
+  return `/uploads/avatars/${avatarFileName}`
+}
 
 // 获取标签key
 const getTagKey = (tag, index) => {
