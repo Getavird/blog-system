@@ -1,4 +1,3 @@
-vue
 <template>
   <div class="user-public-page">
     <Header />
@@ -69,11 +68,6 @@ vue
                   </el-icon>
                   {{ publicUser.isFollowed ? '已关注' : '关注' }}
                   <span v-if="publicUser.isFollowed" style="margin-left: 5px">✓</span>
-                </el-button>
-
-                <el-button v-if="showFollowButton && publicUser.isFollowed" type="text" size="small"
-                  @click="toggleFollow" :loading="followLoading" :disabled="followLoading" style="margin-left: 10px">
-                  取消关注
                 </el-button>
 
                 <!-- 如果是自己的主页，显示编辑按钮 -->
@@ -588,17 +582,22 @@ const toggleFollow = async () => {
     // 使用followStore切换关注状态
     const newFollowStatus = await followStore.toggleFollow(publicUser.value.id, publicUser.value.isFollowed)
     
-    // 更新本地状态
+    // 只更新关注状态，不更新粉丝数
     publicUser.value.isFollowed = newFollowStatus
     
-    // 更新统计数字
+    // 移除以下更新粉丝数的代码，因为已经在 followStore 中更新了
+    // if (newFollowStatus) {
+    //   publicUserStats.value.followerCount = (publicUserStats.value.followerCount || 0) + 1
+    //   ElMessage.success('关注成功')
+    // } else {
+    //   publicUserStats.value.followerCount = Math.max(0, (publicUserStats.value.followerCount || 1) - 1)
+    //   ElMessage.success('已取消关注')
+    // }
+    
+    // 显示操作成功消息
     if (newFollowStatus) {
-      // 关注成功，粉丝数+1
-      publicUserStats.value.followerCount = (publicUserStats.value.followerCount || 0) + 1
       ElMessage.success('关注成功')
     } else {
-      // 取消关注，粉丝数-1（最小为0）
-      publicUserStats.value.followerCount = Math.max(0, (publicUserStats.value.followerCount || 1) - 1)
       ElMessage.success('已取消关注')
     }
 

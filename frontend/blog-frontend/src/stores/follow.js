@@ -43,98 +43,122 @@ export const useFollowStore = defineStore('follow', () => {
   
   // 检查是否已登录
   const checkLogin = () => {
-    if (!userStore.isLoggedIn()) {
-      throw new Error('请先登录')
-    }
+  if (!userStore.user || !userStore.user.id) {
+    throw new Error('请先登录')
   }
+}
   
   // 关注用户
-  const followUser = async (userId) => {
-    try {
-      checkLogin()
-      followingLoading.value = true
-      followError.value = null
-      
-      const data = await followApi.followUser(userId)
-      
-      // 更新缓存
-      followStatusCache.value[userId] = true
-      
-      // 更新统计
-      followStats.value.followingCount += 1
-      
-      // 如果需要，更新用户store中的公开用户状态
-      if (userStore.publicUser.value.id === userId) {
-        userStore.publicUser.value.isFollowed = true
-        userStore.publicUserStats.value.followerCount += 1
-      }
-      
-      return data
-    } catch (error) {
-      followError.value = error.response?.data?.message || error.message || '关注失败'
-      console.error('关注用户失败:', error)
-      throw error
-    } finally {
-      followingLoading.value = false
+const followUser = async (userId) => {
+  try {
+    checkLogin()
+    followingLoading.value = true
+    followError.value = null
+    
+    // 添加参数验证
+    if (!userId) {
+      throw new Error('用户ID不能为空')
     }
-  }
-  
-  // 取消关注
-  const unfollowUser = async (userId) => {
-    try {
-      checkLogin()
-      unfollowLoading.value = true
-      followError.value = null
-      
-      const data = await followApi.unfollowUser(userId)
-      
-      // 更新缓存
-      followStatusCache.value[userId] = false
-      
-      // 更新统计
-      followStats.value.followingCount = Math.max(0, followStats.value.followingCount - 1)
-      
-      // 从关注列表中移除
-      followingList.value = followingList.value.filter(user => user.id !== userId)
-      
-      // 如果需要，更新用户store中的公开用户状态
-      if (userStore.publicUser.value.id === userId) {
-        userStore.publicUser.value.isFollowed = false
-        userStore.publicUserStats.value.followerCount = Math.max(0, userStore.publicUserStats.value.followerCount - 1)
+    
+    const data = await followApi.followUser(userId)
+    
+    // 更新缓存
+    followStatusCache.value[userId] = true
+    
+    // 更新统计
+    followStats.value.followingCount += 1
+    
+    // ✅ 修复：移除 .value，直接访问 publicUser
+    // 如果需要，更新用户store中的公开用户状态
+    if (userStore.publicUser && userStore.publicUser.id === userId) {
+      userStore.publicUser.isFollowed = true
+      // 确保 userStore.publicUserStats 存在
+      if (userStore.publicUserStats) {
+        userStore.publicUserStats.followerCount = (userStore.publicUserStats.followerCount || 0) + 1
       }
-      
-      return data
-    } catch (error) {
-      followError.value = error.response?.data?.message || error.message || '取消关注失败'
-      console.error('取消关注失败:', error)
-      throw error
-    } finally {
-      unfollowLoading.value = false
     }
+    
+    return data
+  } catch (error) {
+    followError.value = error.response?.data?.message || error.message || '关注失败'
+    console.error('关注用户失败:', error)
+    throw error
+  } finally {
+    followingLoading.value = false
   }
+}
   
-  // 检查关注状态
-  const checkFollowStatus = async (userId) => {
-    try {
-      checkLogin()
-      
-      // 先检查缓存
-      if (followStatusCache.value[userId] !== undefined) {
-        return followStatusCache.value[userId]
+// 取消关注
+const unfollowUser = async (userId) => {
+  try {
+    checkLogin()
+    unfollowLoading.value = true
+    followError.value = null
+    
+    // 添加参数验证
+    if (!userId) {
+      throw new Error('用户ID不能为空')
+    }
+    
+    const data = await followApi.unfollowUser(userId)
+    
+    // 更新缓存
+    followStatusCache.value[userId] = false
+    
+    // 更新统计
+    followStats.value.followingCount = Math.max(0, followStats.value.followingCount - 1)
+    
+    // 从关注列表中移除
+    followingList.value = followingList.value.filter(user => user.id !== userId)
+    
+    // ✅ 修复：移除 .value，直接访问 publicUser
+    // 如果需要，更新用户store中的公开用户状态
+    if (userStore.publicUser && userStore.publicUser.id === userId) {
+      userStore.publicUser.isFollowed = false
+      // 确保 userStore.publicUserStats 存在
+      if (userStore.publicUserStats) {
+        userStore.publicUserStats.followerCount = Math.max(0, (userStore.publicUserStats.followerCount || 1) - 1)
       }
-      
-      const data = await followApi.checkFollowing(userId)
-      const isFollowing = data?.isFollowing || false
-      
-      // 更新缓存
-      followStatusCache.value[userId] = isFollowing
-      
-      return isFollowing
-    } catch (error) {
-      console.error('检查关注状态失败:', error)
+    }
+    
+    return data
+  } catch (error) {
+    followError.value = error.response?.data?.message || error.message || '取消关注失败'
+    console.error('取消关注失败:', error)
+    throw error
+  } finally {
+    unfollowLoading.value = false
+  }
+}
+  
+ // 检查关注状态
+const checkFollowStatus = async (userId) => {
+  try {
+    checkLogin()
+    
+    // 添加参数验证
+    if (!userId) {
+      console.warn('用户ID为空，无法检查关注状态')
       return false
     }
+    
+    // 先检查缓存
+    if (followStatusCache.value[userId] !== undefined) {
+      return followStatusCache.value[userId]
+    }
+    
+    const data = await followApi.checkFollowing(userId)
+    const isFollowing = data?.isFollowing || data?.following || false
+    
+    // 更新缓存
+    followStatusCache.value[userId] = isFollowing
+    
+    return isFollowing
+  } catch (error) {
+    console.error('检查关注状态失败:', error)
+    return false
   }
+}
   
   // 获取关注列表（我关注的人）
   const fetchFollowingList = async (page = 1, size = 10) => {
@@ -238,25 +262,35 @@ export const useFollowStore = defineStore('follow', () => {
     }
   }
   
-  // 切换关注状态
-  const toggleFollow = async (userId, currentStatus = null) => {
-    try {
-      if (currentStatus === null) {
-        currentStatus = await checkFollowStatus(userId)
-      }
-      
-      if (currentStatus) {
-        await unfollowUser(userId)
-        return false
-      } else {
-        await followUser(userId)
-        return true
-      }
-    } catch (error) {
-      console.error('切换关注状态失败:', error)
-      throw error
+// 切换关注状态
+const toggleFollow = async (userId, currentStatus = null) => {
+  try {
+    // 参数验证
+    if (!userId) {
+      throw new Error('用户ID不能为空')
     }
+    
+    // 检查登录状态
+    checkLogin()
+    
+    // 获取当前状态
+    if (currentStatus === null) {
+      currentStatus = await checkFollowStatus(userId)
+    }
+    
+    // 根据状态执行操作
+    if (currentStatus) {
+      await unfollowUser(userId)
+      return false
+    } else {
+      await followUser(userId)
+      return true
+    }
+  } catch (error) {
+    console.error('切换关注状态失败:', error)
+    throw error
   }
+}
   
   // 清空关注列表
   const clearFollowLists = () => {
