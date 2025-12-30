@@ -595,7 +595,27 @@ public class UserServiceImpl implements UserService {
             UserPublicVO publicVO = new UserPublicVO();
             publicVO.setId(user.getId());
             publicVO.setUsername(user.getUsername());
-            publicVO.setAvatar(user.getAvatar());
+
+            // 修复：统一处理头像路径，与getUserProfile()保持一致
+            String avatar = user.getAvatar();
+            if (StringUtils.hasText(avatar)) {
+                // 检查是否是默认头像
+                if (avatar.equals("default_avatar.png")) {
+                    // 默认头像使用静态资源路径
+                    publicVO.setAvatar("/static/images/default-avatars/default_avatar.png");
+                } else {
+                    // 上传的头像，确保有完整路径
+                    if (!avatar.startsWith("/uploads/avatars/")) {
+                        publicVO.setAvatar("/uploads/avatars/" + avatar);
+                    } else {
+                        publicVO.setAvatar(avatar);
+                    }
+                }
+            } else {
+                // 头像为空时使用默认头像
+                publicVO.setAvatar("/static/images/default-avatars/default_avatar.png");
+            }
+
             publicVO.setBio(user.getBio());
             publicVO.setCreateTime(user.getCreateTime());
             publicVO.setLastActiveTime(user.getLastActiveTime());

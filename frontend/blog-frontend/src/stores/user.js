@@ -206,16 +206,12 @@ const fetchPublicUserInfo = async (username) => {
     }
     
     if (userData) {
-      // 确保头像路径正确
-      if (userData.avatar) {
-        if (userData.avatar === 'default_avatar.png') {
-          userData.avatar = '/static/images/default-avatars/default_avatar.png'
-        } else if (!userData.avatar.startsWith('http') && !userData.avatar.startsWith('/')) {
-          userData.avatar = `/uploads/avatars/${userData.avatar}`
-        }
-      } else {
-        userData.avatar = '/static/images/default-avatars/default_avatar.png'
-      }
+      // 使用统一的 normalizeAvatarUrl 函数处理头像
+      userData.avatar = normalizeAvatarUrl(userData.avatar)
+      
+      // 添加时间戳避免缓存
+      const separator = userData.avatar.includes('?') ? '&' : '?'
+      userData.avatar = userData.avatar + separator + 't=' + Date.now()
       
       publicUser.value = userData
     }
