@@ -7,19 +7,25 @@
         <!-- 文章编辑头部 -->
         <div class="edit-header">
           <div class="header-left">
-            <h1 v-if="articleId">编辑文章</h1>
-            <h1 v-else>写文章</h1>
+            <h1 v-if="isEditMode">
+              {{ currentStatus === 0 ? '编辑草稿' : '编辑文章' }}
+              <span v-if="currentStatus === 0" class="status-badge draft">草稿</span>
+              <span v-else-if="currentStatus === 1" class="status-badge published">已发布</span>
+            </h1>
+            <h1 v-else>写新文章</h1>
           </div>
           <div class="header-right">
-            <el-button @click="saveDraft" :loading="saving" :disabled="!title || !content">
-              {{ saving ? '保存中...' : '保存草稿' }}
+            <!-- 草稿只显示"保存草稿"按钮 -->
+            <el-button v-if="currentStatus !== 1" @click="saveDraft" :loading="saving" :disabled="!title || !content">
+              {{ saving ? '保存中...' : currentStatus === 0 ? '更新草稿' : '保存草稿' }}
             </el-button>
+
+            <!-- 发布/更新按钮 -->
             <el-button type="primary" @click="publishArticle" :loading="publishing" :disabled="!title || !content">
-              {{ publishing ? '发布中...' : '发布文章' }}
+              {{ publishing ? '处理中...' : currentStatus === 0 ? '发布草稿' : isEditMode ? '更新文章' : '发布文章' }}
             </el-button>
           </div>
         </div>
-
         <!-- 编辑区域 -->
         <div class="edit-content">
           <!-- 左侧：编辑器 -->
@@ -170,6 +176,7 @@ const allTags = computed(() => {
   return [...new Set([...existingTags, ...currentTags])]
 })
 
+
 // WangEditor 相关
 const editorRef = ref(null)
 
@@ -259,45 +266,106 @@ const loadArticleData = async () => {
   try {
     loading.value = true
 
-    const article = await articleStore.fetchArticleDetail(articleId.value)
+    console.log('加载文章数据，文章ID:', articleId.value, '编辑模式:', isEditMode.value)
 
-    if (article) {
-      // 填充表单数据
-      title.value = article.title || ''
-      content.value = article.content || ''
-      coverImage.value = article.coverImage || article.cover || ''
-      categoryId.value = article.categoryId || article.category?.id || ''
+    // 使用 store 加载文章详情
+    await articleStore.fetchArticleDetail(articleId.value)
 
-      // 处理标签
-      if (article.tags && Array.isArray(article.tags)) {
+    const article = articleStore.currentArticle
+
+     // ✅ 添加 edit=true 参数，表示编辑模式
+    const articleData = await articleStore.fetchArticleDetail(articleId.value, { edit: true })
+
+    if (!article) {
+      console.error('文章加载失败，跳转到文章列表')
+      ElMessage.error('文章不存在或没有权限')
+      router.push('/user/articles')
+      return
+    }
+
+    console.log('获取到的文章数据:', {
+      标题: article.title,
+      状态: article.status,
+      状态类型: typeof article.status,
+      是否为草稿: article.status === 0,
+      完整数据: article
+    })
+
+    // ✅ 检查权限：如果是草稿（status=0），需要确保是作者
+    if (article.status === 0) {
+      const currentUser = userStore.user
+      if (!currentUser || currentUser.id !== article.authorId) {
+        console.error('没有权限编辑此草稿:', {
+          当前用户: currentUser?.id,
+          文章作者: article.authorId
+        })
+        ElMessage.error('没有权限编辑此草稿')
+        router.push('/user/articles')
+        return
+      }
+      console.log('✅ 权限验证通过，加载草稿文章:', article.title)
+    }
+
+    // ✅ 填充表单数据
+    title.value = article.title || ''
+    content.value = article.content || ''
+    coverImage.value = article.coverImage || article.cover || ''
+    categoryId.value = article.categoryId || article.category?.id || ''
+
+    // ✅ 处理标签（确保正确处理数组和字符串格式）
+    selectedTags.value = []
+    if (article.tags) {
+      console.log('原始标签数据:', article.tags, '类型:', typeof article.tags)
+
+      if (Array.isArray(article.tags)) {
+        // 如果是数组
         selectedTags.value = article.tags.map(tag => {
-          return typeof tag === 'string' ? tag : tag.name
+          if (typeof tag === 'string') return tag
+          if (tag && typeof tag === 'object') return tag.name || tag.label || ''
+          return ''
         }).filter(tag => tag)
       } else if (typeof article.tags === 'string') {
-        selectedTags.value = article.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+        // 如果是逗号分隔的字符串
+        selectedTags.value = article.tags.split(',')
+          .map(tag => tag.trim())
+          .filter(tag => tag)
       }
-
-      // 设置编辑器内容（如果有编辑器）
-      if (editorRef.value && content.value) {
-        setTimeout(() => {
-          editorRef.value.setHtml(content.value)
-        }, 100)
-      }
-
-      // 重置未保存状态 - 重要！
-      hasUnsavedChanges.value = false
-
-      console.log('文章数据加载成功:', {
-        title: title.value,
-        tags: selectedTags.value
-      })
-    } else {
-      ElMessage.error('文章不存在或无权访问')
-      router.push('/user/articles')
     }
+
+    console.log('✅ 表单数据已填充:', {
+      标题: title.value,
+      内容长度: content.value.length,
+      分类ID: categoryId.value,
+      标签: selectedTags.value,
+      封面: coverImage.value
+    })
+
+    // ✅ 重置未保存状态 - 重要！
+    hasUnsavedChanges.value = false
+
+    // ✅ 延迟设置编辑器内容，确保编辑器已初始化
+    setTimeout(() => {
+      if (editorRef.value && content.value) {
+        console.log('正在设置编辑器内容...')
+        editorRef.value.setHtml(content.value)
+        console.log('编辑器内容设置完成')
+      }
+    }, 300)
+
   } catch (error) {
     console.error('加载文章失败:', error)
-    ElMessage.error('加载文章失败: ' + (error.message || '未知错误'))
+
+    // 根据错误类型显示不同提示
+    if (error.response?.status === 404) {
+      ElMessage.error('文章不存在')
+    } else if (error.response?.status === 403) {
+      ElMessage.error('没有权限编辑此文章')
+    } else if (error.message?.includes('Network Error')) {
+      ElMessage.error('网络错误，请检查连接')
+    } else {
+      ElMessage.error('文章加载失败: ' + (error.message || '未知错误'))
+    }
+
     router.push('/user/articles')
   } finally {
     loading.value = false
@@ -314,19 +382,28 @@ const handleCreated = (editor) => {
   }
 }
 
+const currentStatus = computed(() => {
+  // 如果是编辑模式，从store获取文章状态
+  if (isEditMode.value && articleStore.currentArticle) {
+    console.log('当前文章状态:', articleStore.currentArticle.status)
+    return articleStore.currentArticle.status || 0
+  }
+  return 0 // 默认为草稿状态
+})
+
 // 编辑器内容变化
 const handleEditorChange = () => {
   if (editorRef.value) {
     const newContent = editorRef.value.getHtml()
     const oldContent = content.value
-    
+
     // 只有当内容确实发生变化时才标记
     if (newContent !== oldContent) {
       content.value = newContent
-      
+
       // 检查是否为空内容
       const isEmptyContent = !newContent || newContent === '<p><br></p>' || newContent.trim() === '<p></p>'
-      
+
       if (!isEmptyContent) {
         hasUnsavedChanges.value = true
       }
@@ -398,22 +475,22 @@ const uploadCover = async (options) => {
     if (response && response.code === 200 && response.data) {
       const data = response.data
       let imageUrl = data.fileUrl
-      
+
       if (imageUrl) {
         // 确保以/开头
         if (!imageUrl.startsWith('/')) {
           imageUrl = '/' + imageUrl
         }
-        
+
         // 使用绝对路径
         const fullUrl = 'http://localhost:8080' + imageUrl
         console.log('🌐 使用绝对路径:', fullUrl)
-        
+
         coverImage.value = fullUrl
         hasUnsavedChanges.value = true
-        
+
         ElMessage.success('封面图片上传成功')
-        
+
         if (options.onSuccess) {
           options.onSuccess({ code: 200, data: { url: fullUrl } })
         }
@@ -443,49 +520,48 @@ const removeCover = () => {
 // 保存草稿
 const saveDraft = async () => {
   if (!validateForm()) return
-
+  
   try {
     saving.value = true
-
+    
     const articleData = {
       title: title.value.trim(),
       content: getEditorContent(),
       coverImage: coverImage.value || null,
       categoryId: categoryId.value ? parseInt(categoryId.value) : null,
       tags: selectedTags.value.length > 0 ? selectedTags.value.join(',') : null,
-      status: 0 // 草稿状态
+      status: 0 // 始终保存为草稿状态
     }
-
-    console.log('发送的草稿数据:', articleData)
-
+    
+    console.log('保存草稿，数据:', articleData)
+    
     let result
-
+    
     if (isEditMode.value) {
-      // 编辑草稿：更新后留在当前页面
+      // 更新现有草稿
       result = await articleStore.updateArticle(articleId.value, articleData)
-      ElMessage.success('草稿保存成功')
-
-      if (result && result.id) {
-        articleId.value = result.id
-      }
-    } else {
-      // 新建草稿：创建后跳转到我的文章页面
-      result = await articleStore.createArticle(articleData)
-      ElMessage.success('草稿保存成功')
-
+      ElMessage.success('草稿更新成功')
+      
       // 重置未保存状态
       hasUnsavedChanges.value = false
-
-      // 保存成功后跳转到我的文章页面
+      
+      // 如果更新成功，可以停留在当前页面
+      console.log('草稿更新成功，文章ID:', result?.id || articleId.value)
+    } else {
+      // 创建新草稿
+      result = await articleStore.createArticle(articleData)
+      ElMessage.success('草稿保存成功')
+      
+      // 重置未保存状态
+      hasUnsavedChanges.value = false
+      
+      // 创建成功后跳转到我的文章页面
       setTimeout(() => {
         router.push('/user/articles')
       }, 800)
-      return // 直接返回，不继续执行后面的代码
+      return
     }
-
-    // 重置未保存状态
-    hasUnsavedChanges.value = false
-
+    
   } catch (error) {
     console.error('保存草稿失败:', error)
     ElMessage.error(error.message || '保存草稿失败')
@@ -494,13 +570,14 @@ const saveDraft = async () => {
   }
 }
 
+
 // 发布文章
 const publishArticle = async () => {
   if (!validateForm()) return
-
+  
   try {
     publishing.value = true
-
+    
     const articleData = {
       title: title.value.trim(),
       content: getEditorContent(),
@@ -509,31 +586,38 @@ const publishArticle = async () => {
       tags: selectedTags.value.length > 0 ? selectedTags.value.join(',') : null,
       status: 1 // 发布状态
     }
-
-    console.log('发送的发布数据:', articleData)
-
+    
+    console.log('发布文章，数据:', articleData)
+    
     let result
-
+    
     if (isEditMode.value) {
+      // 更新文章状态为已发布
       result = await articleStore.updateArticle(articleId.value, articleData)
-      ElMessage.success('文章更新成功')
+      
+      // 如果是草稿转为已发布，可以提示用户
+      if (currentStatus.value === 0) {
+        ElMessage.success('草稿已成功发布！')
+      } else {
+        ElMessage.success('文章更新成功')
+      }
     } else {
+      // 创建新文章并发布
       result = await articleStore.createArticle(articleData)
       ElMessage.success('文章发布成功')
     }
-
+    
     // 重置未保存状态
     hasUnsavedChanges.value = false
-
+    
     // 发布成功后跳转到文章详情页
-    if (result && result.id) {
+    const articleIdToView = result?.id || articleId.value
+    if (articleIdToView) {
       setTimeout(() => {
-        router.push(`/article/${result.id}`)
+        router.push(`/article/${articleIdToView}`)
       }, 500)
-    } else if (articleId.value) {
-      router.push(`/article/${articleId.value}`)
     }
-
+    
   } catch (error) {
     console.error('发布文章失败:', error)
     ElMessage.error(error.message || '发布文章失败')
@@ -582,45 +666,45 @@ onBeforeRouteLeave((to, from, next) => {
     content: content.value,
     selectedTags: selectedTags.value
   })
-  
+
   // 如果正在保存或发布，阻止离开
   if (saving.value || publishing.value) {
     ElMessage.warning('正在保存，请稍后...')
     next(false)
     return
   }
-  
+
   // 检查是否真的有内容需要保存
   const hasRealContent = () => {
     // 有标题
     if (title.value.trim()) return true
-    
+
     // 有非空内容
     const editorContent = getEditorContent()
-    if (editorContent && editorContent.trim() && 
-        editorContent !== '<p><br></p>' && 
-        editorContent !== '<p></p>') {
+    if (editorContent && editorContent.trim() &&
+      editorContent !== '<p><br></p>' &&
+      editorContent !== '<p></p>') {
       return true
     }
-    
+
     // 有标签
     if (selectedTags.value.length > 0) return true
-    
+
     // 有分类
     if (categoryId.value) return true
-    
+
     // 有封面
     if (coverImage.value) return true
-    
+
     return false
   }
-  
+
   // 如果没有未保存的更改，或者虽然有标记但实际没有内容，直接离开
   if (!hasUnsavedChanges.value || !hasRealContent()) {
     next()
     return
   }
-  
+
   // 显示确认对话框
   showLeaveConfirm.value = true
   nextRoute.value = next
@@ -650,7 +734,25 @@ const confirmLeave = () => {
   flex-direction: column;
   background: #f8f9fa;
 }
+/* 状态标签样式 */
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-left: 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
 
+.status-badge.draft {
+  background-color: #909399;
+  color: white;
+}
+
+.status-badge.published {
+  background-color: #67c23a;
+  color: white;
+}
 .edit-container {
   flex: 1;
   padding: 20px 0 40px;

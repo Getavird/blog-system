@@ -72,15 +72,16 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Override
     public Article getArticleById(Integer id) {
-        // 先获取文章
+        // 先获取文章（现在可以获取所有状态的文章）
         Article article = articleMapper.findById(id);
 
-        // 增加阅读量
-        if (article != null) {
+        // 如果是已发布的文章，增加阅读量
+        if (article != null && article.getStatus() == 1) { // 只对已发布文章增加阅读量
             articleMapper.incrementViewCount(id);
             // 重新获取更新后的数据
             article = articleMapper.findById(id);
         }
+        // 如果是草稿（status=0）或已删除（status=2），不增加阅读量
 
         return article;
     }
@@ -639,33 +640,34 @@ public class ArticleServiceImpl implements ArticleService {
             return new ArrayList<>();
         }
     }
+
     @Override
-public int getArticleCountByUserId(Integer userId) {
-    try {
-        return articleMapper.countArticlesByUserId(userId);
-    } catch (Exception e) {
-        System.err.println("获取用户文章数量失败: " + e.getMessage());
-        return 0;
+    public int getArticleCountByUserId(Integer userId) {
+        try {
+            return articleMapper.countArticlesByUserId(userId);
+        } catch (Exception e) {
+            System.err.println("获取用户文章数量失败: " + e.getMessage());
+            return 0;
+        }
     }
-}
 
-@Override
-public int getDraftCountByUserId(Integer userId) {
-    try {
-        return articleMapper.countDraftsByUserId(userId);
-    } catch (Exception e) {
-        System.err.println("获取用户草稿数量失败: " + e.getMessage());
-        return 0;
+    @Override
+    public int getDraftCountByUserId(Integer userId) {
+        try {
+            return articleMapper.countDraftsByUserId(userId);
+        } catch (Exception e) {
+            System.err.println("获取用户草稿数量失败: " + e.getMessage());
+            return 0;
+        }
     }
-}
 
-@Override
-public int getPublishedArticleCountByUserId(Integer userId) {
-    try {
-        return articleMapper.countPublishedArticlesByUserId(userId);
-    } catch (Exception e) {
-        System.err.println("获取用户已发布文章数量失败: " + e.getMessage());
-        return 0;
+    @Override
+    public int getPublishedArticleCountByUserId(Integer userId) {
+        try {
+            return articleMapper.countPublishedArticlesByUserId(userId);
+        } catch (Exception e) {
+            System.err.println("获取用户已发布文章数量失败: " + e.getMessage());
+            return 0;
+        }
     }
-}
 }

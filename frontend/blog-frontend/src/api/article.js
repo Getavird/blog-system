@@ -9,8 +9,8 @@ export const getArticles = (params = {}) => {
 }
 
 // 文章详情
-export const getArticleById = (id) => {
-  return request.get(`/api/articles/${id}`)
+export const getArticleById = (id, params = {}) => {
+  return request.get(`/api/articles/${id}`, { params })
 }
 
 // 创建文章

@@ -140,10 +140,10 @@ const prepareArticleDataForApi = (articleData) => {
   }
 
   // 获取文章详情
-const fetchArticleDetail = async (id) => {
+const fetchArticleDetail = async (id, params = {}) => {
   try {
     detailLoading.value = true
-    const data = await articleApi.getArticleById(id)
+    const data = await articleApi.getArticleById(id, params)
     currentArticle.value = transformArticle(data)
     return data
   } catch (error) {

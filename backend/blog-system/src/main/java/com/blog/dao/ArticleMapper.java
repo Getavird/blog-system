@@ -19,7 +19,7 @@ public interface ArticleMapper {
                         "FROM article a " +
                         "LEFT JOIN user u ON a.user_id = u.id " +
                         "LEFT JOIN category c ON a.category_id = c.id " +
-                        "WHERE a.id = #{id} AND a.status = 1")
+                        "WHERE a.id = #{id}")
         Article findById(Integer id);
 
         /**

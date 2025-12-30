@@ -101,15 +101,22 @@
                             <el-table-column label="文章标题" min-width="300">
                                 <template #default="{ row }">
                                     <div class="article-title-cell">
-                                        <div class="title-content" @click="viewArticle(row.id)">
-                                            <span class="title-text">{{ row.title }}</span>
-
-                                            <el-tag v-if="row.status === 0" type="info" size="small" class="draft-tag">
-                                                草稿
-                                            </el-tag>
-                                            <el-tag v-else-if="row.status === 1" type="success" size="small">
-                                                已发布
-                                            </el-tag>
+                                        <div class="title-content">
+                                            <!-- 草稿：跳转到编辑页面 -->
+                                            <span v-if="row.status === 0" class="title-text"
+                                                @click="editArticle(row.id)">
+                                                {{ row.title }}
+                                                <el-tag type="info" size="small" class="draft-tag">
+                                                    草稿
+                                                </el-tag>
+                                            </span>
+                                            <!-- 已发布：跳转到详情页面 -->
+                                            <span v-else class="title-text" @click="viewArticle(row.id)">
+                                                {{ row.title }}
+                                                <el-tag type="success" size="small">
+                                                    已发布
+                                                </el-tag>
+                                            </span>
                                         </div>
                                     </div>
                                 </template>
@@ -164,16 +171,24 @@
                             <el-table-column label="操作" width="240" fixed="right">
                                 <template #default="{ row }">
                                     <div class="action-buttons">
+                                        <!-- 编辑按钮（所有文章都有） -->
                                         <el-button link type="primary" @click="editArticle(row.id)" class="action-btn">
                                             编辑
                                         </el-button>
-                                        <el-button link type="primary" @click="viewArticle(row.id)" class="action-btn">
+
+                                        <!-- 查看按钮（仅已发布文章） -->
+                                        <el-button v-if="row.status === 1" link type="primary"
+                                            @click="viewArticle(row.id)" class="action-btn">
                                             查看
                                         </el-button>
+
+                                        <!-- 发布按钮（仅草稿） -->
                                         <el-button v-if="row.status === 0" link type="success"
                                             @click="publishArticle(row)" class="action-btn">
                                             发布
                                         </el-button>
+
+                                        <!-- 更多操作 -->
                                         <el-dropdown @command="(command) => handleMoreAction(row, command)">
                                             <el-button link type="primary" class="more-btn">
                                                 更多
@@ -526,7 +541,6 @@ const viewArticle = (articleId) => {
 const editArticle = (articleId) => {
     router.push(`/article/edit/${articleId}`)
 }
-
 // 创建文章
 const createArticle = () => {
     router.push('/article/create')
