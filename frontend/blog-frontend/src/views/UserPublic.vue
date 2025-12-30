@@ -190,10 +190,6 @@ vue
 
                 <div class="article-footer">
                   <div class="article-tags">
-                    <el-tag v-for="tag in article.tags || []" :key="tag" size="small" class="tag-item"
-                      @click.stop="goToTag(tag)">
-                      {{ tag }}
-                    </el-tag>
                   </div>
                   <div class="article-category" v-if="article.categoryName">
                     <el-icon>
@@ -225,6 +221,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
+import { useFollowStore } from '@/stores/follow'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Star,
@@ -245,7 +242,7 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const authStore = useAuthStore()
-
+const followStore = useFollowStore()
 // 路由参数
 const username = ref(route.params.username)
 
@@ -365,32 +362,184 @@ const loadUserArticles = async () => {
       size: pageSize.value
     })
 
-    await userStore.fetchPublicUserArticles(username.value, {
+    const response = await userStore.fetchPublicUserArticles(username.value, {
       page: currentPage.value,
       size: pageSize.value
     })
-
-    console.log('文章加载成功，数量:', publicUserArticles.value.length)
+    
+    console.log('文章API返回原始数据:', response)
+    
+    // 处理分页数据 - 根据后端实际返回的数据结构调整
+    let articles = []
+    let total = 0
+    
+    // 情况1: 如果返回的是 {total, page, size, data, totalPages} 格式
+    if (response && response.data && Array.isArray(response.data)) {
+      articles = response.data
+      total = response.total || response.data.length
+    }
+    // 情况2: 如果后端返回的是 Result 格式 {code: 200, data: {...}, message: '...'}
+    else if (response && response.code === 200) {
+      const resultData = response.data
+      console.log('Result格式的data字段:', resultData)
+      
+      if (resultData) {
+        // 检查是否有data字段
+        if (resultData.data && Array.isArray(resultData.data)) {
+          articles = resultData.data
+          total = resultData.total || resultData.data.length
+        }
+        // 检查是否有list字段
+        else if (resultData.list && Array.isArray(resultData.list)) {
+          articles = resultData.list
+          total = resultData.total || resultData.list.length
+        }
+        // 直接是数组
+        else if (Array.isArray(resultData)) {
+          articles = resultData
+          total = resultData.length
+        }
+      }
+    }
+    // 情况3: 直接返回数组
+    else if (Array.isArray(response)) {
+      articles = response
+      total = response.length
+    }
+    
+    console.log('提取的文章数据:', articles)
+    console.log('文章总数:', total)
+    
+    // 转换文章数据格式 - 确保所有必要字段都有值
+    const transformedArticles = articles.map(article => {
+      // 先检查数据结构
+      console.log('单篇文章原始数据:', article)
+      
+      const transformed = {
+        id: article.id || article.articleId || 0,
+        title: article.title || '无标题',
+        content: article.content || '',
+        summary: article.summary || article.content?.substring(0, 100) || '',
+        coverImage: article.coverImage 
+          ? (article.coverImage.startsWith('http') ? article.coverImage : `/uploads/${article.coverImage}`)
+          : '',
+        status: article.status || 1,
+        viewCount: article.viewCount || 0,
+        likeCount: article.likeCount || 0,
+        commentCount: article.commentCount || 0,
+        categoryName: article.categoryName || article.category?.name || '未分类',
+        authorName: article.authorName || article.user?.username || username.value,
+        authorAvatar: article.authorAvatar 
+          ? (article.authorAvatar.startsWith('http') ? article.authorAvatar : `/uploads/avatars/${article.authorAvatar}`)
+          : (article.user?.avatar 
+              ? (article.user.avatar.startsWith('http') ? article.user.avatar : `/uploads/avatars/${article.user.avatar}`)
+              : '/static/images/default-avatars/default_avatar.png'),
+        createTime: article.createTime || article.createdAt || new Date().toISOString(),
+        updateTime: article.updateTime || article.updatedAt || article.createTime,
+        publishTime: article.publishTime || article.publishedAt || article.createTime
+      }
+      
+      // 处理tags字段
+      if (article.tags) {
+        if (Array.isArray(article.tags)) {
+          transformed.tags = article.tags
+        } else if (typeof article.tags === 'string') {
+          transformed.tags = article.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+        }
+      } else {
+        transformed.tags = []
+      }
+      
+      return transformed
+    })
+    
+    console.log('转换后的文章数据:', transformedArticles)
+    
+    // 更新store中的数据
+    userStore.setPublicUserArticles(transformedArticles)
+    userStore.setPublicUserTotal(total)
+    
+    console.log('文章加载成功，数量:', transformedArticles.length)
+    
+    // 同时更新统计信息中的文章数量
+    if (total > 0) {
+      userStore.setPublicUserStats({
+        ...publicUserStats.value,
+        articleCount: total
+      })
+    }
+    
+    return transformedArticles
   } catch (error) {
     console.error('加载用户文章失败:', error)
-    // 如果文章加载失败，只提示但不阻止页面显示
+    console.error('错误详情:', error.response?.data || error.message)
     if (error.response?.status !== 404) {
       ElMessage.warning('文章加载失败，部分内容可能无法显示')
     }
+    return []
   }
 }
+
 
 // 加载用户统计
 const loadUserStats = async () => {
   try {
     console.log('开始加载用户统计')
-
-    await userStore.fetchPublicUserStats(username.value)
-
-    console.log('用户统计加载成功:', publicUserStats.value)
+    
+    const response = await userStore.fetchPublicUserStats(username.value)
+    console.log('统计API返回原始数据:', response)
+    
+    // 处理统计数据 - 根据后端实际返回的数据结构调整
+    let stats = {}
+    
+    if (response) {
+      // 如果返回的是 Result 格式 {code: 200, data: {...}, message: '...'}
+      if (response.code === 200 && response.data) {
+        stats = response.data
+      }
+      // 直接返回对象
+      else {
+        stats = response
+      }
+    }
+    
+    console.log('提取的统计数据:', stats)
+    
+    // 确保所有必需的统计字段都存在
+    const defaultStats = {
+      articleCount: 0,
+      likeCount: 0,
+      viewCount: 0,
+      followerCount: 0,
+      followingCount: 0,
+      commentCount: 0,
+      collectionCount: 0
+    }
+    
+    // 合并数据，优先使用API返回的数据
+    const finalStats = { ...defaultStats, ...stats }
+    
+    console.log('最终用户统计:', finalStats)
+    
+    // 更新store中的统计数据
+    userStore.setPublicUserStats(finalStats)
+    
+    return finalStats
   } catch (error) {
     console.error('加载用户统计失败:', error)
-    // 统计加载失败不影响页面显示，使用默认值
+    console.error('错误详情:', error.response?.data || error.message)
+    // 使用默认统计数据
+    const defaultStats = {
+      articleCount: 0,
+      likeCount: 0,
+      viewCount: 0,
+      followerCount: 0,
+      followingCount: 0,
+      commentCount: 0,
+      collectionCount: 0
+    }
+    userStore.setPublicUserStats(defaultStats)
+    return defaultStats
   }
 }
 
@@ -405,29 +554,19 @@ const checkFollowStatus = async () => {
 
     console.log('检查关注状态，用户ID:', publicUser.value.id)
 
-    // 调用API检查关注状态
-    const data = await userStore.checkFollowStatus(publicUser.value.id)
-
-    // 根据返回的数据结构设置关注状态
-    let isFollowing = false
-    if (data) {
-      if (typeof data.isFollowing === 'boolean') {
-        isFollowing = data.isFollowing
-      } else if (data?.data?.isFollowing !== undefined) {
-        isFollowing = data.data.isFollowing
-      } else if (data?.following !== undefined) {
-        isFollowing = data.following
-      }
-    }
-
+    // 使用followStore检查关注状态
+    const isFollowing = await followStore.checkFollowStatus(publicUser.value.id)
+    
+    // 更新本地状态
     publicUser.value.isFollowed = isFollowing
-    console.log('最终关注状态:', publicUser.value.isFollowed)
+    console.log('关注状态检查结果:', isFollowing)
 
   } catch (error) {
     console.error('检查关注状态失败:', error)
     // 关注状态检查失败不影响主要功能
   }
 }
+
 
 // 切换关注状态
 const toggleFollow = async () => {
@@ -446,20 +585,21 @@ const toggleFollow = async () => {
 
     console.log('切换关注状态，用户ID:', publicUser.value.id, '当前状态:', publicUser.value.isFollowed)
 
-    if (publicUser.value.isFollowed) {
-      await userStore.unfollowUser(publicUser.value.id)
-      ElMessage.success('已取消关注')
-
-      // 更新本地状态
-      publicUser.value.isFollowed = false
-      publicUserStats.value.followerCount = Math.max(0, (publicUserStats.value.followerCount || 1) - 1)
-    } else {
-      await userStore.followUser(publicUser.value.id)
-      ElMessage.success('关注成功')
-
-      // 更新本地状态
-      publicUser.value.isFollowed = true
+    // 使用followStore切换关注状态
+    const newFollowStatus = await followStore.toggleFollow(publicUser.value.id, publicUser.value.isFollowed)
+    
+    // 更新本地状态
+    publicUser.value.isFollowed = newFollowStatus
+    
+    // 更新统计数字
+    if (newFollowStatus) {
+      // 关注成功，粉丝数+1
       publicUserStats.value.followerCount = (publicUserStats.value.followerCount || 0) + 1
+      ElMessage.success('关注成功')
+    } else {
+      // 取消关注，粉丝数-1（最小为0）
+      publicUserStats.value.followerCount = Math.max(0, (publicUserStats.value.followerCount || 1) - 1)
+      ElMessage.success('已取消关注')
     }
 
     console.log('关注状态切换成功，新状态:', publicUser.value.isFollowed)
@@ -472,7 +612,7 @@ const toggleFollow = async () => {
     } else if (error.response?.data?.message) {
       ElMessage.error(error.response.data.message)
     } else {
-      ElMessage.error('操作失败，请稍后重试')
+      ElMessage.error(error.message || '操作失败，请稍后重试')
     }
   } finally {
     followLoading.value = false

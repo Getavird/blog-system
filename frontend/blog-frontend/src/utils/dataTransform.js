@@ -13,40 +13,31 @@ export const transformArticle = (apiData) => {
   
   console.log('转换文章原始数据:', apiData)
   
-  // 处理tags字段：可能已经是数组，也可能是逗号分隔的字符串
-  let tagsArray = []
-  if (apiData.tags) {
-    if (Array.isArray(apiData.tags)) {
-      tagsArray = apiData.tags
-    } else if (typeof apiData.tags === 'string') {
-      tagsArray = apiData.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
-    }
-  }
-  
-  // 构建转换后的对象
-  const transformed = {
+  // 处理多种可能的数据结构
+  const article = {
     id: apiData.id || apiData.articleId || 0,
     title: apiData.title || '无标题',
     content: apiData.content || '',
-    summary: apiData.summary || apiData.content?.substring(0, 100) || '暂无摘要',
+    summary: apiData.summary || apiData.content?.substring(0, 100) || '',
     coverImage: apiData.coverImage 
       ? (apiData.coverImage.startsWith('http') ? apiData.coverImage : `/uploads/${apiData.coverImage}`)
       : '',
     status: apiData.status || 1,
-    viewCount: apiData.viewCount || apiData.viewCount || 0,
-    likeCount: apiData.likeCount || apiData.likeCount || 0,
+    viewCount: apiData.viewCount || 0,
+    likeCount: apiData.likeCount || 0,
     commentCount: apiData.commentCount || 0,
-    categoryId: apiData.categoryId || apiData.categoryId,
+    categoryId: apiData.categoryId || 0,
     categoryName: apiData.categoryName || apiData.category?.name || '未分类',
     // 作者信息可能有多种字段名
     authorName: apiData.authorName || apiData.author?.name || apiData.username || apiData.user?.username || '未知作者',
     authorAvatar: apiData.authorAvatar 
-      ? (apiData.authorAvatar.startsWith('http') ? apiData.authorAvatar : `/uploads/${apiData.authorAvatar}`)
+      ? (apiData.authorAvatar.startsWith('http') ? apiData.authorAvatar : `/uploads/avatars/${apiData.authorAvatar}`)
       : (apiData.author?.avatar 
-          ? (apiData.author.avatar.startsWith('http') ? apiData.author.avatar : `/uploads/${apiData.author.avatar}`)
-          : ''),
+          ? (apiData.author.avatar.startsWith('http') ? apiData.author.avatar : `/uploads/avatars/${apiData.author.avatar}`)
+          : '/static/images/default-avatars/default_avatar.png'),
     authorId: apiData.userId || apiData.authorId || apiData.user?.id || 0,
-    tags: tagsArray,
+    // 处理标签
+    tags: [],
     isTop: apiData.isTop === 1 || apiData.isTop === true,
     allowComment: apiData.allowComment === 1 || apiData.allowComment === true || apiData.allowComment === undefined,
     // 时间字段可能有多种名称
@@ -55,8 +46,17 @@ export const transformArticle = (apiData) => {
     publishTime: apiData.publishTime || apiData.publishedAt || apiData.createTime
   }
   
-  console.log('转换后的文章:', transformed)
-  return transformed
+  // 处理tags字段：可能已经是数组，也可能是逗号分隔的字符串
+  if (apiData.tags) {
+    if (Array.isArray(apiData.tags)) {
+      article.tags = apiData.tags
+    } else if (typeof apiData.tags === 'string') {
+      article.tags = apiData.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+    }
+  }
+  
+  console.log('转换后的文章:', article)
+  return article
 }
 
 /**
