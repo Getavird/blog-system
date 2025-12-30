@@ -88,4 +88,31 @@ public interface TagMapper {
         })
         List<Tag> findByIds(@Param("ids") List<Integer> ids);
 
+        @Select({
+        "<script>",
+        "SELECT * FROM tag WHERE 1=1",
+        "<if test='keyword != null and keyword != \"\"'>",
+        "  AND (name LIKE CONCAT('%', #{keyword}, '%') OR description LIKE CONCAT('%', #{keyword}, '%'))",
+        "</if>",
+        " ORDER BY article_count DESC, name ASC",
+        " LIMIT #{offset}, #{size}",
+        "</script>"
+    })
+    List<Tag> searchTags(@Param("keyword") String keyword, 
+                         @Param("offset") int offset, 
+                         @Param("size") int size);
+    
+    /**
+     * 统计搜索标签数量
+     */
+    @Select({
+        "<script>",
+        "SELECT COUNT(*) FROM tag WHERE 1=1",
+        "<if test='keyword != null and keyword != \"\"'>",
+        "  AND (name LIKE CONCAT('%', #{keyword}, '%') OR description LIKE CONCAT('%', #{keyword}, '%'))",
+        "</if>",
+        "</script>"
+    })
+    int countSearchTags(@Param("keyword") String keyword);
+
 }

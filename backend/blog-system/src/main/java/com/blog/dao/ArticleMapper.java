@@ -51,7 +51,8 @@ public interface ArticleMapper {
         @Update("UPDATE article SET " +
                         "title = #{title}, content = #{content}, summary = #{summary}, " +
                         "cover_image = #{coverImage}, status = #{status}, category_id = #{categoryId}, " +
-                        "is_top = #{isTop}, allow_comment = #{allowComment}, tags = #{tags}, " + "like_count = #{likeCount}, " +
+                        "is_top = #{isTop}, allow_comment = #{allowComment}, tags = #{tags}, "
+                        + "like_count = #{likeCount}, " +
                         "update_time = NOW() " +
                         "WHERE id = #{id}")
         int update(Article article);
@@ -62,27 +63,26 @@ public interface ArticleMapper {
         @Update("UPDATE article SET view_count = view_count + 1 WHERE id = #{id}")
         int incrementViewCount(Integer id);
 
-        /**
-         * 搜索文章
-         */
-        @Select({
-                        "<script>",
-                        "SELECT a.*, u.username as author_name, c.name as category_name ",
-                        "FROM article a ",
-                        "LEFT JOIN user u ON a.user_id = u.id ",
-                        "LEFT JOIN category c ON a.category_id = c.id ",
-                        "WHERE a.status = 1 ",
-                        "  AND (a.title LIKE CONCAT('%', #{keyword}, '%') ",
-                        "    OR a.content LIKE CONCAT('%', #{keyword}, '%') ",
-                        "    OR a.tags LIKE CONCAT('%', #{keyword}, '%') ",
-                        "    OR a.summary LIKE CONCAT('%', #{keyword}, '%')) ",
-                        "ORDER BY a.create_time DESC ",
-                        "LIMIT #{offset}, #{size}",
-                        "</script>"
-        })
-        List<Article> searchArticles(@Param("keyword") String keyword,
-                        @Param("offset") int offset,
-                        @Param("size") int size);
+/**
+ * 搜索文章
+ */
+@Select({
+    "<script>",
+    "SELECT a.*, u.username as author_name, c.name as category_name ",
+    "FROM article a ",
+    "LEFT JOIN user u ON a.user_id = u.id ",
+    "LEFT JOIN category c ON a.category_id = c.id ",
+    "WHERE a.status = 1 ",
+    "  AND (a.title LIKE CONCAT('%', #{keyword}, '%') ",
+    "    OR a.content LIKE CONCAT('%', #{keyword}, '%') ",
+    "    OR a.summary LIKE CONCAT('%', #{keyword}, '%')) ",
+    "ORDER BY a.create_time DESC ",
+    "LIMIT #{offset}, #{size}",
+    "</script>"
+})
+List<Article> searchArticles(@Param("keyword") String keyword,
+                @Param("offset") int offset,
+                @Param("size") int size);
 
         /**
          * 统计搜索文章数量
@@ -93,7 +93,6 @@ public interface ArticleMapper {
                         "WHERE a.status = 1 ",
                         "  AND (a.title LIKE CONCAT('%', #{keyword}, '%') ",
                         "    OR a.content LIKE CONCAT('%', #{keyword}, '%') ",
-                        "    OR a.tags LIKE CONCAT('%', #{keyword}, '%') ",
                         "    OR a.summary LIKE CONCAT('%', #{keyword}, '%'))",
                         "</script>"
         })
@@ -501,22 +500,21 @@ public interface ArticleMapper {
                         @Param("offset") int offset,
                         @Param("size") int size);
 
+        /**
+         * 统计用户文章数量
+         */
+        @Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status != 2")
+        int countArticlesByUserId(@Param("userId") Integer userId);
 
-                        /**
- * 统计用户文章数量
- */
-@Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status != 2")
-int countArticlesByUserId(@Param("userId") Integer userId);
+        /**
+         * 统计用户草稿数量
+         */
+        @Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status = 0")
+        int countDraftsByUserId(@Param("userId") Integer userId);
 
-/**
- * 统计用户草稿数量
- */
-@Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status = 0")
-int countDraftsByUserId(@Param("userId") Integer userId);
-
-/**
- * 统计用户已发布文章数量
- */
-@Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status = 1")
-int countPublishedArticlesByUserId(@Param("userId") Integer userId);
+        /**
+         * 统计用户已发布文章数量
+         */
+        @Select("SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status = 1")
+        int countPublishedArticlesByUserId(@Param("userId") Integer userId);
 }

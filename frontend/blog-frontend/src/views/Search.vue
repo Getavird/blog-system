@@ -34,9 +34,6 @@
                     @change="handleTypeChange"
                   >
                     <el-option label="全部" value="full" />
-                    <el-option label="文章" value="articles" />
-                    <el-option label="用户" value="users" />
-                    <el-option label="标签" value="tags" />
                   </el-select>
                 </template>
                 <template #append>
@@ -150,83 +147,7 @@
           
           <!-- 搜索结果 -->
           <div v-else class="results-container">
-              <!-- 🔍 第3步：添加调试信息区域（新增代码） -->
-  <!-- =============================================== -->
-  <div v-if="isDevelopment" class="debug-info">
-    <div class="debug-header">
-      <h4><el-icon><InfoFilled /></el-icon> 调试信息</h4>
-      <el-button type="text" size="small" @click="toggleDebug">
-        {{ showDebugDetails ? '隐藏详情' : '显示详情' }}
-      </el-button>
-    </div>
-    <!-- 在调试信息区域添加 -->
-<div v-if="searchStore.searchResults.users.length > 0" class="debug-users">
-  <h5>用户搜索结果预览：</h5>
-  <div v-for="(user, index) in searchStore.searchResults.users.slice(0, 3)" :key="user.id || index" class="debug-user-item">
-    <div><strong>ID:</strong> {{ user.id }}</div>
-    <div><strong>用户名:</strong> {{ user.username }}</div>
-    <div><strong>头像:</strong> {{ user.avatar }}</div>
-    <div><strong>文章数:</strong> {{ user.articleCount }}</div>
-    <button @click.stop="showUserRawData(user)" class="debug-btn">查看原始数据</button>
-  </div>
-</div>
-
-<!-- 添加一个模态框显示原始数据 -->
-<el-dialog v-model="showRawDataDialog" title="用户原始数据" width="80%">
-  <pre>{{ currentRawData }}</pre>
-</el-dialog>
-    <div class="debug-summary">
-      <div class="debug-item">
-        <span class="debug-label">搜索状态：</span>
-        <span class="debug-value" :class="{ 'loading': searchStore.searchLoading }">
-          {{ searchStore.searchLoading ? '加载中...' : '完成' }}
-        </span>
-      </div>
-      <div class="debug-item">
-        <span class="debug-label">搜索类型：</span>
-        <span class="debug-value">{{ searchType }} ({{ searchTypeLabel }})</span>
-      </div>
-      <div class="debug-item">
-        <span class="debug-label">关键词：</span>
-        <span class="debug-value">{{ keyword }}</span>
-      </div>
-      <div class="debug-item">
-        <span class="debug-label">后端返回总数：</span>
-        <span class="debug-value">{{ searchStore.pagination.total }}</span>
-      </div>
-      <div class="debug-item">
-        <span class="debug-label">前端统计：</span>
-        <span class="debug-value">
-          用户({{ searchStore.searchResults.users.length }}) + 
-          文章({{ searchStore.searchResults.articles.length }}) + 
-          标签({{ searchStore.searchResults.tags.length }}) = 
-          {{ searchStore.searchResults.users.length + searchStore.searchResults.articles.length + searchStore.searchResults.tags.length }}
-        </span>
-      </div>
-      <div class="debug-item">
-        <span class="debug-label">hasResults：</span>
-        <span class="debug-value" :class="{ 'true': searchStore.hasResults, 'false': !searchStore.hasResults }">
-          {{ searchStore.hasResults }}
-        </span>
-      </div>
-    </div>
-    
-    <!-- 可折叠的详细数据 -->
-    <div v-if="showDebugDetails" class="debug-details">
-      <h5>用户数据 ({{ searchStore.searchResults.users.length }} 条)：</h5>
-      <pre v-if="searchStore.searchResults.users.length > 0">{{ formatDebugData(searchStore.searchResults.users) }}</pre>
-      <div v-else class="debug-empty">无用户数据</div>
-      
-      <h5>文章数据 ({{ searchStore.searchResults.articles.length }} 条)：</h5>
-      <pre v-if="searchStore.searchResults.articles.length > 0">{{ formatDebugData(searchStore.searchResults.articles) }}</pre>
-      <div v-else class="debug-empty">无文章数据</div>
-      
-      <h5>标签数据 ({{ searchStore.searchResults.tags.length }} 条)：</h5>
-      <pre v-if="searchStore.searchResults.tags.length > 0">{{ formatDebugData(searchStore.searchResults.tags) }}</pre>
-      <div v-else class="debug-empty">无标签数据</div>
-    </div>
-  </div>
-  <!-- =============================================== -->
+  
   
             <!-- 搜索结果头部 -->
             <div class="results-header">
@@ -274,17 +195,6 @@
                       </div>
                       <div v-if="article.summary" class="article-summary">
                         {{ article.summary }}
-                      </div>
-                      <div class="article-tags">
-                        <el-tag 
-                          v-for="tag in article.tags || []" 
-                          :key="tag"
-                          size="small"
-                          class="tag-item"
-                          @click.stop="searchTag(tag)"
-                        >
-                          {{ tag }}
-                        </el-tag>
                       </div>
                     </div>
                   </div>
@@ -1152,12 +1062,6 @@ const handleSizeChange = async (size) => {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.article-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .tag-item {

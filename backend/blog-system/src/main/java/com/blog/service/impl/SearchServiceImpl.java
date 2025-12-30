@@ -33,7 +33,6 @@ public class SearchServiceImpl implements SearchService {
     
     @Autowired
     private SearchRecordMapper searchRecordMapper;  // 新增
-    
 @Override
 public FullSearchResponse fullSearch(String keyword, Integer page, Integer size) {
     if (!StringUtils.hasText(keyword)) {
@@ -41,17 +40,22 @@ public FullSearchResponse fullSearch(String keyword, Integer page, Integer size)
             new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
     }
     
-    // 分别搜索文章、用户和标签
-    SearchResult<Article> articleResult = searchArticles(keyword, 1, 5);
-    SearchResult<User> userResult = searchUsers(keyword, 1, 3);
-    SearchResult<Tag> tagResult = searchTags(keyword, 1, 2);
+    // 使用传入的分页参数，但调整各模块的默认大小
+    int articleSize = Math.min(size, 10);  // 文章最多10条
+    int userSize = Math.min(size, 5);      // 用户最多5条
+    int tagSize = Math.min(size, 5);       // 标签最多5条
+    
+    // 对于full搜索，我们总是返回第一页的各模块数据
+    // 因为这是综合搜索，不是分页搜索
+    SearchResult<Article> articleResult = searchArticles(keyword, 1, articleSize);
+    SearchResult<User> userResult = searchUsers(keyword, 1, userSize);
+    SearchResult<Tag> tagResult = searchTags(keyword, 1, tagSize);
     
     int total = articleResult.getTotal() + userResult.getTotal() + tagResult.getTotal();
     
     return new FullSearchResponse(keyword, page, size, total,
             articleResult.getItems(), userResult.getItems(), tagResult.getItems());
 }
-
     @Override
     public SearchResult<Article> searchArticles(String keyword, Integer page, Integer size) {
         if (!StringUtils.hasText(keyword)) {
@@ -85,31 +89,66 @@ public FullSearchResponse fullSearch(String keyword, Integer page, Integer size)
     }
     
     // 新增方法：搜索标签
-    public SearchResult<Tag> searchTags(String keyword, Integer page, Integer size) {
-        if (!StringUtils.hasText(keyword)) {
-            return new SearchResult<>(keyword, 0, page, size, new ArrayList<>());
-        }
+/**
+ * 搜索标签 - 使用数据库搜索优化性能
+ */
+public SearchResult<Tag> searchTags(String keyword, Integer page, Integer size) {
+    // 1. 检查关键词是否为空
+    if (!StringUtils.hasText(keyword)) {
+        return new SearchResult<>(keyword, 0, page, size, new ArrayList<>());
+    }
+    
+    // 2. 计算分页偏移量
+    int offset = (page - 1) * size;
+    
+    // 3. 优先使用数据库搜索（更高效）
+    try {
+        // 3.1 调用数据库搜索方法
+        List<Tag> tags = tagMapper.searchTags(keyword, offset, size);
         
-        // 获取所有标签
+        // 3.2 统计搜索总数
+        int total = tagMapper.countSearchTags(keyword);
+        
+        // 3.3 返回搜索结果
+        return new SearchResult<>(keyword, total, page, size, tags);
+        
+    } catch (Exception e) {
+        // 4. 如果数据库方法不存在或出错，使用内存过滤（兼容性处理）
+        System.err.println("⚠️ 数据库标签搜索方法不存在或出错，使用内存过滤: " + e.getMessage());
+        e.printStackTrace();
+        
+        // 4.1 获取所有标签
         List<Tag> allTags = tagMapper.findAll();
         
-        // 过滤包含关键词的标签（名称或描述）
+        // 4.2 在内存中过滤包含关键词的标签
         List<Tag> filteredTags = allTags.stream()
-            .filter(tag -> 
-                (tag.getName() != null && tag.getName().toLowerCase().contains(keyword.toLowerCase())) ||
-                (tag.getDescription() != null && tag.getDescription().toLowerCase().contains(keyword.toLowerCase()))
-            )
+            .filter(tag -> {
+                if (tag == null) return false;
+                
+                String lowerKeyword = keyword.toLowerCase();
+                String tagName = tag.getName() != null ? tag.getName().toLowerCase() : "";
+                String tagDesc = tag.getDescription() != null ? tag.getDescription().toLowerCase() : "";
+                
+                return tagName.contains(lowerKeyword) || tagDesc.contains(lowerKeyword);
+            })
             .collect(Collectors.toList());
         
-        // 分页
+        // 4.3 计算总数
         int total = filteredTags.size();
-        int offset = (page - 1) * size;
-        int end = Math.min(offset + size, total);
         
-        List<Tag> pagedTags = filteredTags.subList(offset, end);
+        // 4.4 内存分页处理
+        List<Tag> pagedTags;
+        if (offset >= total) {
+            pagedTags = new ArrayList<>(); // 偏移量超出范围，返回空列表
+        } else {
+            int end = Math.min(offset + size, total);
+            pagedTags = filteredTags.subList(offset, end);
+        }
         
+        // 4.5 返回内存过滤的结果
         return new SearchResult<>(keyword, total, page, size, pagedTags);
     }
+}
     
     @Override
     public SearchResult<Article> advancedSearchArticles(String title, String content, 

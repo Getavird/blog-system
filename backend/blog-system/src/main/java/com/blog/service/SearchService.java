@@ -5,6 +5,7 @@ import com.blog.entity.FullSearchResponse;
 import com.blog.entity.SearchResult;
 import com.blog.entity.User;
 import java.util.List;
+import com.blog.entity.Tag;
 
 public interface SearchService {
     
@@ -40,4 +41,6 @@ public interface SearchService {
      * 保存搜索记录（用于统计）
      */
     void saveSearchRecord(String keyword, Integer userId);
+
+    SearchResult<Tag> searchTags(String keyword, Integer page, Integer size);
 }
