@@ -408,22 +408,39 @@ const deleteArticle = async (id) => {
   }
 
   // 获取我的文章
-  const fetchMyArticles = async (params = {}) => {
-    try {
-      myArticlesLoading.value = true
-      const data = await articleApi.getMyArticles(params)
-      myArticles.value = {
-        list: transformArticles(data.list || []),
-        total: data.total || 0
-      }
-      return data
-    } catch (error) {
-      console.error('获取我的文章失败:', error)
-      throw error
-    } finally {
-      myArticlesLoading.value = false
+const fetchMyArticles = async (params = {}) => {
+  try {
+    myArticlesLoading.value = true
+    console.log('🔄 获取我的文章参数:', params)
+    
+    const data = await articleApi.getMyArticles(params)
+    console.log('📋 我的文章API返回:', data)
+    
+    // ✅ 根据实际数据结构提取文章列表
+    let articlesList = []
+    
+    if (data.articles && Array.isArray(data.articles)) {
+      articlesList = data.articles
+    } else if (data.list && Array.isArray(data.list)) {
+      articlesList = data.list
     }
+    
+    console.log('📊 提取的文章列表:', articlesList)
+    
+    myArticles.value = {
+      list: transformArticles(articlesList),
+      total: data.total || articlesList.length
+    }
+    
+    console.log('✅ 转换后的文章数据:', myArticles.value)
+    return data
+  } catch (error) {
+    console.error('获取我的文章失败:', error)
+    throw error
+  } finally {
+    myArticlesLoading.value = false
   }
+}
 
   // 清除当前文章
   const clearCurrentArticle = () => {
@@ -436,22 +453,41 @@ const deleteArticle = async (id) => {
   }
 
   // 获取我的草稿列表
-  const fetchMyDrafts = async (params = {}) => {
-    try {
-      myDraftsLoading.value = true
-      const data = await articleApi.getMyDrafts(params)
-      myDrafts.value = {
-        list: transformArticles(data.list || []),
-        total: data.total || 0
-      }
-      return data
-    } catch (error) {
-      console.error('获取草稿列表失败:', error)
-      throw error
-    } finally {
-      myDraftsLoading.value = false
+const fetchMyDrafts = async (params = {}) => {
+  try {
+    myDraftsLoading.value = true
+    console.log('🔄 获取草稿参数:', params)
+    
+    const data = await articleApi.getMyDrafts(params)
+    console.log('📋 草稿API返回:', data)
+    
+    // ✅ 根据实际数据结构提取草稿列表
+    // 注意：response.data 已经被响应拦截器提取出来了
+    // 所以 data 应该是 {total:1, size:10, drafts:[...], page:1}
+    let draftsList = []
+    
+    if (data.drafts && Array.isArray(data.drafts)) {
+      draftsList = data.drafts
+    } else if (data.list && Array.isArray(data.list)) {
+      draftsList = data.list
     }
+    
+    console.log('📊 提取的草稿列表:', draftsList)
+    
+    myDrafts.value = {
+      list: transformArticles(draftsList),
+      total: data.total || draftsList.length
+    }
+    
+    console.log('✅ 转换后的草稿数据:', myDrafts.value)
+    return data
+  } catch (error) {
+    console.error('获取草稿列表失败:', error)
+    throw error
+  } finally {
+    myDraftsLoading.value = false
   }
+}
 
   // 发布草稿
 const publishDraft = async (id) => {

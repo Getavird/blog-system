@@ -8,11 +8,11 @@
                 <div class="page-header">
                     <h1>我的文章</h1>
                     <p class="page-subtitle">管理您的文章，包括草稿和已发布的文章</p>
-                    
+
                     <!-- 快速统计 -->
                     <div class="quick-stats">
                         <div class="stat-item">
-                            <div class="stat-number">{{ total }}</div>
+                            <div class="stat-number">{{ displayTotal }}</div>
                             <div class="stat-label">文章总数</div>
                         </div>
                         <div class="stat-item">
@@ -24,20 +24,14 @@
                             <div class="stat-label">草稿</div>
                         </div>
                     </div>
+
                 </div>
 
                 <!-- 工具栏 -->
                 <div class="toolbar">
                     <div class="toolbar-left">
-                        <el-input 
-                            v-model="searchKeyword" 
-                            placeholder="搜索文章标题..." 
-                            clearable 
-                            @clear="handleSearch"
-                            @keyup.enter="handleSearch" 
-                            class="search-input" 
-                            :prefix-icon="Search"
-                        />
+                        <el-input v-model="searchKeyword" placeholder="搜索文章标题..." clearable @clear="handleSearch"
+                            @keyup.enter="handleSearch" class="search-input" :prefix-icon="Search" />
 
                         <el-select v-model="statusFilter" placeholder="文章状态" @change="handleFilter"
                             class="status-select">
@@ -45,15 +39,11 @@
                             <el-option label="已发布" :value="1" />
                             <el-option label="草稿" :value="0" />
                         </el-select>
-                        
+
                         <el-select v-model="categoryFilter" placeholder="分类" @change="handleFilter"
                             class="category-select" clearable>
-                            <el-option 
-                                v-for="category in userCategories" 
-                                :key="category.id" 
-                                :label="category.name" 
-                                :value="category.id" 
-                            />
+                            <el-option v-for="category in userCategories" :key="category.id" :label="category.name"
+                                :value="category.id" />
                         </el-select>
                     </div>
 
@@ -75,10 +65,14 @@
                             <template #dropdown>
                                 <el-dropdown-menu>
                                     <el-dropdown-item command="publish" :disabled="!canBatchPublish">
-                                        <el-icon><CircleCheck /></el-icon>批量发布
+                                        <el-icon>
+                                            <CircleCheck />
+                                        </el-icon>批量发布
                                     </el-dropdown-item>
                                     <el-dropdown-item command="delete">
-                                        <el-icon><Delete /></el-icon>批量删除
+                                        <el-icon>
+                                            <Delete />
+                                        </el-icon>批量删除
                                     </el-dropdown-item>
                                 </el-dropdown-menu>
                             </template>
@@ -91,20 +85,17 @@
                     <!-- 加载状态 -->
                     <div v-if="loading" class="loading-state">
                         <div class="loading-content">
-                            <el-icon class="loading-icon"><Loading /></el-icon>
+                            <el-icon class="loading-icon">
+                                <Loading />
+                            </el-icon>
                             <p>加载中...</p>
                         </div>
                     </div>
 
                     <!-- 文章表格 -->
-                    <div v-else-if="articles.length > 0" class="articles-table">
-                        <el-table 
-                            :data="articles" 
-                            style="width: 100%" 
-                            @selection-change="handleSelectionChange"
-                            :row-key="row => row.id"
-                            v-loading="loading"
-                        >
+                    <div v-else-if="displayArticles.length > 0" class="articles-table">
+                        <el-table :data="displayArticles" style="width: 100%" @selection-change="handleSelectionChange"
+                            :row-key="row => row.id" v-loading="loading">
                             <el-table-column type="selection" width="55" />
 
                             <el-table-column label="文章标题" min-width="300">
@@ -112,15 +103,13 @@
                                     <div class="article-title-cell">
                                         <div class="title-content" @click="viewArticle(row.id)">
                                             <span class="title-text">{{ row.title }}</span>
+
                                             <el-tag v-if="row.status === 0" type="info" size="small" class="draft-tag">
                                                 草稿
                                             </el-tag>
-                                            <el-tag v-if="!row.isPublic && row.status === 1" type="warning" size="small">
-                                                私密
+                                            <el-tag v-else-if="row.status === 1" type="success" size="small">
+                                                已发布
                                             </el-tag>
-                                        </div>
-                                        <div v-if="row.summary" class="article-summary">
-                                            {{ row.summary }}
                                         </div>
                                     </div>
                                 </template>
@@ -140,19 +129,25 @@
                                     <div class="stats">
                                         <el-tooltip content="阅读数" placement="top">
                                             <span class="stat-item">
-                                                <el-icon><View /></el-icon>
+                                                <el-icon>
+                                                    <View />
+                                                </el-icon>
                                                 {{ row.viewCount || 0 }}
                                             </span>
                                         </el-tooltip>
                                         <el-tooltip content="点赞数" placement="top">
                                             <span class="stat-item">
-                                                <el-icon><Star /></el-icon>
+                                                <el-icon>
+                                                    <Star />
+                                                </el-icon>
                                                 {{ row.likeCount || 0 }}
                                             </span>
                                         </el-tooltip>
                                         <el-tooltip content="评论数" placement="top">
                                             <span class="stat-item">
-                                                <el-icon><ChatDotRound /></el-icon>
+                                                <el-icon>
+                                                    <ChatDotRound />
+                                                </el-icon>
                                                 {{ row.commentCount || 0 }}
                                             </span>
                                         </el-tooltip>
@@ -175,12 +170,8 @@
                                         <el-button link type="primary" @click="viewArticle(row.id)" class="action-btn">
                                             查看
                                         </el-button>
-                                        <el-button 
-                                            v-if="row.status === 0" 
-                                            link type="success" 
-                                            @click="publishArticle(row)" 
-                                            class="action-btn"
-                                        >
+                                        <el-button v-if="row.status === 0" link type="success"
+                                            @click="publishArticle(row)" class="action-btn">
                                             发布
                                         </el-button>
                                         <el-dropdown @command="(command) => handleMoreAction(row, command)">
@@ -223,16 +214,10 @@
                 </div>
 
                 <!-- 分页 -->
-                <div v-if="total > 0 && !loading" class="pagination-wrapper">
-                    <el-pagination 
-                        :current-page="currentPage"
-                        :page-size="pageSize"
-                        :total="total"
-                        :page-sizes="[10, 20, 30, 50]" 
-                        layout="total, sizes, prev, pager, next, jumper"
-                        @size-change="handleSizeChange" 
-                        @current-change="handlePageChange"
-                    />
+                <div v-if="displayTotal > 0 && !loading" class="pagination-wrapper">
+                    <el-pagination :current-page="currentPage" :page-size="pageSize" :total="displayTotal"
+                        :page-sizes="[10, 20, 30, 50]" layout="total, sizes, prev, pager, next, jumper"
+                        @size-change="handleSizeChange" @current-change="handlePageChange" />
                 </div>
             </div>
         </div>
@@ -249,16 +234,16 @@ import { useUserStore } from '@/stores/user'
 import { useCategoryStore } from '@/stores/category'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Search,
-  Plus,
-  Delete,
-  Document,
-  More,
-  View,
-  Star,
-  ChatDotRound,
-  Loading,
-  CircleCheck
+    Search,
+    Plus,
+    Delete,
+    Document,
+    More,
+    View,
+    Star,
+    ChatDotRound,
+    Loading,
+    CircleCheck
 } from '@element-plus/icons-vue'
 
 // 组件导入
@@ -280,26 +265,24 @@ const categoryFilter = ref('')
 // 分页参数
 const currentPage = ref(1)
 const pageSize = ref(10)
-const total = computed(() => {
-  return articles.value.length
-})
+
+
+const displayArticles = ref([])
+const displayTotal = ref(0)
 
 // 状态
 const loading = ref(false)
-
-// 文章列表
-const articles = computed(() => articleStore.articles || [])
 
 // 选中文章
 const selectedArticles = ref([])
 
 // 计算属性
 const publishedCount = computed(() => {
-  return articles.value.filter(article => article.status === 1).length
+    return articleStore.myArticles.total || 0
 })
 
 const draftCount = computed(() => {
-  return articles.value.filter(article => article.status === 0).length
+    return articleStore.myDrafts.total || 0
 })
 
 const userCategories = computed(() => {
@@ -316,17 +299,17 @@ const canBatchPublish = computed(() => {
 onMounted(async () => {
     // 初始化用户状态
     userStore.initFromStorage()
-    
+
     // 检查登录状态
     if (!userStore.isLoggedIn()) {
         ElMessage.warning('请先登录')
         router.push('/')
         return
     }
-    
+
     // 加载分类数据
     await categoryStore.fetchCategories()
-    
+
     // 加载用户文章
     await loadUserArticles()
 })
@@ -357,94 +340,131 @@ watch(
 
 // 加载用户文章
 const loadUserArticles = async () => {
-  try {
-    loading.value = true
-    
-    const params = {
-      page: currentPage.value,
-      size: pageSize.value
+    try {
+        loading.value = true
+
+        const params = {
+            page: currentPage.value,
+            size: pageSize.value
+        }
+
+        // 添加搜索关键词
+        if (searchKeyword.value.trim()) {
+            params.keyword = searchKeyword.value.trim()
+        }
+
+        // 添加分类筛选
+        if (categoryFilter.value) {
+            params.categoryId = categoryFilter.value
+        }
+
+        console.log('📊 加载文章参数:', params)
+        console.log('🔍 当前筛选状态:', statusFilter.value)
+
+        let result = null
+
+        // 根据状态筛选调用不同的 API
+        if (statusFilter.value === 0) {
+            // 草稿：调用草稿接口
+            console.log('🔄 加载草稿...')
+            result = await articleStore.fetchMyDrafts(params)
+
+            // ✅ 正确赋值：使用响应式引用
+            displayArticles.value = articleStore.myDrafts.list || []
+            displayTotal.value = articleStore.myDrafts.total || 0
+
+            console.log('📝 草稿数据:', {
+                storeData: articleStore.myDrafts,
+                displayArticles: displayArticles.value.length,
+                displayTotal: displayTotal.value
+            })
+
+        } else if (statusFilter.value === 1) {
+            // 已发布：调用发布文章接口
+            console.log('🔄 加载已发布文章...')
+            result = await articleStore.fetchMyArticles(params)
+
+            // ✅ 正确赋值：使用响应式引用
+            displayArticles.value = articleStore.myArticles.list || []
+            displayTotal.value = articleStore.myArticles.total || 0
+
+        } else {
+            // 全部：分别获取然后合并
+            console.log('🔄 加载全部文章...')
+
+            try {
+                // 分别获取草稿和已发布文章
+                const draftsPromise = articleStore.fetchMyDrafts({ page: 1, size: 1000 })
+                const publishedPromise = articleStore.fetchMyArticles({ page: 1, size: 1000 })
+
+                const [draftsResult, publishedResult] = await Promise.all([draftsPromise, publishedPromise])
+
+                console.log('📊 合并前的数据:', {
+                    草稿: articleStore.myDrafts.list,
+                    草稿数量: articleStore.myDrafts.list?.length,
+                    已发布: articleStore.myArticles.list,
+                    已发布数量: articleStore.myArticles.list?.length
+                })
+
+                // 合并数据
+                const allArticles = [
+                    ...(articleStore.myDrafts.list || []),
+                    ...(articleStore.myArticles.list || [])
+                ]
+
+                console.log('📊 合并后的所有文章:', allArticles)
+
+                // 前端过滤
+                let filteredArticles = allArticles
+
+                if (searchKeyword.value.trim()) {
+                    const keyword = searchKeyword.value.trim().toLowerCase()
+                    filteredArticles = filteredArticles.filter(article =>
+                        article.title && article.title.toLowerCase().includes(keyword)
+                    )
+                }
+
+                if (categoryFilter.value) {
+                    filteredArticles = filteredArticles.filter(article =>
+                        article.categoryId == categoryFilter.value
+                    )
+                }
+
+                console.log('🎯 过滤后的文章:', filteredArticles)
+
+                // 前端分页
+                const startIndex = (currentPage.value - 1) * pageSize.value
+                const endIndex = startIndex + pageSize.value
+
+                displayArticles.value = filteredArticles.slice(startIndex, endIndex)
+                displayTotal.value = filteredArticles.length
+
+                console.log('✅ 最终显示的文章:', {
+                    总数: displayTotal.value,
+                    当前页数据: displayArticles.value.length,
+                    数据: displayArticles.value
+                })
+
+            } catch (error) {
+                console.error('合并文章数据失败:', error)
+                displayArticles.value = []
+                displayTotal.value = 0
+            }
+
+            return
+        }
+        // 如果当前页没有数据且不是第一页，回到上一页
+        if (displayArticles.value.length === 0 && currentPage.value > 1) {
+            currentPage.value = Math.max(1, currentPage.value - 1)
+            await loadUserArticles()
+        }
+
+    } catch (error) {
+        console.error('加载用户文章失败:', error)
+        ElMessage.error('加载文章失败: ' + (error.message || '未知错误'))
+    } finally {
+        loading.value = false
     }
-    
-    // 添加搜索关键词
-    if (searchKeyword.value.trim()) {
-      params.keyword = searchKeyword.value.trim()
-    }
-    
-    // 添加分类筛选
-    if (categoryFilter.value) {
-      params.categoryId = categoryFilter.value
-    }
-    
-    let result = null
-    
-    // 根据状态筛选调用不同的 API
-    if (statusFilter.value === 0) {
-      // 草稿：调用草稿接口
-      result = await articleStore.fetchMyDrafts(params)
-      
-      // 从 store 获取数据
-      articles.value = articleStore.myDrafts.list || []
-      total.value = articleStore.myDrafts.total || 0
-      
-    } else if (statusFilter.value === 1) {
-      // 已发布：调用发布文章接口
-      result = await articleStore.fetchMyArticles(params)
-      
-      // 从 store 获取数据
-      articles.value = articleStore.myArticles.list || []
-      total.value = articleStore.myArticles.total || 0
-      
-    } else {
-      // 全部：同时获取草稿和已发布文章
-      const [draftsResult, publishedResult] = await Promise.all([
-        articleStore.fetchMyDrafts({ page: 1, size: 1000 }), // 获取所有草稿
-        articleStore.fetchMyArticles({ page: 1, size: 1000 }) // 获取所有发布文章
-      ])
-      
-      // 合并数据并过滤（前端过滤）
-      const allArticles = [
-        ...(articleStore.myDrafts.list || []),
-        ...(articleStore.myArticles.list || [])
-      ]
-      
-      // 应用搜索和分类筛选
-      let filteredArticles = allArticles
-      
-      if (searchKeyword.value.trim()) {
-        const keyword = searchKeyword.value.trim().toLowerCase()
-        filteredArticles = filteredArticles.filter(article => 
-          article.title && article.title.toLowerCase().includes(keyword)
-        )
-      }
-      
-      if (categoryFilter.value) {
-        filteredArticles = filteredArticles.filter(article => 
-          article.categoryId == categoryFilter.value
-        )
-      }
-      
-      // 前端分页
-      const startIndex = (currentPage.value - 1) * pageSize.value
-      const endIndex = startIndex + pageSize.value
-      
-      articles.value = filteredArticles.slice(startIndex, endIndex)
-      total.value = filteredArticles.length
-      
-      return // 提前返回，避免下面的代码覆盖数据
-    }
-    
-    // 如果当前页没有数据且不是第一页，回到上一页
-    if (articles.value.length === 0 && currentPage.value > 1) {
-      currentPage.value = Math.max(1, currentPage.value - 1)
-      await loadUserArticles()
-    }
-    
-  } catch (error) {
-    console.error('加载用户文章失败:', error)
-    ElMessage.error('加载文章失败: ' + (error.message || '未知错误'))
-  } finally {
-    loading.value = false
-  }
 }
 
 // 搜索文章
@@ -462,27 +482,27 @@ const handleFilter = () => {
 // 格式化时间
 const formatTime = (time) => {
     if (!time) return ''
-    
+
     try {
         const date = new Date(time)
         const now = new Date()
         const diff = now.getTime() - date.getTime()
         const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-        
+
         if (isNaN(date.getTime())) {
             return '无效日期'
         }
-        
+
         if (days === 0) {
             // 今天，显示时间
-            return date.toLocaleTimeString('zh-CN', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
+            return date.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit'
             })
         } else if (days === 1) {
-            return '昨天 ' + date.toLocaleTimeString('zh-CN', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
+            return '昨天 ' + date.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit'
             })
         } else if (days < 7) {
             return `${days}天前`
@@ -514,37 +534,37 @@ const createArticle = () => {
 
 // 发布草稿
 const publishArticle = async (article) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要发布文章 "${article.title}" 吗？`,
-      '发布确认',
-      {
-        type: 'warning',
-        confirmButtonText: '确定发布',
-        cancelButtonText: '取消'
-      }
-    )
-    
-    // 调用articleStore的发布方法
-    await articleStore.publishDraft(article.id)
-    ElMessage.success('文章发布成功')
-    
-    // 重新加载文章列表
-    await loadUserArticles()
-    
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('发布文章失败:', error)
-      ElMessage.error(error.message || '发布失败')
+    try {
+        await ElMessageBox.confirm(
+            `确定要发布文章 "${article.title}" 吗？`,
+            '发布确认',
+            {
+                type: 'warning',
+                confirmButtonText: '确定发布',
+                cancelButtonText: '取消'
+            }
+        )
+
+        // 调用articleStore的发布方法
+        await articleStore.publishDraft(article.id)
+        ElMessage.success('文章发布成功')
+
+        // 重新加载文章列表
+        await loadUserArticles()
+
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('发布文章失败:', error)
+            ElMessage.error(error.message || '发布失败')
+        }
     }
-  }
 }
 
 // 删除文章
 const deleteArticle = async (article) => {
     try {
         await ElMessageBox.confirm(
-            `确定要删除文章 "${article.title}" 吗？删除后不可恢复。`,
+            `确定要${article.status === 0 ? '删除草稿' : '软删除文章'} "${article.title}" 吗？`,
             '提示',
             {
                 type: 'warning',
@@ -552,17 +572,39 @@ const deleteArticle = async (article) => {
                 cancelButtonText: '取消'
             }
         )
-        
-        await articleStore.deleteArticle(article.id)
-        ElMessage.success('文章删除成功')
-        
+
+        console.log('🗑️ 执行软删除:', article)
+
+        // ✅ 使用软删除（更新状态为2）
+        // 我们需要调用updateArticle来将状态改为2
+        const updateData = {
+            ...article,
+            status: 2, // 软删除状态
+            // 确保所有必需字段都有值
+            title: article.title || '无标题',
+            content: article.content || '',
+            summary: article.summary || '',
+            coverImage: article.coverImage || null,
+            categoryId: article.categoryId || 0,
+            isTop: article.isTop || 0,
+            allowComment: article.allowComment || 1,
+            tags: article.tags || '',
+            likeCount: article.likeCount || 0
+        }
+
+        console.log('📤 软删除更新数据:', updateData)
+
+        await articleStore.updateArticle(article.id, updateData)
+
+        ElMessage.success(article.status === 0 ? '草稿已删除' : '文章已删除')
+
         // 重新加载文章列表
         await loadUserArticles()
-        
+
     } catch (error) {
         if (error !== 'cancel') {
             console.error('删除文章失败:', error)
-            ElMessage.error('删除失败')
+            ElMessage.error('删除失败: ' + (error.message || '未知错误'))
         }
     }
 }
@@ -570,15 +612,15 @@ const deleteArticle = async (article) => {
 // 批量操作
 const handleBatchCommand = async (command) => {
     if (selectedArticles.value.length === 0) return
-    
+
     try {
         if (command === 'delete') {
             const articleIds = selectedArticles.value.map(article => article.id)
             const articleTitles = selectedArticles.value.map(article => article.title).join('、')
-            
+
             await ElMessageBox.confirm(
-                `确定要删除选中的 ${selectedArticles.value.length} 篇文章吗？删除后不可恢复。\n\n${articleTitles}`,
-                '批量删除确认',
+                `确定要软删除选中的 ${selectedArticles.value.length} 篇文章吗？`,
+                '批量软删除确认',
                 {
                     type: 'warning',
                     confirmButtonText: '确定删除',
@@ -586,69 +628,37 @@ const handleBatchCommand = async (command) => {
                     dangerouslyUseHTMLString: true
                 }
             )
-            
-            // 批量删除（需要后端支持批量删除接口）
-            // 这里暂时使用循环单个删除
+
+            // 批量软删除
             let successCount = 0
             for (const article of selectedArticles.value) {
                 try {
-                    await articleStore.deleteArticle(article.id)
-                    successCount++
-                } catch (error) {
-                    console.error(`删除文章 ${article.id} 失败:`, error)
-                }
-            }
-            
-            ElMessage.success(`成功删除 ${successCount} 篇文章`)
-            
-            // 清空选中
-            selectedArticles.value = []
-            
-            // 重新加载文章列表
-            await loadUserArticles()
-            
-        } else if (command === 'publish') {
-            // 批量发布草稿
-            const draftArticles = selectedArticles.value.filter(article => article.status === 0)
-            
-            if (draftArticles.length === 0) {
-                ElMessage.warning('选中的文章中没有草稿')
-                return
-            }
-            
-            await ElMessageBox.confirm(
-                `确定要批量发布 ${draftArticles.length} 篇草稿吗？`,
-                '批量发布确认',
-                {
-                    type: 'warning',
-                    confirmButtonText: '确定发布',
-                    cancelButtonText: '取消'
-                }
-            )
-            
-            let successCount = 0
-            for (const article of draftArticles) {
-                try {
-                    if (articleStore.publishDraft) {
-                        await articleStore.publishDraft(article.id)
-                    } else {
-                        await articleStore.updateArticle(article.id, { ...article, status: 1 })
+                    // 使用软删除
+                    const updateData = {
+                        ...article,
+                        status: 2, // 软删除状态
+                        title: article.title || '无标题',
+                        content: article.content || '',
+                        summary: article.summary || '',
+                        categoryId: article.categoryId || 0
                     }
+
+                    await articleStore.updateArticle(article.id, updateData)
                     successCount++
                 } catch (error) {
-                    console.error(`发布文章 ${article.id} 失败:`, error)
+                    console.error(`软删除文章 ${article.id} 失败:`, error)
                 }
             }
-            
-            ElMessage.success(`成功发布 ${successCount} 篇文章`)
-            
+
+            ElMessage.success(`成功软删除 ${successCount} 篇文章`)
+
             // 清空选中
             selectedArticles.value = []
-            
+
             // 重新加载文章列表
             await loadUserArticles()
         }
-        
+        // ... 其他批量操作
     } catch (error) {
         if (error !== 'cancel') {
             console.error('批量操作失败:', error)
@@ -671,12 +681,12 @@ const handleMoreAction = async (article, command) => {
                 ElMessage.error('复制失败')
             }
             break
-            
+
         case 'stats':
             // 查看统计（可以跳转到统计页面）
             router.push(`/article/${article.id}/stats`)
             break
-            
+
         case 'delete':
             await deleteArticle(article)
             break
@@ -922,8 +932,13 @@ const handleSizeChange = (size) => {
 }
 
 @keyframes rotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* 空状态 */

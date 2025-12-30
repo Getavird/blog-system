@@ -22,7 +22,7 @@ export const transformArticle = (apiData) => {
     coverImage: apiData.coverImage 
       ? (apiData.coverImage.startsWith('http') ? apiData.coverImage : `/uploads/${apiData.coverImage}`)
       : '',
-    status: apiData.status || 1,
+    status: apiData.status,
     viewCount: apiData.viewCount || 0,
     likeCount: apiData.likeCount || 0,
     commentCount: apiData.commentCount || 0,
