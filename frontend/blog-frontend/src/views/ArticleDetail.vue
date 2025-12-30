@@ -1,15 +1,15 @@
 <template>
   <div class="article-detail-page">
     <Header />
-    
+
     <!-- 文章加载状态 -->
     <div v-if="loading" class="loading-container">
       <div class="loading-content">
         <el-skeleton :rows="5" animated />
-        <el-skeleton style="margin-top: 20px;" :rows="10" animated />
+        <el-skeleton style="margin-top: 20px" :rows="10" animated />
       </div>
     </div>
-    
+
     <!-- 文章内容 -->
     <div v-else-if="article" class="article-container">
       <div class="container">
@@ -20,34 +20,49 @@
             <div class="author-card">
               <div class="author-header" @click="goToAuthorPage">
                 <div class="author-avatar-large" @click.stop="goToAuthorPage">
-                  <img v-if="article.avatar" :src="article.avatar" alt="作者头像">
+                  <!-- 修复头像路径 -->
+                  <img
+                    v-if="article.authorAvatar"
+                    :src="article.authorAvatar"
+                    alt="作者头像"
+                  />
                   <div v-else class="avatar-placeholder-large">
-                    {{ article.username ? article.username.charAt(0) : 'A' }}
+                    {{
+                      article.authorName ? article.authorName.charAt(0) : "A"
+                    }}
                   </div>
                 </div>
-                <!--这样子不能显示-->
-                <!-- <h3 class="author-name" @click.stop="goToAuthorPage">{{ article.username }}</h3> -->
-                <!--这样子能显示-->
+                <!-- 修复用户名字段 -->
                 <h3 class="author-name" @click.stop="goToAuthorPage">
-                  {{ article.authorName || '未知作者' }}
+                  {{ article.authorName || "未知作者" }}
                 </h3>
-                <p class="author-bio" v-if="article.bio">{{ article.bio }}</p>
+                <!-- 可能需要从其他地方获取bio信息 -->
+                <p class="author-bio" v-if="article.authorBio">
+                  {{ article.authorBio }}
+                </p>
               </div>
               <div class="author-stats">
                 <div class="stat-item">
-                  <div class="stat-number">{{ article.articleCount || 0 }}</div>
+                  <!-- 这些字段可能需要从用户公开信息接口获取 -->
+                  <div class="stat-number">
+                    {{ authorStats.articleCount || 0 }}
+                  </div>
                   <div class="stat-label">文章</div>
                 </div>
                 <div class="stat-item">
-                  <div class="stat-number">{{ article.totalLikeCount || 0 }}</div>
+                  <div class="stat-number">
+                    {{ authorStats.likeCount || 0 }}
+                  </div>
                   <div class="stat-label">获赞</div>
                 </div>
                 <div class="stat-item">
-                  <div class="stat-number">{{ article.fansCount || 0 }}</div>
+                  <div class="stat-number">
+                    {{ authorStats.followerCount || 0 }}
+                  </div>
                   <div class="stat-label">粉丝</div>
                 </div>
               </div>
-              <el-button 
+              <el-button
                 v-if="!isArticleAuthor && isLoggedIn"
                 :type="article.isFollowing ? 'default' : 'primary'"
                 size="small"
@@ -55,30 +70,34 @@
                 :loading="followLoading"
                 class="follow-btn"
               >
-                {{ article.isFollowing ? '已关注' : '关注作者' }}
+                {{ article.isFollowing ? "已关注" : "关注作者" }}
               </el-button>
             </div>
           </aside>
-          
+
           <!-- 中间：文章模块 -->
           <main class="main-content">
             <!-- 面包屑导航 -->
             <div class="breadcrumb">
               <router-link to="/">首页</router-link>
               <el-icon><ArrowRight /></el-icon>
-              
+
               <!-- 显示分类（如果有） -->
-              <span v-if="displayCategoryName" @click="goToCategory(displayCategoryId)" class="category-link">
+              <span
+                v-if="displayCategoryName"
+                @click="goToCategory(displayCategoryId)"
+                class="category-link"
+              >
                 {{ displayCategoryName }}
               </span>
-              
+
               <el-icon v-if="displayCategoryName"><ArrowRight /></el-icon>
               <span class="current">{{ article.title }}</span>
             </div>
-            
+
             <!-- 文章标题 -->
             <h1 class="article-title">{{ article.title }}</h1>
-            
+
             <!-- 文章信息（标题下面） -->
             <div class="article-info">
               <div class="info-item">
@@ -98,12 +117,12 @@
                 <span>{{ article.likeCount || 0 }} 点赞</span>
               </div>
             </div>
-            
+
             <!-- 文章分类和标签 -->
             <div class="article-tags">
-              <el-tag 
+              <el-tag
                 v-if="displayCategoryName"
-                type="primary" 
+                type="primary"
                 size="large"
                 @click="goToCategory(displayCategoryId)"
                 class="category-tag"
@@ -124,27 +143,28 @@
                 <span class="no-tags-text">暂无标签</span>
               </div>
             </div>
-            
+
             <!-- 文章内容 -->
             <div class="article-content" v-html="article.content"></div>
-            
+
             <!-- 文章底部信息 -->
             <div class="article-footer">
               <div class="update-info">
                 <el-icon><Clock /></el-icon>
-                最后更新于 {{ formatTime(article.updateTime || article.createTime) }}
+                最后更新于
+                {{ formatTime(article.updateTime || article.createTime) }}
               </div>
-              
+
               <!-- 版权声明 -->
               <div class="copyright">
                 <p>© 本文由 {{ article.username }} 发布，转载请注明出处</p>
               </div>
             </div>
-            
+
             <!-- 点赞操作 -->
             <div class="interaction-actions">
-              <el-button 
-                :type="article.isLiked ? 'danger' : 'primary'" 
+              <el-button
+                :type="article.isLiked ? 'danger' : 'primary'"
                 size="large"
                 @click="toggleLike"
                 :loading="likeLoading"
@@ -152,13 +172,15 @@
                 :disabled="!isLoggedIn"
               >
                 <el-icon><Star /></el-icon>
-                {{ article.isLiked ? '已点赞' : '点赞' }} ({{ article.likeCount || 0 }})
+                {{ article.isLiked ? "已点赞" : "点赞" }} ({{
+                  article.likeCount || 0
+                }})
               </el-button>
-              
+
               <!-- 编辑按钮（如果是作者） -->
-              <el-button 
+              <el-button
                 v-if="isArticleAuthor && isLoggedIn"
-                type="primary" 
+                type="primary"
                 size="large"
                 @click="editArticle"
                 class="edit-btn"
@@ -167,7 +189,7 @@
                 编辑文章
               </el-button>
             </div>
-            
+
             <!-- 评论区域 -->
             <div class="comments-section">
               <div class="comments-wrapper">
@@ -175,19 +197,26 @@
                   <el-icon><ChatDotRound /></el-icon>
                   评论 ({{ article.commentCount || 0 }})
                 </h2>
-                
+
                 <!-- 登录提示 -->
                 <div v-if="!isLoggedIn" class="login-prompt">
-                  <p>请先<a href="javascript:;" @click="showLogin = true">登录</a>后发表评论</p>
+                  <p>
+                    请先<a href="javascript:;" @click="showLogin = true">登录</a
+                    >后发表评论
+                  </p>
                 </div>
-                
+
                 <!-- 发表评论 -->
                 <div v-else class="comment-form-card">
                   <div class="form-header">
                     <div class="user-avatar">
-                      <img v-if="currentUserAvatar" :src="currentUserAvatar" alt="用户头像">
+                      <img
+                        v-if="currentUserAvatar"
+                        :src="currentUserAvatar"
+                        alt="用户头像"
+                      />
                       <div v-else class="avatar-placeholder-small">
-                        {{ currentUserName ? currentUserName.charAt(0) : 'U' }}
+                        {{ currentUserName ? currentUserName.charAt(0) : "U" }}
                       </div>
                     </div>
                     <div class="form-title">发表评论</div>
@@ -204,8 +233,8 @@
                   />
                   <div class="form-actions">
                     <el-button @click="cancelComment">取消</el-button>
-                    <el-button 
-                      type="primary" 
+                    <el-button
+                      type="primary"
                       @click="submitComment"
                       :loading="commentLoading"
                       :disabled="!commentContent.trim()"
@@ -214,46 +243,70 @@
                     </el-button>
                   </div>
                 </div>
-                
+
                 <!-- 评论列表 -->
                 <div v-if="comments.length > 0" class="comments-list">
-                  <div 
-                    v-for="comment in comments" 
+                  <div
+                    v-for="comment in comments"
                     :key="comment.id"
                     class="comment-item"
                   >
                     <div class="comment-header">
-                      <div class="comment-author" @click="goToUserPage(comment.userId, comment.username)">
+                      <div
+                        class="comment-author"
+                        @click="goToUserPage(comment.userId, comment.username)"
+                      >
                         <div class="comment-avatar">
-                          <img v-if="comment.userAvatar" :src="getAvatarUrl(comment.userAvatar)" alt="用户头像">
+                          <img
+                            v-if="comment.userAvatar"
+                            :src="getAvatarUrl(comment.userAvatar)"
+                            alt="用户头像"
+                          />
                           <div v-else class="avatar-placeholder-small">
-                            {{ comment.username ? comment.username.charAt(0) : 'U' }}
+                            {{
+                              comment.username
+                                ? comment.username.charAt(0)
+                                : "U"
+                            }}
                           </div>
                         </div>
                         <div class="comment-author-info">
-                          <div class="comment-author-name">{{ comment.username }}</div>
-                          <div class="comment-time">{{ formatTime(comment.createTime) }}</div>
+                          <div class="comment-author-name">
+                            {{ comment.username }}
+                          </div>
+                          <div class="comment-time">
+                            {{ formatTime(comment.createTime) }}
+                          </div>
                         </div>
                       </div>
-                      <div v-if="checkCommentOwnership(comment)" class="comment-actions">
-                        <el-button type="text" @click="editComment(comment)">编辑</el-button>
-                        <el-button type="text" @click="deleteComment(comment.id)">删除</el-button>
+                      <div
+                        v-if="checkCommentOwnership(comment)"
+                        class="comment-actions"
+                      >
+                        <el-button type="text" @click="editComment(comment)"
+                          >编辑</el-button
+                        >
+                        <el-button
+                          type="text"
+                          @click="deleteComment(comment.id)"
+                          >删除</el-button
+                        >
                       </div>
                     </div>
                     <div class="comment-content">{{ comment.content }}</div>
                     <div class="comment-footer">
-                      <el-button 
-                        type="text" 
+                      <el-button
+                        type="text"
                         size="small"
                         @click="replyToComment(comment)"
                         :disabled="!isLoggedIn"
                       >
                         回复
                       </el-button>
-                      <el-button 
-                        type="text" 
+                      <el-button
+                        type="text"
                         size="small"
-                        :class="{ 'liked': comment.isLiked }"
+                        :class="{ liked: comment.isLiked }"
                         @click="likeComment(comment)"
                         :disabled="!isLoggedIn"
                       >
@@ -270,7 +323,7 @@
               </div>
             </div>
           </main>
-          
+
           <!-- 右侧：目录导航 -->
           <aside v-if="showToc" class="right-sidebar">
             <div class="toc-card">
@@ -279,8 +332,8 @@
                 文章目录
               </h3>
               <div class="toc-content">
-                <div 
-                  v-for="(item, index) in tocItems" 
+                <div
+                  v-for="(item, index) in tocItems"
                   :key="index"
                   :class="['toc-item', `toc-level-${item.level}`]"
                   @click="scrollToHeading(item.id)"
@@ -293,7 +346,7 @@
         </div>
       </div>
     </div>
-    
+
     <!-- 文章不存在 -->
     <div v-else class="not-found-container">
       <div class="error-content">
@@ -305,7 +358,7 @@
         </el-button>
       </div>
     </div>
-    
+
     <!-- 登录弹窗 -->
     <el-dialog
       v-model="showLogin"
@@ -313,26 +366,26 @@
       width="400px"
       :close-on-click-modal="false"
     >
-      <div style="text-align: center; padding: 20px;">
+      <div style="text-align: center; padding: 20px">
         <p>请先登录才能进行此操作</p>
         <el-button type="primary" @click="toLoginPage">去登录</el-button>
       </div>
     </el-dialog>
-    
+
     <Footer />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useArticleStore } from '@/stores/article'
-import { useCommentStore } from '@/stores/comment'
-import { useUserStore } from '@/stores/user'
-import { useCategoryStore } from '@/stores/category'
-import { useTagStore } from '@/stores/tag'
-import { useFollowStore } from '@/stores/follow'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, computed, onMounted, watch, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useArticleStore } from "@/stores/article";
+import { useCommentStore } from "@/stores/comment";
+import { useUserStore } from "@/stores/user";
+import { useCategoryStore } from "@/stores/category";
+import { useTagStore } from "@/stores/tag";
+import { useFollowStore } from "@/stores/follow";
+import { ElMessage, ElMessageBox } from "element-plus";
 import {
   ArrowRight,
   Calendar,
@@ -344,651 +397,721 @@ import {
   Menu,
   Clock,
   DocumentDelete,
-  Comment
-} from '@element-plus/icons-vue'
+  Comment,
+} from "@element-plus/icons-vue";
 
 // 组件导入
-import Header from '@/components/layout/Header.vue'
-import Footer from '@/components/layout/Footer.vue'
+import Header from "@/components/layout/Header.vue";
+import Footer from "@/components/layout/Footer.vue";
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute();
+const router = useRouter();
 
 // Pinia Store
-const articleStore = useArticleStore()
-const commentStore = useCommentStore()
-const userStore = useUserStore()
-const categoryStore = useCategoryStore()
-const tagStore = useTagStore()
-const followStore = useFollowStore()
+const articleStore = useArticleStore();
+const commentStore = useCommentStore();
+const userStore = useUserStore();
+const categoryStore = useCategoryStore();
+const tagStore = useTagStore();
+const followStore = useFollowStore();
 
 // 路由参数
-const articleId = ref(parseInt(route.params.id) || 0)
+const articleId = ref(parseInt(route.params.id) || 0);
 
 // 文章数据
-const article = computed(() => articleStore.currentArticle)
-const loading = ref(false)
-const likeLoading = ref(false)
-const followLoading = ref(false)
+const article = computed(() => articleStore.currentArticle);
+const loading = ref(false);
+const likeLoading = ref(false);
+const followLoading = ref(false);
 
 // 登录状态
-const isLoggedIn = computed(() => userStore.isLoggedIn())
-const currentUser = computed(() => userStore.user)
-const currentUserName = computed(() => currentUser.value?.username || '')
-const currentUserAvatar = computed(() => currentUser.value?.avatar || '')
+const isLoggedIn = computed(() => userStore.isLoggedIn());
+const currentUser = computed(() => userStore.user);
+const currentUserName = computed(() => currentUser.value?.username || "");
+const currentUserAvatar = computed(() => currentUser.value?.avatar || "");
 
 // 检查是否为文章作者
 const isArticleAuthor = computed(() => {
-  if (!isLoggedIn.value || !article.value) return false
-  return currentUser.value?.id === article.value.authorId
-})
+  if (!isLoggedIn.value || !article.value) return false;
+  return currentUser.value?.id === article.value.authorId;
+});
 
 // 评论相关
-const comments = computed(() => commentStore.comments || [])
-const commentContent = ref('')
-const commentLoading = ref(false)
-const showLogin = ref(false)
+const comments = computed(() => commentStore.comments || []);
+const commentContent = ref("");
+const commentLoading = ref(false);
+const showLogin = ref(false);
 
 // 目录相关
-const tocItems = ref([])
-const showToc = computed(() => tocItems.value.length > 0)
+const tocItems = ref([]);
+const showToc = computed(() => tocItems.value.length > 0);
 
+// 作者统计数据（需要从用户公开信息接口获取）
+const authorStats = ref({
+  articleCount: 0,
+  likeCount: 0,
+  viewCount: 0,
+  followerCount: 0,
+  followingCount: 0
+})
 // 处理标签数据
 const processedTags = computed(() => {
-  if (!article.value || !article.value.tags) return []
-  
-  const tags = article.value.tags
-  
+  if (!article.value || !article.value.tags) return [];
+
+  const tags = article.value.tags;
+
   // 如果是字符串
-  if (typeof tags === 'string') {
-    return tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+  if (typeof tags === "string") {
+    return tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag);
   }
-  
+
   // 如果是数组
   if (Array.isArray(tags)) {
-    return tags.map(tag => {
-      if (typeof tag === 'string') return tag
-      if (tag && typeof tag === 'object') return tag.name || tag.label || ''
-      return ''
-    }).filter(tag => tag)
+    return tags
+      .map((tag) => {
+        if (typeof tag === "string") return tag;
+        if (tag && typeof tag === "object") return tag.name || tag.label || "";
+        return "";
+      })
+      .filter((tag) => tag);
   }
-  
-  return []
-})
+
+  return [];
+});
 
 const getAvatarUrl = (avatarFileName) => {
-  if (!avatarFileName) return ''
-  
+  if (!avatarFileName) return "";
+
   // 如果是默认头像
-  if (avatarFileName === 'default_avatar.png') {
-    return `/static/images/default-avatars/default_avatar.png`
+  if (avatarFileName === "default_avatar.png") {
+    return `/static/images/default-avatars/default_avatar.png`;
   }
-  
+
   // 如果是上传的头像
-  return `/uploads/avatars/${avatarFileName}`
-}
+  return `/uploads/avatars/${avatarFileName}`;
+};
 
 // 获取标签key
 const getTagKey = (tag, index) => {
-  return `${tag}-${index}`
-}
+  return `${tag}-${index}`;
+};
 
 // 跳转到标签
 const goToTag = (tagName) => {
   if (tagName) {
     router.push({
-      path: '/tags',
-      query: { 
-        name: encodeURIComponent(tagName)
-      }
-    })
+      path: "/tags",
+      query: {
+        name: encodeURIComponent(tagName),
+      },
+    });
   }
-}
+};
 
 // 显示的分类名称
 const displayCategoryName = computed(() => {
-  if (!article.value) return ''
-  
+  if (!article.value) return "";
+
   // 方法1: 从category对象获取
   if (article.value.category) {
     // 如果是对象且有name属性
-    if (typeof article.value.category === 'object' && article.value.category.name) {
-      return article.value.category.name
+    if (
+      typeof article.value.category === "object" &&
+      article.value.category.name
+    ) {
+      return article.value.category.name;
     }
     // 如果是字符串
-    if (typeof article.value.category === 'string') {
-      return article.value.category
+    if (typeof article.value.category === "string") {
+      return article.value.category;
     }
   }
-  
+
   // 方法2: 从categoryName字段获取
   if (article.value.categoryName) {
-    return article.value.categoryName
+    return article.value.categoryName;
   }
-  
+
   // 方法3: 从分类列表匹配
   if (article.value.categoryId && categories.value.length > 0) {
-    const foundCategory = categories.value.find(cat => cat.id === article.value.categoryId)
+    const foundCategory = categories.value.find(
+      (cat) => cat.id === article.value.categoryId
+    );
     if (foundCategory) {
-      return foundCategory.name
+      return foundCategory.name;
     }
   }
-  
-  return ''
-})
+
+  return "";
+});
 
 // 显示的分类ID
 const displayCategoryId = computed(() => {
-  if (!article.value) return ''
-  
+  if (!article.value) return "";
+
   // 方法1: 从category对象获取
   if (article.value.category && article.value.category.id) {
-    return article.value.category.id
+    return article.value.category.id;
   }
-  
+
   // 方法2: 直接获取categoryId
   if (article.value.categoryId) {
-    return article.value.categoryId
+    return article.value.categoryId;
   }
-  
-  return ''
-})
+
+  return "";
+});
 
 // 分类数据
-const categories = computed(() => categoryStore.categories || [])
+const categories = computed(() => categoryStore.categories || []);
 
 // 组件挂载
 onMounted(async () => {
   // 初始化用户状态
-  userStore.initFromStorage()
-  
-  console.log('文章详情页面 - 用户状态:', {
+  userStore.initFromStorage();
+
+  console.log("文章详情页面 - 用户状态:", {
     isLoggedIn: userStore.isLoggedIn(),
-    user: userStore.user
-  })
-  
+    user: userStore.user,
+  });
+
   // 加载文章详情
   if (articleId.value) {
-    await loadArticleDetail()
+    await loadArticleDetail();
   }
-})
+});
 
 // 监听路由参数变化
 watch(
   () => route.params.id,
   async (newId) => {
     if (newId) {
-      articleId.value = parseInt(newId)
-      await loadArticleDetail()
+      articleId.value = parseInt(newId);
+      await loadArticleDetail();
     }
   }
-)
+);
 
 // 加载文章详情
 const loadArticleDetail = async () => {
   try {
-    loading.value = true
-    
-    console.log('开始加载文章详情，文章ID:', articleId.value)
-    
+    loading.value = true;
+
+    console.log("开始加载文章详情，文章ID:", articleId.value);
+
     // 1. 加载文章详情
     await articleStore.fetchArticleDetail(articleId.value)
     
+    // 2. 如果有作者信息，加载作者公开信息
+    if (article.value && article.value.authorName) {
+      await loadAuthorInfo(article.value.authorName)
+    }
+
     // 2. 验证分类数据
     if (article.value) {
-      console.log('文章分类信息验证:')
-      console.log('- category 对象:', article.value.category)
-      console.log('- categoryId:', article.value.categoryId)
-      console.log('- categoryName:', article.value.categoryName)
-      
+      console.log("文章分类信息验证:");
+      console.log("- category 对象:", article.value.category);
+      console.log("- categoryId:", article.value.categoryId);
+      console.log("- categoryName:", article.value.categoryName);
+
       // 如果有categoryId但没有category对象，尝试从分类列表获取
-      if (article.value.categoryId && (!article.value.category || !article.value.category.name)) {
-        console.log('尝试从分类列表匹配分类信息...')
-        
+      if (
+        article.value.categoryId &&
+        (!article.value.category || !article.value.category.name)
+      ) {
+        console.log("尝试从分类列表匹配分类信息...");
+
         // 确保分类数据已加载
         if (categories.value.length === 0) {
-          await categoryStore.fetchCategories()
+          await categoryStore.fetchCategories();
         }
-        
+
         // 查找匹配的分类
-        const foundCategory = categories.value.find(cat => cat.id === article.value.categoryId)
+        const foundCategory = categories.value.find(
+          (cat) => cat.id === article.value.categoryId
+        );
         if (foundCategory) {
-          console.log('找到匹配的分类:', foundCategory)
+          console.log("找到匹配的分类:", foundCategory);
           // 更新文章的分类信息
-          article.value.category = foundCategory
-          article.value.categoryName = foundCategory.name
+          article.value.category = foundCategory;
+          article.value.categoryName = foundCategory.name;
         } else {
-          console.warn('未找到匹配的分类，ID:', article.value.categoryId)
+          console.warn("未找到匹配的分类，ID:", article.value.categoryId);
         }
       }
     }
-    
+
     // 3. 不需要单独调用阅读量接口，因为 GET /api/articles/{id} 已经返回了最新的阅读量
-    
+
     // 4. 加载文章评论
-    await loadArticleComments()
-    
+    await loadArticleComments();
+
     // 5. 检查当前用户是否关注了作者
-    if (isLoggedIn.value && article.value && article.value.authorId && !isArticleAuthor.value) {
+    if (
+      isLoggedIn.value &&
+      article.value &&
+      article.value.authorId &&
+      !isArticleAuthor.value
+    ) {
       try {
-        const isFollowing = await followStore.checkFollowStatus(article.value.authorId)
-        article.value.isFollowing = isFollowing
+        const isFollowing = await followStore.checkFollowStatus(
+          article.value.authorId
+        );
+        article.value.isFollowing = isFollowing;
       } catch (error) {
-        console.error('检查关注状态失败:', error)
+        console.error("检查关注状态失败:", error);
       }
     }
-    
+
     // 6. 生成目录
-    generateToc()
-    
-    console.log('文章详情加载完成:', article.value)
-    
+    generateToc();
+
+    console.log("文章详情加载完成:", article.value);
   } catch (error) {
-    console.error('加载文章详情失败:', error)
+    console.error("加载文章详情失败:", error);
     // 区分不同类型的错误
     if (error.response?.status === 404) {
       // 文章不存在
-      ElMessage.error('文章不存在或已被删除')
+      ElMessage.error("文章不存在或已被删除");
     } else {
-      ElMessage.error('文章加载失败，请稍后重试')
+      ElMessage.error("文章加载失败，请稍后重试");
     }
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
+
+const loadAuthorInfo = async (username) => {
+  try {
+    console.log('加载作者信息，用户名:', username)
+    
+    // 使用userStore获取公开用户信息
+    const userData = await userStore.fetchPublicUserInfo(username)
+    console.log('作者信息获取结果:', userData)
+    
+    if (userData) {
+      // 更新作者统计信息
+      if (userData.stats) {
+        authorStats.value = { ...authorStats.value, ...userData.stats }
+      }
+      
+      // 如果有需要，可以更新其他作者信息
+      if (userData.bio) {
+        // 如果文章对象没有bio字段，可以添加一个临时字段
+        if (!article.value.authorBio) {
+          article.value.authorBio = userData.bio
+        }
+      }
+    }
+  } catch (error) {
+    console.error('加载作者信息失败:', error)
+    // 这里不显示错误提示，因为文章详情加载成功即可
+  }
+};
 
 // 加载文章评论
 const loadArticleComments = async () => {
   try {
-    console.log('开始加载文章评论')
+    console.log("开始加载文章评论");
     await commentStore.fetchArticleComments(articleId.value, {
       page: 1,
-      size: 20
-    })
-    console.log('评论加载完成，评论数量:', commentStore.comments?.length)
+      size: 20,
+    });
+    console.log("评论加载完成，评论数量:", commentStore.comments?.length);
   } catch (error) {
-    console.error('加载评论失败:', error)
+    console.error("加载评论失败:", error);
   }
-}
+};
 
 // 生成目录
 const generateToc = () => {
   nextTick(() => {
-    const contentElement = document.querySelector('.article-content')
-    if (!contentElement) return
-    
-    const headings = contentElement.querySelectorAll('h1, h2, h3, h4, h5, h6')
+    const contentElement = document.querySelector(".article-content");
+    if (!contentElement) return;
+
+    const headings = contentElement.querySelectorAll("h1, h2, h3, h4, h5, h6");
     tocItems.value = Array.from(headings).map((heading, index) => {
-      const id = heading.id || `heading-${index}`
-      heading.id = id
+      const id = heading.id || `heading-${index}`;
+      heading.id = id;
       return {
         id,
-        text: heading.textContent || '',
-        level: parseInt(heading.tagName.charAt(1))
-      }
-    })
-    
-    console.log('生成目录，项目数量:', tocItems.value.length)
-  })
-}
+        text: heading.textContent || "",
+        level: parseInt(heading.tagName.charAt(1)),
+      };
+    });
+
+    console.log("生成目录，项目数量:", tocItems.value.length);
+  });
+};
 
 // 滚动到标题
 const scrollToHeading = (id) => {
-  const element = document.getElementById(id)
+  const element = document.getElementById(id);
   if (element) {
-    element.scrollIntoView({ behavior: 'smooth' })
+    element.scrollIntoView({ behavior: "smooth" });
   }
-}
+};
 
 // 格式化时间
 const formatTime = (time) => {
-  if (!time) return ''
-  const date = new Date(time)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / (1000 * 60))
-  const hours = Math.floor(diff / (1000 * 60 * 60))
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  
+  if (!time) return "";
+  const date = new Date(time);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
   if (minutes < 60) {
-    return `${minutes}分钟前`
+    return `${minutes}分钟前`;
   } else if (hours < 24) {
-    return `${hours}小时前`
+    return `${hours}小时前`;
   } else if (days < 7) {
-    return `${days}天前`
+    return `${days}天前`;
   } else {
-    return date.toLocaleDateString('zh-CN')
+    return date.toLocaleDateString("zh-CN");
   }
-}
+};
 
 // 点赞文章 - 修复版
 const toggleLike = async () => {
   if (!isLoggedIn.value) {
-    showLogin.value = true
-    ElMessage.warning('请先登录')
-    return
+    showLogin.value = true;
+    ElMessage.warning("请先登录");
+    return;
   }
-  
+
   try {
-    likeLoading.value = true
-    const isLike = !article.value.isLiked
-    const result = await articleStore.toggleLike(articleId.value, isLike)
-    
-    console.log('点赞操作结果:', result)
-    
+    likeLoading.value = true;
+    const isLike = !article.value.isLiked;
+    const result = await articleStore.toggleLike(articleId.value, isLike);
+
+    console.log("点赞操作结果:", result);
+
     // 根据结果显示消息
     if (result?.success === true) {
       if (isLike) {
-        ElMessage.success('点赞成功')
+        ElMessage.success("点赞成功");
       } else {
-        ElMessage.info('已取消点赞')
+        ElMessage.info("已取消点赞");
       }
     } else {
       // 如果API没有返回success，但是也没有抛出错误，显示默认消息
       if (isLike) {
-        ElMessage.success('点赞成功')
+        ElMessage.success("点赞成功");
       } else {
-        ElMessage.info('已取消点赞')
+        ElMessage.info("已取消点赞");
       }
     }
   } catch (error) {
-    console.error('操作点赞失败:', error)
-    
+    console.error("操作点赞失败:", error);
+
     // 特殊处理"点赞成功"这个错误消息
-    if (error.message === '点赞成功') {
-      console.warn('收到"点赞成功"的错误消息，按成功处理')
+    if (error.message === "点赞成功") {
+      console.warn('收到"点赞成功"的错误消息，按成功处理');
       if (!article.value.isLiked) {
-        ElMessage.success('点赞成功')
+        ElMessage.success("点赞成功");
       } else {
-        ElMessage.info('已取消点赞')
+        ElMessage.info("已取消点赞");
       }
-      return
+      return;
     }
-    
+
     // 其他错误处理
-    if (error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
-      ElMessage.error('网络错误，请检查连接')
+    if (
+      error.message.includes("Network Error") ||
+      error.code === "ERR_NETWORK"
+    ) {
+      ElMessage.error("网络错误，请检查连接");
     } else if (error.response?.status === 401) {
-      ElMessage.error('请先登录')
-      showLogin.value = true
+      ElMessage.error("请先登录");
+      showLogin.value = true;
     } else {
-      ElMessage.error(error.message || '操作失败')
+      ElMessage.error(error.message || "操作失败");
     }
   } finally {
-    likeLoading.value = false
+    likeLoading.value = false;
   }
-}
+};
 
 // 关注作者
 const toggleFollow = async () => {
   if (!isLoggedIn.value) {
-    showLogin.value = true
-    ElMessage.warning('请先登录')
-    return
+    showLogin.value = true;
+    ElMessage.warning("请先登录");
+    return;
   }
-  
+
   if (isArticleAuthor.value) {
-    ElMessage.warning('不能关注自己')
-    return
+    ElMessage.warning("不能关注自己");
+    return;
   }
-  
+
   try {
-    followLoading.value = true
-    const currentStatus = article.value.isFollowing || false
-    const newStatus = !currentStatus
-    
+    followLoading.value = true;
+    const currentStatus = article.value.isFollowing || false;
+    const newStatus = !currentStatus;
+
     if (newStatus) {
-      await followStore.followUser(article.value.authorId)
-      ElMessage.success('关注成功')
+      await followStore.followUser(article.value.authorId);
+      ElMessage.success("关注成功");
     } else {
-      await followStore.unfollowUser(article.value.authorId)
-      ElMessage.info('已取消关注')
+      await followStore.unfollowUser(article.value.authorId);
+      ElMessage.info("已取消关注");
     }
-    
+
     // 更新本地状态
-    article.value.isFollowing = newStatus
-    article.value.fansCount = article.value.fansCount || 0
-    article.value.fansCount += newStatus ? 1 : -1
-    
+    article.value.isFollowing = newStatus;
+    article.value.fansCount = article.value.fansCount || 0;
+    article.value.fansCount += newStatus ? 1 : -1;
   } catch (error) {
-    console.error('操作关注失败:', error)
-    ElMessage.error('操作失败')
+    console.error("操作关注失败:", error);
+    ElMessage.error("操作失败");
   } finally {
-    followLoading.value = false
+    followLoading.value = false;
   }
-}
+};
 
 // 编辑文章
 const editArticle = () => {
   if (!isLoggedIn.value) {
-    showLogin.value = true
-    ElMessage.warning('请先登录')
-    return
+    showLogin.value = true;
+    ElMessage.warning("请先登录");
+    return;
   }
-  
+
   if (!isArticleAuthor.value) {
-    ElMessage.error('只有文章作者可以编辑')
-    return
+    ElMessage.error("只有文章作者可以编辑");
+    return;
   }
-  
-  router.push(`/article/edit/${articleId.value}`)
-}
+
+  router.push(`/article/edit/${articleId.value}`);
+};
 
 // 跳转到分类
 const goToCategory = (categoryId) => {
   if (categoryId) {
-    router.push(`/category/${categoryId}`)
+    router.push(`/category/${categoryId}`);
   }
-}
+};
 
 // 跳转到作者主页 - 修复版
 const goToAuthorPage = () => {
-  if (!article.value) return
-  
-  console.log('跳转到作者主页，作者信息:', {
+  if (!article.value) return;
+
+  console.log("跳转到作者主页，作者信息:", {
     username: article.value.username,
     authorName: article.value.authorName,
-    authorId: article.value.authorId
-  })
-  
+    authorId: article.value.authorId,
+  });
+
   // 优先使用 authorName，因为它能显示
-  const userName = article.value.authorName || article.value.username
-  console.log('最终使用的用户名:', userName)
-  
+  const userName = article.value.authorName || article.value.username;
+  console.log("最终使用的用户名:", userName);
+
   if (userName && userName.trim()) {
     // 移除可能的空白字符
-    const cleanUserName = userName.trim()
+    const cleanUserName = userName.trim();
     // 使用 encodeURIComponent 对中文进行编码
-    const encodedUsername = encodeURIComponent(cleanUserName)
-    console.log('编码后的用户名:', encodedUsername)
-    
+    const encodedUsername = encodeURIComponent(cleanUserName);
+    console.log("编码后的用户名:", encodedUsername);
+
     // 使用路由跳转
-    router.push(`/user/${encodedUsername}`)
+    router.push(`/user/${encodedUsername}`);
   } else {
-    console.warn('无法获取作者用户名，无法跳转', article.value)
-    ElMessage.warning('无法获取作者信息')
+    console.warn("无法获取作者用户名，无法跳转", article.value);
+    ElMessage.warning("无法获取作者信息");
   }
-}
+};
 
 // 跳转到用户主页 - 评论作者点击
 const goToUserPage = (userId, username) => {
   // 优先使用 username
   if (username && username.trim()) {
-    const encodedUsername = encodeURIComponent(username.trim())
-    router.push(`/user/${encodedUsername}`)
+    const encodedUsername = encodeURIComponent(username.trim());
+    router.push(`/user/${encodedUsername}`);
   } else {
-    console.warn('无法跳转：缺少用户名')
-    ElMessage.warning('无法跳转到用户主页')
+    console.warn("无法跳转：缺少用户名");
+    ElMessage.warning("无法跳转到用户主页");
   }
-}
+};
 
 // 提交评论
 const submitComment = async () => {
   if (!isLoggedIn.value) {
-    showLogin.value = true
-    ElMessage.warning('请先登录')
-    return
+    showLogin.value = true;
+    ElMessage.warning("请先登录");
+    return;
   }
-  
-  const content = commentContent.value.trim()
+
+  const content = commentContent.value.trim();
   if (!content) {
-    ElMessage.warning('请输入评论内容')
-    return
+    ElMessage.warning("请输入评论内容");
+    return;
   }
-  
+
   try {
-    commentLoading.value = true
-    
-    console.log('提交评论:', {
+    commentLoading.value = true;
+
+    console.log("提交评论:", {
       articleId: articleId.value,
-      content: content
-    })
-    
+      content: content,
+    });
+
     await commentStore.createComment({
       articleId: articleId.value,
-      content: content
-    })
-    
-    ElMessage.success('评论成功')
-    commentContent.value = ''
-    
+      content: content,
+    });
+
+    ElMessage.success("评论成功");
+    commentContent.value = "";
+
     // 更新文章评论数
     if (article.value) {
-      article.value.commentCount = (article.value.commentCount || 0) + 1
+      article.value.commentCount = (article.value.commentCount || 0) + 1;
     }
-    
   } catch (error) {
-    console.error('发表评论失败:', error)
+    console.error("发表评论失败:", error);
     // 更友好的错误提示
-    if (error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
-      ElMessage.error('网络错误，请检查连接')
+    if (
+      error.message.includes("Network Error") ||
+      error.code === "ERR_NETWORK"
+    ) {
+      ElMessage.error("网络错误，请检查连接");
     } else if (error.response?.status === 401) {
-      ElMessage.error('请先登录')
-      showLogin.value = true
+      ElMessage.error("请先登录");
+      showLogin.value = true;
     } else {
-      ElMessage.error(error.message || '评论失败')
+      ElMessage.error(error.message || "评论失败");
     }
   } finally {
-    commentLoading.value = false
+    commentLoading.value = false;
   }
-}
+};
 
 // 取消评论
 const cancelComment = () => {
-  commentContent.value = ''
-}
+  commentContent.value = "";
+};
 
 // 编辑评论
 const editComment = (comment) => {
   if (!isLoggedIn.value) {
-    showLogin.value = true
-    ElMessage.warning('请先登录')
-    return
+    showLogin.value = true;
+    ElMessage.warning("请先登录");
+    return;
   }
-  
+
   // 检查权限
   if (comment.userId !== currentUser.value?.id && !isArticleAuthor.value) {
-    ElMessage.error('只有评论作者或文章作者可以编辑评论')
-    return
+    ElMessage.error("只有评论作者或文章作者可以编辑评论");
+    return;
   }
-  
+
   // 这里可以打开编辑对话框
-  ElMessage.info('编辑评论功能待实现')
-}
+  ElMessage.info("编辑评论功能待实现");
+};
 
 // 删除评论
 const deleteComment = async (commentId) => {
   try {
-    await ElMessageBox.confirm('确定要删除这条评论吗？', '提示', {
-      type: 'warning',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消'
-    })
-    
-    await commentStore.deleteComment(commentId)
-    ElMessage.success('删除成功')
-    
+    await ElMessageBox.confirm("确定要删除这条评论吗？", "提示", {
+      type: "warning",
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+    });
+
+    await commentStore.deleteComment(commentId);
+    ElMessage.success("删除成功");
+
     // 更新文章评论数
     if (article.value) {
-      article.value.commentCount = Math.max(0, (article.value.commentCount || 1) - 1)
+      article.value.commentCount = Math.max(
+        0,
+        (article.value.commentCount || 1) - 1
+      );
     }
-    
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除评论失败:', error)
-      ElMessage.error('删除失败')
+    if (error !== "cancel") {
+      console.error("删除评论失败:", error);
+      ElMessage.error("删除失败");
     }
   }
-}
+};
 
 // 回复评论
 const replyToComment = (comment) => {
   if (!isLoggedIn.value) {
-    showLogin.value = true
-    ElMessage.warning('请先登录')
-    return
+    showLogin.value = true;
+    ElMessage.warning("请先登录");
+    return;
   }
-  
-  commentContent.value = `@${comment.username} `
+
+  commentContent.value = `@${comment.username} `;
   // 聚焦到评论框
   nextTick(() => {
-    const textarea = document.querySelector('.comment-textarea textarea')
+    const textarea = document.querySelector(".comment-textarea textarea");
     if (textarea) {
-      textarea.focus()
+      textarea.focus();
     }
-  })
-}
+  });
+};
 
 // 点赞评论
 const likeComment = async (comment) => {
   if (!isLoggedIn.value) {
-    showLogin.value = true
-    ElMessage.warning('请先登录')
-    return
+    showLogin.value = true;
+    ElMessage.warning("请先登录");
+    return;
   }
-  
+
   try {
-    const isLike = !comment.isLiked
-    await commentStore.toggleCommentLike(comment.id, isLike)
-    
+    const isLike = !comment.isLiked;
+    await commentStore.toggleCommentLike(comment.id, isLike);
+
     if (isLike) {
-      ElMessage.success('点赞成功')
+      ElMessage.success("点赞成功");
     } else {
-      ElMessage.info('已取消点赞')
+      ElMessage.info("已取消点赞");
     }
   } catch (error) {
-    console.error('操作评论点赞失败:', error)
-    ElMessage.error('操作失败')
+    console.error("操作评论点赞失败:", error);
+    ElMessage.error("操作失败");
   }
-}
+};
 
 // 检查评论所有权（作者或管理员）
 const checkCommentOwnership = (comment) => {
-  if (!isLoggedIn.value) return false
-  
+  if (!isLoggedIn.value) return false;
+
   // 1. 评论作者
-  if (comment.userId === currentUser.value?.id) return true
-  
+  if (comment.userId === currentUser.value?.id) return true;
+
   // 2. 文章作者
-  if (article.value && article.value.authorId === currentUser.value?.id) return true
-  
+  if (article.value && article.value.authorId === currentUser.value?.id)
+    return true;
+
   // 3. 管理员（假设角色1为管理员）
-  if (currentUser.value?.role === 1) return true
-  
-  return false
-}
+  if (currentUser.value?.role === 1) return true;
+
+  return false;
+};
 
 // 跳转到登录页
 const toLoginPage = () => {
-  showLogin.value = false
+  showLogin.value = false;
   router.push({
-    path: '/',
+    path: "/",
     query: {
       showLogin: true,
-      redirect: route.fullPath
-    }
-  })
-}
+      redirect: route.fullPath,
+    },
+  });
+};
+
 </script>
 
 <style scoped>
@@ -1107,7 +1230,7 @@ const toLoginPage = () => {
   color: #1a1a1a;
   margin-bottom: 1.2rem;
   text-align: left;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 /* 文章信息（标题下面） */
@@ -1172,7 +1295,7 @@ const toLoginPage = () => {
   line-height: 1.8;
   color: #333;
   font-size: 16px;
-  font-family: 'Georgia', 'Times New Roman', serif;
+  font-family: "Georgia", "Times New Roman", serif;
 }
 
 .article-content :deep(h1) {
@@ -1226,7 +1349,7 @@ const toLoginPage = () => {
   background: #f6f8fa;
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
   font-size: 14px;
   color: #e83e8c;
 }
@@ -1286,7 +1409,8 @@ const toLoginPage = () => {
   justify-content: center;
 }
 
-.action-btn, .edit-btn {
+.action-btn,
+.edit-btn {
   min-width: 140px;
   height: 48px;
   border-radius: 24px;
@@ -1307,7 +1431,7 @@ const toLoginPage = () => {
 }
 
 .author-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -1779,7 +1903,7 @@ const toLoginPage = () => {
     grid-template-columns: 250px 1fr;
     gap: 20px;
   }
-  
+
   .right-sidebar {
     display: none;
   }
@@ -1790,21 +1914,21 @@ const toLoginPage = () => {
     grid-template-columns: 1fr;
     gap: 0;
   }
-  
+
   .left-sidebar,
   .right-sidebar {
     display: block; /* 显示在移动端 */
     position: static;
     margin-bottom: 20px;
   }
-  
+
   .author-card {
     display: flex;
     align-items: center;
     gap: 20px;
     padding: 20px;
   }
-  
+
   .author-header {
     display: flex;
     align-items: center;
@@ -1813,30 +1937,30 @@ const toLoginPage = () => {
     margin-bottom: 0;
     flex: 1;
   }
-  
+
   .author-avatar-large {
     width: 60px;
     height: 60px;
     font-size: 24px;
     margin: 0;
   }
-  
+
   .author-info {
     text-align: left;
     flex: 1;
   }
-  
+
   .author-name {
     font-size: 18px;
     margin-bottom: 4px;
   }
-  
+
   .author-bio {
     -webkit-line-clamp: 2;
     line-clamp: 2;
     max-height: 40px;
   }
-  
+
   .author-stats {
     border: none;
     margin: 0;
@@ -1844,16 +1968,16 @@ const toLoginPage = () => {
     flex: 1;
     justify-content: space-evenly;
   }
-  
+
   .follow-btn {
     width: auto;
     min-width: 120px;
   }
-  
+
   .main-content {
     padding: 25px;
   }
-  
+
   .article-title {
     font-size: 1.8rem;
   }
@@ -1864,16 +1988,16 @@ const toLoginPage = () => {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .author-header {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .author-info {
     text-align: center;
   }
-  
+
   .author-stats {
     width: 100%;
     border-top: 1px solid #eee;
@@ -1881,7 +2005,7 @@ const toLoginPage = () => {
     padding: 15px 0;
     margin: 15px 0;
   }
-  
+
   .follow-btn {
     width: 100%;
   }
@@ -1891,7 +2015,7 @@ const toLoginPage = () => {
   .article-title {
     font-size: 1.3rem;
   }
-  
+
   .main-content {
     padding: 16px;
   }

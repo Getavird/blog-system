@@ -16,6 +16,9 @@ public class ArticleArchiveVO {
     private Integer likeCount = 0;    // 点赞数
     private Integer commentCount = 0; // 评论数
     private String authorName;        // 作者名
+    private String authorAvatar;    // 作者头像
+    private Integer authorId;       // 作者ID
+    private String authorBio;       // 作者简介（可能需要添加
     
     // 新增：用于前端显示的格式化字段
     private String formatDate;        // 格式化日期（如"10-28"）
