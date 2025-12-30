@@ -67,33 +67,36 @@ public class UserController {
         }
     }
 
-    /**
-     * 获取当前用户信息
-     */
-    /**
- * 获取当前用户信息
- */
-@GetMapping("/info")
-public Result<User> getUserInfo(HttpServletRequest request) {
-    User currentUser = SessionUtil.getCurrentUser(request);
-    if (currentUser == null) {
-        return Result.unauthorized("请先登录");
-    }
-    
-    // 处理头像路径
-    String avatar = currentUser.getAvatar();
-    if (StringUtils.hasText(avatar)) {
-        if (avatar.equals("default_avatar.png")) {
-            currentUser.setAvatar("/static/images/default-avatars/default_avatar.png");
-        } else if (!avatar.startsWith("/uploads/avatars/")) {
-            currentUser.setAvatar("/uploads/avatars/" + avatar);
+    @GetMapping("/info")
+    public Result<User> getUserInfo(HttpServletRequest request) {
+        User currentUser = SessionUtil.getCurrentUser(request);
+        if (currentUser == null) {
+            return Result.unauthorized("请先登录");
         }
-    } else {
-        currentUser.setAvatar("/static/images/default-avatars/default_avatar.png");
+
+        // 重新从数据库加载用户信息，确保获取最新的数据
+        User freshUser = userService.getUserById(currentUser.getId());
+        if (freshUser == null) {
+            return Result.unauthorized("用户不存在");
+        }
+
+        // 处理头像路径
+        String avatar = freshUser.getAvatar();
+        if (StringUtils.hasText(avatar)) {
+            if (avatar.equals("default_avatar.png")) {
+                freshUser.setAvatar("/static/images/default-avatars/default_avatar.png");
+            } else if (!avatar.startsWith("/uploads/avatars/")) {
+                freshUser.setAvatar("/uploads/avatars/" + avatar);
+            }
+        } else {
+            freshUser.setAvatar("/static/images/default-avatars/default_avatar.png");
+        }
+
+        // 清除密码
+        freshUser.setPassword(null);
+
+        return Result.success(freshUser);
     }
-    
-    return Result.success(currentUser);
-}
 
     /**
      * 获取个人中心完整信息
@@ -324,5 +327,5 @@ public Result<User> getUserInfo(HttpServletRequest request) {
             return Result.error("获取统计信息失败");
         }
     }
-    
+
 }
