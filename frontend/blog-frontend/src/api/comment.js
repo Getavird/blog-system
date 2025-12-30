@@ -2,6 +2,11 @@ import request from '@/utils/request'
 
 // 文章评论列表
 export const getArticleComments = (articleId, params = {}) => {
+  // 如果需要树形结构，使用 /tree 接口
+  if (params.tree === true) {
+    return request.get(`/api/comments/article/${articleId}/tree`)
+  }
+  // 否则使用普通分页接口
   return request.get(`/api/comments/article/${articleId}`, { 
     params: { page: 1, size: 20, ...params }
   })

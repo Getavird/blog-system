@@ -220,7 +220,7 @@
                     <div class="comment-header">
                       <div class="comment-author" @click="goToUserPage(comment.userId, comment.username)">
                         <div class="comment-avatar">
-                          <img v-if="comment.avatar" :src="comment.avatar" alt="用户头像">
+                          <img v-if="comment.userAvatar" :src="comment.userAvatar" alt="用户头像">
                           <div v-else class="avatar-placeholder-small">
                             {{ comment.username ? comment.username.charAt(0) : 'U' }}
                           </div>

@@ -15,23 +15,53 @@ export const useCommentStore = defineStore('comment', () => {
   const fetchArticleComments = async (articleId, params = {}) => {
     try {
       fetchLoading.value = true
-      const data = await commentApi.getArticleComments(articleId, params)
-      const newComments = data.list || []
+      const data = await commentApi.getArticleComments(articleId, { ...params, tree: true })
+      const commentsData = data.data || data
+      comments.value = commentsData
       // 分页逻辑：如果是第一页则覆盖，否则追加
-      if (params.page === 1 || !params.page) {
-        comments.value = newComments
-      } else {
-        comments.value = [...comments.value, ...newComments]
-      }
-      total.value = data.total || 0 // 记录总数
-      return data
-    } catch (error) {
-      console.error('获取文章评论失败:', error)
-      throw error
-    } finally {
-      fetchLoading.value = false
+      if (Array.isArray(commentsData) && !commentsData.some(comment => comment.childComments)) {
+      // 这里可能需要一个函数来将平铺数据转换为树形
+      comments.value = buildCommentTree(commentsData)
     }
+    
+    total.value = commentsData.length // 树形结构可能没有总数
+    
+    return commentsData
+  } catch (error) {
+    console.error('获取文章评论失败:', error)
+    throw error
+  } finally {
+    fetchLoading.value = false
   }
+}
+  // 辅助函数：将平铺的评论列表转换为树形结构
+  const buildCommentTree = (flatComments) => {
+  const commentMap = new Map()
+  const rootComments = []
+  
+  // 先建立id到评论的映射
+  flatComments.forEach(comment => {
+    comment.childComments = []
+    commentMap.set(comment.id, comment)
+  })
+  
+  // 构建树形结构
+  flatComments.forEach(comment => {
+    if (comment.parentId === 0 || comment.parentId === null) {
+      rootComments.push(comment)
+    } else {
+      const parent = commentMap.get(comment.parentId)
+      if (parent) {
+        if (!parent.childComments) {
+          parent.childComments = []
+        }
+        parent.childComments.push(comment)
+      }
+    }
+  })
+  
+  return rootComments
+}
 
   // 创建评论
   const createComment = async (commentData) => {

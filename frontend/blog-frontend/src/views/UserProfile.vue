@@ -35,14 +35,6 @@
                       {{ uploadingAvatar ? '上传中...' : '更换头像' }}
                     </el-button>
                   </el-upload>
-                  <el-button 
-                    v-if="userForm.avatar" 
-                    type="text" 
-                    size="small" 
-                    @click="resetAvatar"
-                  >
-                    移除头像
-                  </el-button>
                 </div>
                 <p class="upload-tip">支持 JPG、PNG 格式，大小不超过 2MB</p>
               </div>
@@ -579,32 +571,6 @@ const uploadAvatar = (file) => {
         uploadingAvatar.value = false
       }
     })
-}
-
-// 重置头像
-const resetAvatar = async () => {
-  try {
-    await ElMessageBox.confirm('确定要移除当前头像并重置为默认头像吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    
-    const result = await avatarStore.resetToDefault()
-    if (result && result.code === 200) {
-      // 强制刷新用户信息
-      await authStore.fetchCurrentUser()
-      // 重新加载用户信息
-      await loadUserInfo()
-      ElMessage.success('头像已重置为默认头像')
-    }
-  } catch (error) {
-    if (error === 'cancel') {
-      return // 用户取消
-    }
-    console.error('重置头像失败:', error)
-    ElMessage.error(error.response?.data?.message || error.message || '重置头像失败')
-  }
 }
 
 // 保存用户信息
