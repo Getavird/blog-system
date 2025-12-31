@@ -5,7 +5,16 @@
         <!-- 左侧：Logo -->
         <div class="logo">
           <router-link to="/" class="logo-link">
-            <span class="logo-text">博客系统</span>
+            <!-- Logo 图片，失败时显示文字 -->
+            <img 
+              src="http://localhost:8080/uploads/logo/logo.jpg" 
+              alt="博客系统"
+              class="logo-img"
+              @error="handleLogoError"
+              v-if="!logoError"
+            >
+            <!-- 后备文字，默认隐藏，图片加载失败时显示 -->
+            <span class="logo-text" :style="{ display: logoError ? 'inline' : 'none' }">博客系统</span>
           </router-link>
         </div>
         
@@ -149,6 +158,9 @@ const showSearchInput = ref(false)
 const searchInputRef = ref(null)
 const isMobile = ref(false)
 
+// Logo 相关
+const logoError = ref(false)
+
 // 计算属性
 const isLoggedIn = computed(() => userStore.isLoggedIn())
 const currentUser = computed(() => userStore.user)
@@ -227,6 +239,16 @@ const toggleSearchInput = () => {
     setTimeout(() => {
       searchInputRef.value?.focus()
     }, 100)
+  }
+}
+
+// Logo 加载失败处理
+const handleLogoError = (event) => {
+  console.log('Logo 图片加载失败，显示文字')
+  logoError.value = true
+  // 防止循环错误
+  if (event.target) {
+    event.target.onerror = null
   }
 }
 
@@ -338,6 +360,27 @@ const handleAvatarError = (event) => {
   color: #409eff;
   font-weight: bold;
   font-size: 20px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-height: 40px;
+}
+
+/* Logo 图片样式 */
+.logo-img {
+  height: 60px;
+  vertical-align: middle;
+  transition: opacity 0.3s;
+  object-fit: contain;
+}
+
+.logo-img:hover {
+  opacity: 0.8;
+}
+
+/* Logo 文字样式 */
+.logo-text {
   white-space: nowrap;
 }
 
@@ -586,6 +629,11 @@ const handleAvatarError = (event) => {
     display: flex;
   }
   
+  /* 移动端 Logo 调整 */
+  .logo-img {
+    height: 32px;
+  }
+  
   /* 移动端隐藏用户名，只显示头像 */
   .user-name {
     display: none;
@@ -606,6 +654,10 @@ const handleAvatarError = (event) => {
   .blog-header .nav-menu .nav-item {
     font-size: 13px;
     padding: 5px 8px;
+  }
+  
+  .logo-img {
+    height: 28px;
   }
   
   .logo-text {
