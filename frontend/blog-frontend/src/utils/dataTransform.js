@@ -5,6 +5,8 @@
  * @param {Object} apiData - 后端返回的文章数据
  * @returns {Object} - 前端需要的文章格式
  */
+// src/utils/dataTransform.js
+
 export const transformArticle = (apiData) => {
   if (!apiData) {
     console.warn('transformArticle: apiData为空')
@@ -13,7 +15,67 @@ export const transformArticle = (apiData) => {
   
   console.log('转换文章原始数据:', apiData)
   
-  // 处理多种可能的数据结构
+  // 新增：处理头像的完整URL函数
+  const getFullAvatarUrl = (avatarPath, username) => {
+    if (!avatarPath || avatarPath === 'null' || avatarPath === 'undefined' || avatarPath.trim() === '') {
+      return `http://localhost:8080/static/images/default-avatars/default_avatar.png?t=${Date.now()}&u=${username || 'default'}`
+    }
+    
+    // 已经是完整URL直接返回
+    if (avatarPath.startsWith('http://') || 
+        avatarPath.startsWith('https://') || 
+        avatarPath.startsWith('data:')) {
+      const separator = avatarPath.includes('?') ? '&' : '?'
+      return avatarPath + separator + 't=' + Date.now() + '&u=' + (username || 'user')
+    }
+    
+    let fullUrl = avatarPath
+    
+    // 情况1：路径以/uploads/avatars/开头（相对路径）
+    if (fullUrl.startsWith('/uploads/avatars/')) {
+      fullUrl = 'http://localhost:8080' + fullUrl
+    }
+    // 情况2：只有文件名（如default_avatar.png）
+    else if (!fullUrl.includes('/') && !fullUrl.includes('\\')) {
+      if (fullUrl.includes('default_avatar')) {
+        fullUrl = 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+      } else {
+        fullUrl = 'http://localhost:8080/uploads/avatars/' + fullUrl
+      }
+    }
+    // 情况3：其他格式的路径
+    else if (fullUrl.startsWith('/')) {
+      fullUrl = 'http://localhost:8080' + fullUrl
+    }
+    // 情况4：Windows风格的路径或其他
+    else {
+      fullUrl = fullUrl.replace(/\\/g, '/')
+      if (fullUrl.startsWith('uploads/avatars/')) {
+        fullUrl = 'http://localhost:8080/' + fullUrl
+      } else if (fullUrl.startsWith('/')) {
+        fullUrl = 'http://localhost:8080' + fullUrl
+      }
+    }
+    
+    const separator = fullUrl.includes('?') ? '&' : '?'
+    return fullUrl + separator + 't=' + Date.now() + '&u=' + (username || 'user')
+  }
+  
+  // 获取用户名
+  const username = apiData.username || apiData.user?.username || apiData.authorName || apiData.author?.username || '未知作者'
+  
+  // 处理作者头像
+  let authorAvatar = ''
+  if (apiData.authorAvatar) {
+    authorAvatar = getFullAvatarUrl(apiData.authorAvatar, username)
+  } else if (apiData.author?.avatar) {
+    authorAvatar = getFullAvatarUrl(apiData.author.avatar, username)
+  } else if (apiData.user?.avatar) {
+    authorAvatar = getFullAvatarUrl(apiData.user.avatar, username)
+  } else {
+    authorAvatar = getFullAvatarUrl(null, username)
+  }
+  
   const article = {
     id: apiData.id || apiData.articleId || 0,
     title: apiData.title || '无标题',
@@ -28,14 +90,19 @@ export const transformArticle = (apiData) => {
     commentCount: apiData.commentCount || 0,
     categoryId: apiData.categoryId || 0,
     categoryName: apiData.categoryName || apiData.category?.name || '未分类',
-    // 作者信息可能有多种字段名
-    authorName: apiData.authorName || apiData.author?.name || apiData.username || apiData.user?.username || '未知作者',
-    authorAvatar: apiData.authorAvatar 
-      ? (apiData.authorAvatar.startsWith('http') ? apiData.authorAvatar : `/uploads/avatars/${apiData.authorAvatar}`)
-      : (apiData.author?.avatar 
-          ? (apiData.author.avatar.startsWith('http') ? apiData.author.avatar : `/uploads/avatars/${apiData.author.avatar}`)
-          : '/static/images/default-avatars/default_avatar.png'),
+    
+    // 作者信息
+    username: username, // 确保有用户名
+    authorName: username, // 显示名
+    authorAvatar: authorAvatar, // 修正的头像URL
     authorId: apiData.userId || apiData.authorId || apiData.user?.id || 0,
+    
+    // 作者统计信息 - 默认值
+    articleCount: apiData.author?.articleCount || apiData.user?.articleCount || 0,
+    totalLikeCount: apiData.author?.likeCount || apiData.user?.likeCount || 0,
+    fansCount: apiData.author?.followerCount || apiData.user?.followerCount || 0,
+    isFollowing: apiData.isFollowing || false,
+    
     // 处理标签
     tags: [],
     isTop: apiData.isTop === 1 || apiData.isTop === true,

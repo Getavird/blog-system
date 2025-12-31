@@ -393,6 +393,86 @@ const setPublicUserTotal = (total) => {
   publicUserTotal.value = total
 }
 
+// 同步用户统计信息
+const syncUserStats = async (userId) => {
+  try {
+    console.log('同步用户统计信息，用户ID:', userId)
+    
+    // 获取用户store
+    const userStore = useUserStore()
+    
+    // 1. 如果是当前用户
+    if (userStore.user && userStore.user.id === userId) {
+      console.log('同步当前用户统计')
+      
+      // 并行获取多种统计信息
+      await Promise.allSettled([
+        userStore.fetchCurrentUserStats(),
+        userStore.fetchCurrentUserStatus(),
+        // 获取用户详细资料
+        (async () => {
+          try {
+            const response = await userApi.getCurrentUserProfile()
+            if (response && response.data) {
+              // 更新本地用户信息
+              userStore.setUser(response.data)
+            }
+          } catch (error) {
+            console.warn('获取用户资料失败:', error)
+          }
+        })()
+      ])
+    }
+    
+    // 2. 如果是公开用户
+    if (userStore.publicUser.value && userStore.publicUser.value.id === userId) {
+      const username = userStore.publicUser.value.username
+      if (username) {
+        console.log('同步公开用户统计，用户名:', username)
+        
+        // 并行获取公开用户统计信息
+        await Promise.allSettled([
+          userStore.fetchPublicUserStats(username),
+          userStore.fetchPublicUserArticles(username, { 
+            page: 1, 
+            size: 1 // 只获取第一页的第一条，为了统计总数
+          })
+        ])
+      }
+    }
+    
+    // 3. 通过followStore获取关注统计
+    try {
+      const followStore = useFollowStore()
+      const followStats = await followStore.fetchUserFollowStats(userId)
+      
+      if (followStats) {
+        // 更新本地统计中的关注/粉丝数
+        const statsToUpdate = {
+          ...userStore.publicUserStats.value,
+          followerCount: followStats.followerCount || 0,
+          followingCount: followStats.followingCount || 0
+        }
+        userStore.setPublicUserStats(statsToUpdate)
+      }
+    } catch (followError) {
+      console.warn('通过followStore获取关注统计失败:', followError)
+    }
+    
+    console.log('用户统计信息同步完成')
+    
+    // 触发事件通知其他组件
+    window.dispatchEvent(new CustomEvent('user-stats-updated', {
+      detail: { userId }
+    }))
+    
+    return true
+  } catch (error) {
+    console.error('同步用户统计信息失败:', error)
+    return false
+  }
+}
+
 
   // 清空公开用户数据
   const clearPublicUserData = () => {
@@ -428,6 +508,7 @@ const setPublicUserTotal = (total) => {
     clearUser,
     isLoggedIn,
     setUser,
+    syncUserStats,
     
     // 公开用户方法
     setPublicUserArticles,

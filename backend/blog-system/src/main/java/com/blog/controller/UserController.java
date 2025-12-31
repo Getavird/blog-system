@@ -314,18 +314,29 @@ public class UserController {
      * 获取用户公开统计
      * 路径: GET /api/user/public/{username}/stats
      */
-    @GetMapping("/public/{username}/stats")
-    public Result<UserStatsVO> getPublicUserStats(@PathVariable String username) {
-        try {
-            UserStatsVO stats = userService.getPublicUserStats(username);
-            if (stats == null) {
-                return Result.notFound("用户不存在");
-            }
-            return Result.success("获取用户统计成功", stats);
-        } catch (Exception e) {
-            System.err.println("❌ 获取用户统计失败: " + e.getMessage());
-            return Result.error("获取统计信息失败");
+// UserController.java 中修改获取公开用户统计的方法
+@GetMapping("/public/{username}/stats")
+public Result<UserStatsVO> getPublicUserStats(@PathVariable String username) {
+    try {
+        UserStatsVO stats = userService.getPublicUserStats(username);
+        if (stats == null) {
+            return Result.notFound("用户不存在");
         }
+        
+        // 打印日志，便于调试
+        System.out.println("📊 获取用户统计 - 用户名: " + username);
+        System.out.println("📊 文章数: " + stats.getArticleCount());
+        System.out.println("📊 点赞数: " + stats.getLikeCount());
+        System.out.println("📊 阅读数: " + stats.getViewCount());
+        System.out.println("📊 粉丝数: " + stats.getFollowerCount());
+        System.out.println("📊 关注数: " + stats.getFollowingCount());
+        
+        return Result.success("获取用户统计成功", stats);
+    } catch (Exception e) {
+        System.err.println("❌ 获取用户统计失败: " + e.getMessage());
+        e.printStackTrace();
+        return Result.error("获取统计信息失败");
     }
+}
 
 }

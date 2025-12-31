@@ -155,6 +155,7 @@ const fetchArticleDetail = async (id, params = {}) => {
 }
 
   // 创建文章
+// 创建文章
 const createArticle = async (articleData) => {
   try {
     createLoading.value = true
@@ -163,24 +164,147 @@ const createArticle = async (articleData) => {
     const preparedData = prepareArticleDataForApi(articleData);
     console.log('createArticle 发送的数据:', preparedData);
     
-    const newArticle = await articleApi.createArticle(preparedData);
+    // 调用API创建文章
+    const response = await articleApi.createArticle(preparedData);
+    console.log('createArticle API响应:', response);
+    
+    // 处理API响应，提取文章数据
+    let newArticleData = null;
+    
+    if (response && response.code === 200) {
+      // 如果返回的是Result格式
+      newArticleData = response.data || response;
+    } else if (response) {
+      // 直接返回文章数据
+      newArticleData = response;
+    }
+    
+    if (!newArticleData) {
+      throw new Error('创建文章失败：返回数据为空');
+    }
+    
+    // 转换文章数据
+    const transformedArticle = transformArticle(newArticleData);
+    console.log('转换后的文章数据:', transformedArticle);
     
     // 创建成功后同步更新状态
-    const transformedArticle = transformArticle(newArticle);
+    
+    // 1. 添加到文章列表开头
     articles.value.unshift(transformedArticle);
     total.value += 1;
     
-    // 如果当前正在查看我的文章，也添加到我的文章列表
+    // 2. 如果当前正在查看我的文章，也添加到我的文章列表
     if (myArticles.value.list.length > 0) {
       myArticles.value.list.unshift(transformedArticle);
       myArticles.value.total += 1;
     }
     
+    // 3. 更新热门文章和最新文章（如果需要）
+    if (hotArticles.value.length > 0) {
+      // 如果文章是热门文章的条件，可以添加到热门文章列表
+      // 这里可以根据业务逻辑决定是否添加
+      const shouldAddToHot = transformedArticle.likeCount > 10 || 
+                           transformedArticle.viewCount > 100;
+      if (shouldAddToHot && hotArticles.value.length < 10) {
+        hotArticles.value.unshift(transformedArticle);
+        if (hotArticles.value.length > 10) {
+          hotArticles.value = hotArticles.value.slice(0, 10);
+        }
+      }
+    }
+    
+    // 4. 同步更新最新文章列表
+    if (newestArticles.value.length > 0) {
+      newestArticles.value.unshift(transformedArticle);
+      if (newestArticles.value.length > 10) {
+        newestArticles.value = newestArticles.value.slice(0, 10);
+      }
+    }
+    
+    // 5. 获取用户store并同步用户统计信息
+    try {
+      const userStore = useUserStore();
+      
+      // 如果是当前用户创建的文章，更新当前用户统计
+      if (userStore.user && userStore.user.id === transformedArticle.authorId) {
+        console.log('更新当前用户文章统计');
+        
+        // 方法1: 直接更新统计
+        userStore.userStats.articleCount = (userStore.userStats.articleCount || 0) + 1;
+        
+        // 方法2: 重新加载用户统计
+        await userStore.fetchCurrentUserStats();
+        
+        // 方法3: 如果用户正在查看自己的个人中心，更新页面数据
+        if (userStore.publicUser.value.id === transformedArticle.authorId) {
+          await userStore.fetchPublicUserStats(userStore.publicUser.value.username);
+        }
+      }
+      
+      // 同步作者统计（如果是其他用户）
+      if (transformedArticle.authorId) {
+        await userStore.syncUserStats(transformedArticle.authorId);
+      }
+    } catch (syncError) {
+      console.warn('同步用户统计信息失败:', syncError);
+      // 这里不抛出错误，因为文章创建成功了，只是统计同步失败
+    }
+    
+    // 6. 触发全局事件（如果需要）
+    window.dispatchEvent(new CustomEvent('article-created', {
+      detail: { article: transformedArticle }
+    }));
+    
     console.log('创建文章成功:', transformedArticle);
-    return newArticle;
+    
+    // 返回创建的文章数据
+    return {
+      success: true,
+      data: transformedArticle,
+      message: '文章创建成功'
+    };
+    
   } catch (error) {
-    console.error('创建文章失败:', error)
-    throw error
+    console.error('创建文章失败:', error);
+    
+    // 处理不同类型的错误
+    let errorMessage = '创建文章失败';
+    
+    if (error.response) {
+      // API响应错误
+      const { status, data } = error.response;
+      console.error('API错误详情:', { status, data });
+      
+      switch (status) {
+        case 401:
+          errorMessage = '请先登录';
+          break;
+        case 400:
+          errorMessage = data?.message || '请求参数错误';
+          break;
+        case 403:
+          errorMessage = '权限不足';
+          break;
+        case 500:
+          errorMessage = '服务器内部错误';
+          break;
+        default:
+          errorMessage = data?.message || `请求失败 (${status})`;
+      }
+    } else if (error.request) {
+      // 请求发送但无响应
+      errorMessage = '网络连接失败，请检查网络';
+    } else {
+      // 其他错误
+      errorMessage = error.message || '创建文章失败';
+    }
+    
+    // 显示错误提示
+    ElMessage.error(errorMessage);
+    
+    // 抛出错误供调用者处理
+    throw new Error(errorMessage);
+    
   } finally {
     createLoading.value = false
   }
@@ -230,13 +354,51 @@ const createArticle = async (articleData) => {
   }
 }
 
-  // 删除文章
+// 删除文章
 const deleteArticle = async (id) => {
   try {
     deleteLoading.value = true
+    
+    // 1. 首先获取要删除的文章信息（用于统计同步）
+    let articleToDelete = null
+    let authorId = null
+    
+    // 从各个列表中查找文章
+    if (currentArticle.value && currentArticle.value.id === id) {
+      articleToDelete = currentArticle.value
+      authorId = currentArticle.value.authorId
+    } else {
+      // 从文章列表查找
+      const article = articles.value.find(article => article.id === id)
+      if (article) {
+        articleToDelete = article
+        authorId = article.authorId
+      } else {
+        // 从我的文章列表查找
+        const myArticle = myArticles.value.list.find(article => article.id === id)
+        if (myArticle) {
+          articleToDelete = myArticle
+          authorId = myArticle.authorId
+        } else {
+          // 从草稿列表查找
+          const draft = myDrafts.value.list.find(draft => draft.id === id)
+          if (draft) {
+            articleToDelete = draft
+            authorId = draft.authorId
+          }
+        }
+      }
+    }
+    
+    console.log('删除文章，文章信息:', articleToDelete, '作者ID:', authorId)
+    
+    // 2. 调用API删除文章
     const data = await articleApi.deleteArticle(id)
+    console.log('删除文章API返回:', data)
 
-    // 从列表中移除
+    // 3. 从列表中移除
+    
+    // 从主文章列表中移除
     articles.value = articles.value.filter(article => article.id !== id)
     total.value = Math.max(0, total.value - 1)
 
@@ -247,16 +409,80 @@ const deleteArticle = async (id) => {
     // 从草稿列表中移除
     myDrafts.value.list = myDrafts.value.list.filter(draft => draft.id !== id)
     myDrafts.value.total = Math.max(0, myDrafts.value.total - 1)
+    
+    // 从热门文章中移除
+    hotArticles.value = hotArticles.value.filter(article => article.id !== id)
+    
+    // 从最新文章中移除
+    newestArticles.value = newestArticles.value.filter(article => article.id !== id)
 
+    // 清除当前文章
     if (currentArticle.value && currentArticle.value.id === id) {
       currentArticle.value = null
     }
+    
+    // 4. 同步用户统计信息
+    if (authorId) {
+      try {
+        const userStore = useUserStore()
+        console.log('删除文章：同步作者统计，作者ID:', authorId)
+        
+        // 同步用户统计
+        await userStore.syncUserStats(authorId)
+        
+        // 如果是当前用户的文章，更新当前用户统计
+        if (userStore.user && userStore.user.id === authorId) {
+          await userStore.fetchCurrentUserStats()
+        }
+        
+        // 如果用户正在查看公开用户页面，且删除的是该用户的文章，更新公开用户统计
+        if (userStore.publicUser.value.id === authorId) {
+          await userStore.fetchPublicUserStats(userStore.publicUser.value.username)
+        }
+      } catch (syncError) {
+        console.warn('同步删除文章统计失败:', syncError)
+        // 不中断主流程
+      }
+    }
+    
+    // 5. 触发全局事件
+    window.dispatchEvent(new CustomEvent('article-deleted', {
+      detail: { 
+        articleId: id, 
+        article: articleToDelete,
+        authorId: authorId
+      }
+    }))
 
     console.log('删除文章成功:', data);
     return data
   } catch (error) {
     console.error('删除文章失败:', error)
-    throw error
+    
+    // 提供更详细的错误信息
+    let errorMessage = '删除文章失败'
+    if (error.response) {
+      const { status, data } = error.response
+      console.error('删除文章API错误:', { status, data })
+      
+      switch (status) {
+        case 401:
+          errorMessage = '请先登录'
+          break
+        case 403:
+          errorMessage = '没有权限删除此文章'
+          break
+        case 404:
+          errorMessage = '文章不存在'
+          break
+        default:
+          errorMessage = data?.message || `删除失败 (${status})`
+      }
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+    
+    throw new Error(errorMessage)
   } finally {
     deleteLoading.value = false
   }
@@ -288,55 +514,112 @@ const deleteArticle = async (id) => {
     }
   }
 
-  // 点赞/取消点赞文章
-  const toggleLike = async (id) => {
-    try {
-      likeLoading.value = true
-      const response = await articleApi.toggleArticleLike(id)
+// 点赞/取消点赞文章
+const toggleLike = async (id) => {
+  try {
+    likeLoading.value = true
+    const response = await articleApi.toggleArticleLike(id)
 
-      console.log('点赞API返回:', response) // 添加这行查看实际返回结构
+    console.log('点赞API返回:', response) // 添加这行查看实际返回结构
 
-      // 检查响应是否成功
-      if (response && response.code === 200) {
-        // 获取返回的数据
-        const result = response.data
+    // 检查响应是否成功
+    if (response && response.code === 200) {
+      // 获取返回的数据
+      const result = response.data
 
-        if (result && result.success !== false) {
-          // 更新本地状态
+      if (result && result.success !== false) {
+        // 1. 更新本地状态
+        if (currentArticle.value && currentArticle.value.id === id) {
+          currentArticle.value.isLiked = result.isLiked || true
+          currentArticle.value.likeCount = result.likeCount || 0
+        }
+
+        // 2. 更新列表中的点赞数
+        const index = articles.value.findIndex(article => article.id === id)
+        if (index !== -1) {
+          articles.value[index].isLiked = result.isLiked || true
+          articles.value[index].likeCount = result.likeCount || 0
+        }
+        
+        // 3. 更新我的文章列表中的点赞数
+        const myIndex = myArticles.value.list.findIndex(article => article.id === id)
+        if (myIndex !== -1) {
+          myArticles.value.list[myIndex].isLiked = result.isLiked || true
+          myArticles.value.list[myIndex].likeCount = result.likeCount || 0
+        }
+        
+        // 4. 更新热门文章列表中的点赞数
+        const hotIndex = hotArticles.value.findIndex(article => article.id === id)
+        if (hotIndex !== -1) {
+          hotArticles.value[hotIndex].isLiked = result.isLiked || true
+          hotArticles.value[hotIndex].likeCount = result.likeCount || 0
+        }
+        
+        // 5. 更新最新文章列表中的点赞数
+        const newestIndex = newestArticles.value.findIndex(article => article.id === id)
+        if (newestIndex !== -1) {
+          newestArticles.value[newestIndex].isLiked = result.isLiked || true
+          newestArticles.value[newestIndex].likeCount = result.likeCount || 0
+        }
+        
+        // 6. 同步用户统计信息（点赞数）
+        try {
+          const userStore = useUserStore()
+          
+          // 获取文章详情以获取作者ID
+          let authorId = null
           if (currentArticle.value && currentArticle.value.id === id) {
-            currentArticle.value.isLiked = result.isLiked || true
-            currentArticle.value.likeCount = result.likeCount || 0
+            authorId = currentArticle.value.authorId
+          } else {
+            // 如果当前文章不在详情中，尝试从列表中找到
+            const foundArticle = [
+              ...articles.value,
+              ...myArticles.value.list,
+              ...hotArticles.value,
+              ...newestArticles.value
+            ].find(article => article.id === id)
+            
+            if (foundArticle) {
+              authorId = foundArticle.authorId
+            }
           }
+          
+          if (authorId) {
+            console.log('点赞操作：同步作者统计，作者ID:', authorId)
+            await userStore.syncUserStats(authorId)
+          }
+          
+          // 如果是当前用户的文章，更新当前用户统计
+          if (userStore.user && userStore.user.id === authorId) {
+            await userStore.fetchCurrentUserStats()
+          }
+        } catch (syncError) {
+          console.warn('同步点赞统计失败:', syncError)
+          // 不中断主流程
+        }
 
-          // 更新列表中的点赞数
-          const index = articles.value.findIndex(article => article.id === id)
-          if (index !== -1) {
-            articles.value[index].isLiked = result.isLiked || true
-            articles.value[index].likeCount = result.likeCount || 0
-          }
-
-          return {
-            success: true,
-            isLiked: result.isLiked,
-            likeCount: result.likeCount,
-            message: result.message || '操作成功'
-          }
-        } else {
-          // 如果success为false，抛出错误信息
-          throw new Error(result?.message || '操作失败')
+        return {
+          success: true,
+          isLiked: result.isLiked,
+          likeCount: result.likeCount,
+          message: result.message || '操作成功'
         }
       } else {
-        // 响应code不是200，抛出错误
-        throw new Error(response?.message || '操作失败')
+        // 如果success为false，抛出错误信息
+        throw new Error(result?.message || '操作失败')
       }
-
-    } catch (error) {
-      console.error('操作点赞失败:', error)
-      throw error
-    } finally {
-      likeLoading.value = false
+    } else {
+      // 响应code不是200，抛出错误
+      throw new Error(response?.message || '操作失败')
     }
+
+  } catch (error) {
+    console.error('操作点赞失败:', error)
+    throw error
+  } finally {
+    likeLoading.value = false
   }
+}
 
   // 获取热门文章
   const fetchHotArticles = async (limit = 10) => {
