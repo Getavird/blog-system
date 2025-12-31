@@ -8,7 +8,7 @@
       <section class="hero-banner">
         <div class="container">
           <div class="hero-content">
-            <h1 class="hero-title">欢迎来到博客系统</h1>
+            <h1 class="hero-title">欢迎来到 newbee 博客</h1>
             <p class="hero-subtitle">分享技术，记录生活，共同成长</p>
             <div class="hero-actions">
               <el-button v-if="!isLoggedIn" type="primary" size="large"
