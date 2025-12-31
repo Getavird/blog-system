@@ -483,16 +483,30 @@ const processedTags = computed(() => {
 });
 
 const getAvatarUrl = (avatarFileName) => {
-  if (!avatarFileName) return "";
-
-  // 如果是默认头像
-  if (avatarFileName === "default_avatar.png") {
-    return `/static/images/default-avatars/default_avatar.png`;
+  if (!avatarFileName || avatarFileName.trim() === '') {
+    return 'http://localhost:8080/uploads/avatars/default_avatar.png'
   }
-
-  // 如果是上传的头像
-  return `/uploads/avatars/${avatarFileName}`;
-};
+  
+  // 如果已经是完整URL，直接返回
+  if (avatarFileName.startsWith('http://') || 
+      avatarFileName.startsWith('https://') || 
+      avatarFileName.startsWith('data:')) {
+    return avatarFileName
+  }
+  
+  // 清理路径
+  let cleanFileName = avatarFileName.trim()
+  
+  // 移除可能的路径前缀
+  if (cleanFileName.startsWith('/uploads/avatars/')) {
+    cleanFileName = cleanFileName.replace('/uploads/avatars/', '')
+  } else if (cleanFileName.startsWith('uploads/avatars/')) {
+    cleanFileName = cleanFileName.replace('uploads/avatars/', '')
+  }
+  
+  // 所有头像都从 uploads/avatars/ 目录加载
+  return 'http://localhost:8080/uploads/avatars/' + cleanFileName
+}
 
 // 获取标签key
 const getTagKey = (tag, index) => {
