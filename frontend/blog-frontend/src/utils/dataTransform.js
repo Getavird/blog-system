@@ -14,6 +14,8 @@ export const transformArticle = (apiData) => {
   }
   
   console.log('转换文章原始数据:', apiData)
+  console.log('原始数据是否有 isLiked 字段:', apiData.isLiked !== undefined)
+  console.log('isLiked 字段值:', apiData.isLiked)
   
   // 新增：处理头像的完整URL函数
   const getFullAvatarUrl = (avatarPath, username) => {
@@ -76,6 +78,7 @@ export const transformArticle = (apiData) => {
     authorAvatar = getFullAvatarUrl(null, username)
   }
   
+  const isLiked = apiData.isLiked !== undefined ? Boolean(apiData.isLiked) : false
   const article = {
     id: apiData.id || apiData.articleId || 0,
     title: apiData.title || '无标题',
@@ -90,6 +93,8 @@ export const transformArticle = (apiData) => {
     commentCount: apiData.commentCount || 0,
     categoryId: apiData.categoryId || 0,
     categoryName: apiData.categoryName || apiData.category?.name || '未分类',
+
+    isLiked: isLiked,
     
     // 作者信息
     username: username, // 确保有用户名

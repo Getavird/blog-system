@@ -36,137 +36,141 @@ public class ArticleController {
     /**
      * 获取文章详情
      */
-@GetMapping("/{id}")
-public Result<Article> getArticle(@PathVariable Integer id, HttpServletRequest request) {
-    try {
-        System.out.println("🔍 获取文章详情，ID: " + id);
-        System.out.println("🌐 请求URL: " + request.getRequestURL());
-        System.out.println("🔗 请求URI: " + request.getRequestURI());
-        System.out.println("🔍 请求头Referer: " + request.getHeader("Referer"));
-        
-        // 获取当前用户（如果有）
-        User currentUser = SessionUtil.getCurrentUser(request);
-        if (currentUser != null) {
-            System.out.println("👤 当前用户ID: " + currentUser.getId() + ", 用户名: " + currentUser.getUsername());
-        } else {
-            System.out.println("👤 当前用户: 未登录");
-        }
-        
-        // 获取文章（包括草稿）
-        Article article = articleService.getArticleById(id);
-        
-        if (article == null) {
-            System.out.println("❌ 文章不存在，ID: " + id);
-            return Result.notFound("文章不存在");
-        }
-        
-        System.out.println("✅ 找到文章: " + article.getTitle());
-        System.out.println("📊 文章状态: " + article.getStatus());
-        System.out.println("👤 文章作者ID: " + article.getUserId());
-        
-        // 检查文章状态和处理权限
-        if (article.getStatus() == 0) { // 草稿
-            System.out.println("📝 这是草稿文章，检查权限...");
-            
-            // 如果没有登录，返回未授权
-            if (currentUser == null) {
-                System.out.println("❌ 未登录用户尝试访问草稿");
-                return Result.unauthorized("请先登录");
-            }
-            
-            // 检查是否是作者或管理员
-            boolean isAuthor = article.getUserId().equals(currentUser.getId());
-            boolean isAdmin = currentUser.getRole() == 1;
-            
-            System.out.println("🔐 权限检查 - 是作者: " + isAuthor + ", 是管理员: " + isAdmin);
-            
-            if (!isAuthor && !isAdmin) {
-                System.out.println("❌ 权限不足，当前用户ID: " + currentUser.getId() + 
-                                 ", 文章作者ID: " + article.getUserId());
-                return Result.forbidden("没有权限访问此文章");
-            }
-            
-            System.out.println("✅ 权限检查通过，返回草稿文章");
-            
-        } else if (article.getStatus() == 1) { // 已发布
-            System.out.println("📰 这是已发布文章");
-            
-            // 智能判断是否是编辑模式，决定是否增加阅读量
-            boolean isEditMode = isEditRequest(request);
-            
-            if (isEditMode) {
-                System.out.println("✏️ 编辑模式，不增加阅读量");
-            } else {
-                // 只有非编辑模式才增加阅读量
-                System.out.println("📈 非编辑模式，增加阅读量");
-                
-                // 检查是否是作者查看自己的文章（作者查看自己文章时不增加阅读量）
-                boolean isAuthorViewingOwnArticle = false;
-                if (currentUser != null) {
-                    isAuthorViewingOwnArticle = article.getUserId().equals(currentUser.getId());
-                }
-                
-                if (isAuthorViewingOwnArticle) {
-                    System.out.println("👤 作者查看自己的文章，不增加阅读量");
-                } else {
-                    // 增加阅读量
-                    articleService.incrementViewCount(id);
-                    System.out.println("📊 阅读量已增加，当前阅读量: " + (article.getViewCount() + 1));
-                    // 更新本地对象
-                    article.setViewCount(article.getViewCount() + 1);
-                }
-            }
-            
-        } else if (article.getStatus() == 2) { // 已删除
-            System.out.println("🗑️ 文章已删除，ID: " + id);
-            return Result.notFound("文章不存在或已被删除");
-        }
-        
-        System.out.println("🎉 返回文章数据");
-        return Result.success(article);
-        
-    } catch (Exception e) {
-        System.err.println("💥 获取文章详情异常: " + e.getMessage());
-        e.printStackTrace();
-        return Result.error("获取文章失败: " + e.getMessage());
-    }
-}
+    @GetMapping("/{id}")
+    public Result<Article> getArticle(@PathVariable Integer id, HttpServletRequest request) {
+        try {
+            System.out.println("🔍 获取文章详情，ID: " + id);
 
-/**
- * 判断请求是否是编辑模式
- */
-private boolean isEditRequest(HttpServletRequest request) {
-    // 方法1：检查URL参数
-    String editParam = request.getParameter("edit");
-    if (editParam != null && (editParam.equals("true") || editParam.equals("1"))) {
-        return true;
+            // 获取当前用户（如果有）
+            User currentUser = SessionUtil.getCurrentUser(request);
+            Integer currentUserId = currentUser != null ? currentUser.getId() : null;
+
+            // 获取文章（包括草稿）
+            Article article = articleService.getArticleById(id);
+
+            if (article == null) {
+                System.out.println("❌ 文章不存在，ID: " + id);
+                return Result.notFound("文章不存在");
+            }
+
+            // ✅ 关键修改：获取当前用户的点赞状态并设置到文章对象中
+            if (currentUserId != null) {
+                boolean isLiked = articleService.isArticleLikedByUser(id, currentUserId);
+                article.setIsLiked(isLiked);
+                System.out.println("❤️ 当前用户点赞状态: " + isLiked);
+            } else {
+                article.setIsLiked(false); // 未登录用户默认为未点赞
+                System.out.println("👤 未登录用户，点赞状态: false");
+            }
+
+            System.out.println("✅ 找到文章: " + article.getTitle());
+            System.out.println("📊 文章状态: " + article.getStatus());
+            System.out.println("👤 文章作者ID: " + article.getUserId());
+
+            // 检查文章状态和处理权限
+            if (article.getStatus() == 0) { // 草稿
+                System.out.println("📝 这是草稿文章，检查权限...");
+
+                // 如果没有登录，返回未授权
+                if (currentUser == null) {
+                    System.out.println("❌ 未登录用户尝试访问草稿");
+                    return Result.unauthorized("请先登录");
+                }
+
+                // 检查是否是作者或管理员
+                boolean isAuthor = article.getUserId().equals(currentUser.getId());
+                boolean isAdmin = currentUser.getRole() == 1;
+
+                System.out.println("🔐 权限检查 - 是作者: " + isAuthor + ", 是管理员: " + isAdmin);
+
+                if (!isAuthor && !isAdmin) {
+                    System.out.println("❌ 权限不足，当前用户ID: " + currentUser.getId() +
+                            ", 文章作者ID: " + article.getUserId());
+                    return Result.forbidden("没有权限访问此文章");
+                }
+
+                System.out.println("✅ 权限检查通过，返回草稿文章");
+
+            } else if (article.getStatus() == 1) { // 已发布
+                System.out.println("📰 这是已发布文章");
+
+                // 智能判断是否是编辑模式，决定是否增加阅读量
+                boolean isEditMode = isEditRequest(request);
+
+                if (isEditMode) {
+                    System.out.println("✏️ 编辑模式，不增加阅读量");
+                } else {
+                    // 只有非编辑模式才增加阅读量
+                    System.out.println("📈 非编辑模式，增加阅读量");
+
+                    // 检查是否是作者查看自己的文章（作者查看自己文章时不增加阅读量）
+                    boolean isAuthorViewingOwnArticle = false;
+                    if (currentUser != null) {
+                        isAuthorViewingOwnArticle = article.getUserId().equals(currentUser.getId());
+                    }
+
+                    if (isAuthorViewingOwnArticle) {
+                        System.out.println("👤 作者查看自己的文章，不增加阅读量");
+                    } else {
+                        // 增加阅读量
+                        articleService.incrementViewCount(id);
+                        System.out.println("📊 阅读量已增加，当前阅读量: " + (article.getViewCount() + 1));
+                        // 更新本地对象
+                        article.setViewCount(article.getViewCount() + 1);
+                    }
+                }
+
+            } else if (article.getStatus() == 2) { // 已删除
+                System.out.println("🗑️ 文章已删除，ID: " + id);
+                return Result.notFound("文章不存在或已被删除");
+            }
+
+            System.out.println("🎉 返回文章数据");
+            return Result.success(article);
+
+        } catch (Exception e) {
+            System.err.println("💥 获取文章详情异常: " + e.getMessage());
+            e.printStackTrace();
+            return Result.error("获取文章失败: " + e.getMessage());
+        }
     }
-    
-    // 方法2：检查Referer是否包含编辑页面
-    String referer = request.getHeader("Referer");
-    if (referer != null) {
-        // 如果Referer包含编辑页面的路径
-        if (referer.contains("/article/edit/") || 
-            referer.contains("/edit?") ||
-            referer.contains("edit=true")) {
+
+    /**
+     * 判断请求是否是编辑模式
+     */
+    private boolean isEditRequest(HttpServletRequest request) {
+        // 方法1：检查URL参数
+        String editParam = request.getParameter("edit");
+        if (editParam != null && (editParam.equals("true") || editParam.equals("1"))) {
             return true;
         }
+
+        // 方法2：检查Referer是否包含编辑页面
+        String referer = request.getHeader("Referer");
+        if (referer != null) {
+            // 如果Referer包含编辑页面的路径
+            if (referer.contains("/article/edit/") ||
+                    referer.contains("/edit?") ||
+                    referer.contains("edit=true")) {
+                return true;
+            }
+        }
+
+        // 方法3：检查请求头中是否有特定标记（前端可以设置）
+        String editHeader = request.getHeader("X-Edit-Mode");
+        if (editHeader != null && (editHeader.equals("true") || editHeader.equals("1"))) {
+            return true;
+        }
+
+        // 方法4：检查请求的URI是否来自编辑页面
+        String requestUri = request.getRequestURI();
+        if (requestUri.contains("/edit/")) {
+            return true;
+        }
+
+        return false;
     }
-    
-    // 方法3：检查请求头中是否有特定标记（前端可以设置）
-    String editHeader = request.getHeader("X-Edit-Mode");
-    if (editHeader != null && (editHeader.equals("true") || editHeader.equals("1"))) {
-        return true;
-    }
-    
-    // 方法4：检查请求的URI是否来自编辑页面
-    String requestUri = request.getRequestURI();
-    if (requestUri.contains("/edit/")) {
-        return true;
-    }
-    
-    return false;
-}
+
     /**
      * 创建文章（需要登录）
      */
@@ -256,7 +260,7 @@ private boolean isEditRequest(HttpServletRequest request) {
      * GET /api/articles/latest?limit=10
      * 同时支持 /api/articles/newest 路径以兼容前端
      */
-    @GetMapping({"/latest", "/newest"})
+    @GetMapping({ "/latest", "/newest" })
     public Result<List<Article>> getLatestArticles(
             @RequestParam(defaultValue = "10") Integer limit) {
         List<Article> articles = articleService.getLatestArticles(limit);
@@ -489,7 +493,7 @@ private boolean isEditRequest(HttpServletRequest request) {
 
         return success ? Result.success("草稿删除成功") : Result.error("删除失败");
     }
-    
+
     /**
      * 点赞文章
      * POST /api/articles/{id}/like
@@ -573,7 +577,7 @@ private boolean isEditRequest(HttpServletRequest request) {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             HttpServletRequest request) {
-        
+
         // 检查登录
         User currentUser = SessionUtil.getCurrentUser(request);
         if (currentUser == null) {
@@ -614,33 +618,33 @@ private boolean isEditRequest(HttpServletRequest request) {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             HttpServletRequest request) {
-        
+
         try {
             // 检查登录
             User currentUser = SessionUtil.getCurrentUser(request);
             if (currentUser == null) {
                 return Result.unauthorized("请先登录");
             }
-            
+
             // 获取所有文章然后过滤出当前用户的文章
             List<Article> allArticles = articleService.getArticles(page, size * 5);
             List<Article> myArticles = allArticles.stream()
                     .filter(article -> article.getUserId().equals(currentUser.getId()))
                     .collect(Collectors.toList());
-            
+
             // 分页处理
             int start = (page - 1) * size;
             int end = Math.min(start + size, myArticles.size());
             List<Article> pagedArticles = myArticles.subList(start, end);
-            
+
             Map<String, Object> result = new HashMap<>();
             result.put("articles", pagedArticles);
             result.put("page", page);
             result.put("size", size);
             result.put("total", myArticles.size());
-            
+
             return Result.success(result);
-            
+
         } catch (Exception e) {
             System.err.println("❌ 获取我的文章接口异常: " + e.getMessage());
             e.printStackTrace();
@@ -661,20 +665,20 @@ private boolean isEditRequest(HttpServletRequest request) {
             if (currentUser == null) {
                 return Result.unauthorized("请先登录");
             }
-            
+
             // 这里需要实现获取用户文章数量的逻辑
             int articleCount = articleService.getArticleCountByUserId(currentUser.getId());
             int draftCount = articleService.getDraftCountByUserId(currentUser.getId());
             int publishedCount = articleService.getPublishedArticleCountByUserId(currentUser.getId());
-            
+
             Map<String, Object> result = new HashMap<>();
             result.put("totalCount", articleCount);
             result.put("draftCount", draftCount);
             result.put("publishedCount", publishedCount);
             result.put("userId", currentUser.getId());
-            
+
             return Result.success(result);
-            
+
         } catch (Exception e) {
             System.err.println("❌ 获取我的文章数量接口异常: " + e.getMessage());
             e.printStackTrace();

@@ -83,6 +83,9 @@ public class ArticleServiceImpl implements ArticleService {
         }
         // 如果是草稿（status=0）或已删除（status=2），不增加阅读量
 
+        // ✅ 注意：这里不设置 isLiked 字段，因为需要当前用户ID
+        // isLiked 字段将在 Controller 层设置
+
         return article;
     }
 
@@ -463,10 +466,10 @@ public class ArticleServiceImpl implements ArticleService {
             // 1. 检查是否已经点赞
             if (isArticleLikedByUser(articleId, userId)) {
                 System.out.println("⚠️ 用户已点赞过此文章");
-                throw new RuntimeException("您已点赞过该文章");
+                return false; // 不再抛出异常，而是返回 false
             }
 
-            // 2. 添加点赞记录（使用article_like表）
+            // 2. 添加点赞记录
             int result = articleLikeMapper.insert(userId, articleId);
 
             // 3. 更新文章点赞数
@@ -483,12 +486,9 @@ public class ArticleServiceImpl implements ArticleService {
 
             return false;
 
-        } catch (RuntimeException e) {
-            throw e;
         } catch (Exception e) {
             System.err.println("❌ 点赞文章异常: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("点赞失败");
+            return false;
         }
     }
 
@@ -503,10 +503,10 @@ public class ArticleServiceImpl implements ArticleService {
             // 1. 检查是否已经点赞
             if (!isArticleLikedByUser(articleId, userId)) {
                 System.out.println("⚠️ 用户未点赞过此文章");
-                throw new RuntimeException("您还未点赞该文章");
+                return false; // 不再抛出异常，而是返回 false
             }
 
-            // 2. 删除点赞记录（从article_like表）
+            // 2. 删除点赞记录
             int result = articleLikeMapper.delete(userId, articleId);
 
             // 3. 更新文章点赞数
@@ -523,12 +523,9 @@ public class ArticleServiceImpl implements ArticleService {
 
             return false;
 
-        } catch (RuntimeException e) {
-            throw e;
         } catch (Exception e) {
             System.err.println("❌ 取消点赞异常: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("取消点赞失败");
+            return false;
         }
     }
 
@@ -575,26 +572,48 @@ public class ArticleServiceImpl implements ArticleService {
                 result.put("success", success);
                 result.put("action", "unlike");
                 result.put("message", success ? "取消点赞成功" : "取消点赞失败");
+
+                if (success) {
+                    result.put("isLiked", false);
+                }
             } else {
                 // 未点赞，执行点赞
                 boolean success = likeArticle(articleId, userId);
                 result.put("success", success);
                 result.put("action", "like");
                 result.put("message", success ? "点赞成功" : "点赞失败");
+
+                if (success) {
+                    result.put("isLiked", true);
+                }
             }
 
-            // 获取更新后的点赞状态和数量
+            // 获取更新后的点赞数
             Article article = articleMapper.findById(articleId);
             if (article != null) {
                 result.put("likeCount", article.getLikeCount() != null ? article.getLikeCount() : 0);
-                result.put("isLiked", !isLiked); // 切换后的状态
+            }
+
+            // 确保 isLiked 字段存在
+            if (!result.containsKey("isLiked")) {
+                result.put("isLiked", !isLiked);
             }
 
             return result;
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            // 这里不应该抛出异常，而是返回错误信息
             System.err.println("❌ 切换点赞状态异常: " + e.getMessage());
-            throw new RuntimeException(e.getMessage());
+            result.put("success", false);
+            result.put("message", e.getMessage());
+            result.put("isLiked", isArticleLikedByUser(articleId, userId)); // 返回当前状态
+            return result;
+        } catch (Exception e) {
+            System.err.println("❌ 切换点赞状态未知异常: " + e.getMessage());
+            result.put("success", false);
+            result.put("message", "操作失败");
+            result.put("isLiked", isArticleLikedByUser(articleId, userId)); // 返回当前状态
+            return result;
         }
     }
 

@@ -93,4 +93,18 @@ public class Article extends BaseEntity {
      * 文章标签，多个用逗号分隔
      */
     private String tags;
+
+    /**
+     * 当前用户是否已点赞（非数据库字段，用于前端显示）
+     */
+    private Boolean isLiked;
+    
+    // 添加 getter 和 setter
+    public Boolean getIsLiked() {
+        return isLiked;
+    }
+    
+    public void setIsLiked(Boolean isLiked) {
+        this.isLiked = isLiked;
+    }
 }

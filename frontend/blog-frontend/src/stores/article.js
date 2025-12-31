@@ -143,9 +143,45 @@ const prepareArticleDataForApi = (articleData) => {
 const fetchArticleDetail = async (id, params = {}) => {
   try {
     detailLoading.value = true
-    const data = await articleApi.getArticleById(id, params)
-    currentArticle.value = transformArticle(data)
-    return data
+    
+    // 直接调用 API
+    const apiResponse = await articleApi.getArticleById(id, params)
+    
+    console.log('📦 文章详情原始响应:', apiResponse)
+    
+    // 提取文章数据
+    let articleData = null
+    
+    if (apiResponse && apiResponse.code === 200) {
+      // Result 格式：{ code: 200, data: {...}, message: "成功" }
+      articleData = apiResponse.data
+    } else if (apiResponse && apiResponse.id) {
+      // 直接返回文章对象
+      articleData = apiResponse
+    } else {
+      // 其他格式
+      articleData = apiResponse
+    }
+    
+    console.log('📦 提取的文章数据:', articleData)
+    console.log('📦 文章数据是否有 isLiked:', articleData?.isLiked !== undefined)
+    console.log('📦 isLiked 值:', articleData?.isLiked)
+    
+    // ✅ 关键：使用 dataTransform.js 中的转换函数
+    const transformedArticle = transformArticle(articleData)
+    
+    // ✅ 确保转换后的文章有 isLiked 字段
+    if (transformedArticle && transformedArticle.isLiked === undefined) {
+      console.warn('⚠️ 转换后的文章缺少 isLiked 字段，手动设置为 false')
+      transformedArticle.isLiked = false
+    }
+    
+    currentArticle.value = transformedArticle
+    console.log('✅ 最终文章数据:', currentArticle.value)
+    console.log('✅ 最终 isLiked 值:', currentArticle.value?.isLiked)
+    
+    return apiResponse  // 返回原始的 API 响应
+    
   } catch (error) {
     console.error('获取文章详情失败:', error)
     throw error
@@ -520,96 +556,52 @@ const toggleLike = async (id) => {
     likeLoading.value = true
     const response = await articleApi.toggleArticleLike(id)
 
-    console.log('点赞API返回:', response) // 添加这行查看实际返回结构
+    console.log('点赞API返回:', response)
 
     // 检查响应是否成功
-    if (response && response.code === 200) {
-      // 获取返回的数据
-      const result = response.data
+    if (response && response.success === true) {
+      // 1. 更新本地状态
+      if (currentArticle.value && currentArticle.value.id === id) {
+        currentArticle.value.isLiked = response.isLiked
+        currentArticle.value.likeCount = response.likeCount || 0
+      }
 
-      if (result && result.success !== false) {
-        // 1. 更新本地状态
-        if (currentArticle.value && currentArticle.value.id === id) {
-          currentArticle.value.isLiked = result.isLiked || true
-          currentArticle.value.likeCount = result.likeCount || 0
-        }
+      // 2. 更新列表中的点赞数
+      const index = articles.value.findIndex(article => article.id === id)
+      if (index !== -1) {
+        articles.value[index].isLiked = response.isLiked
+        articles.value[index].likeCount = response.likeCount || 0
+      }
+      
+      // 3. 更新我的文章列表中的点赞数
+      const myIndex = myArticles.value.list.findIndex(article => article.id === id)
+      if (myIndex !== -1) {
+        myArticles.value.list[myIndex].isLiked = response.isLiked
+        myArticles.value.list[myIndex].likeCount = response.likeCount || 0
+      }
+      
+      // 4. 更新热门文章列表中的点赞数
+      const hotIndex = hotArticles.value.findIndex(article => article.id === id)
+      if (hotIndex !== -1) {
+        hotArticles.value[hotIndex].isLiked = response.isLiked
+        hotArticles.value[hotIndex].likeCount = response.likeCount || 0
+      }
+      
+      // 5. 更新最新文章列表中的点赞数
+      const newestIndex = newestArticles.value.findIndex(article => article.id === id)
+      if (newestIndex !== -1) {
+        newestArticles.value[newestIndex].isLiked = response.isLiked
+        newestArticles.value[newestIndex].likeCount = response.likeCount || 0
+      }
 
-        // 2. 更新列表中的点赞数
-        const index = articles.value.findIndex(article => article.id === id)
-        if (index !== -1) {
-          articles.value[index].isLiked = result.isLiked || true
-          articles.value[index].likeCount = result.likeCount || 0
-        }
-        
-        // 3. 更新我的文章列表中的点赞数
-        const myIndex = myArticles.value.list.findIndex(article => article.id === id)
-        if (myIndex !== -1) {
-          myArticles.value.list[myIndex].isLiked = result.isLiked || true
-          myArticles.value.list[myIndex].likeCount = result.likeCount || 0
-        }
-        
-        // 4. 更新热门文章列表中的点赞数
-        const hotIndex = hotArticles.value.findIndex(article => article.id === id)
-        if (hotIndex !== -1) {
-          hotArticles.value[hotIndex].isLiked = result.isLiked || true
-          hotArticles.value[hotIndex].likeCount = result.likeCount || 0
-        }
-        
-        // 5. 更新最新文章列表中的点赞数
-        const newestIndex = newestArticles.value.findIndex(article => article.id === id)
-        if (newestIndex !== -1) {
-          newestArticles.value[newestIndex].isLiked = result.isLiked || true
-          newestArticles.value[newestIndex].likeCount = result.likeCount || 0
-        }
-        
-        // 6. 同步用户统计信息（点赞数）
-        try {
-          const userStore = useUserStore()
-          
-          // 获取文章详情以获取作者ID
-          let authorId = null
-          if (currentArticle.value && currentArticle.value.id === id) {
-            authorId = currentArticle.value.authorId
-          } else {
-            // 如果当前文章不在详情中，尝试从列表中找到
-            const foundArticle = [
-              ...articles.value,
-              ...myArticles.value.list,
-              ...hotArticles.value,
-              ...newestArticles.value
-            ].find(article => article.id === id)
-            
-            if (foundArticle) {
-              authorId = foundArticle.authorId
-            }
-          }
-          
-          if (authorId) {
-            console.log('点赞操作：同步作者统计，作者ID:', authorId)
-            await userStore.syncUserStats(authorId)
-          }
-          
-          // 如果是当前用户的文章，更新当前用户统计
-          if (userStore.user && userStore.user.id === authorId) {
-            await userStore.fetchCurrentUserStats()
-          }
-        } catch (syncError) {
-          console.warn('同步点赞统计失败:', syncError)
-          // 不中断主流程
-        }
-
-        return {
-          success: true,
-          isLiked: result.isLiked,
-          likeCount: result.likeCount,
-          message: result.message || '操作成功'
-        }
-      } else {
-        // 如果success为false，抛出错误信息
-        throw new Error(result?.message || '操作失败')
+      return {
+        success: true,
+        isLiked: response.isLiked,
+        likeCount: response.likeCount || 0,
+        message: response.message || '操作成功'
       }
     } else {
-      // 响应code不是200，抛出错误
+      // 如果success为false，抛出错误信息
       throw new Error(response?.message || '操作失败')
     }
 

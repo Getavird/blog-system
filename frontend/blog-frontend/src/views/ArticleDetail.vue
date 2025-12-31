@@ -413,7 +413,7 @@ import {
   DocumentDelete,
   Comment,
 } from "@element-plus/icons-vue";
-
+import * as articleApi from "@/api/article";
 // 组件导入
 import Header from "@/components/layout/Header.vue";
 import Footer from "@/components/layout/Footer.vue";
@@ -810,7 +810,7 @@ const loadArticleDetail = async () => {
     loading.value = true;
 
     console.log("开始加载文章详情，文章ID:", articleId.value);
-
+  
     // 1. 加载文章详情
     await articleStore.fetchArticleDetail(articleId.value);
 
@@ -1012,14 +1012,18 @@ const toggleLike = async () => {
     return;
   }
 
+  // ✅ 将变量定义在 try-catch 外部，确保在整个函数中可用
+  let originalIsLiked = false;
+  let originalLikeCount = 0;
+
   try {
     likeLoading.value = true;
 
     console.log("开始点赞操作，文章ID:", articleId.value);
 
     // 保存当前点赞状态，用于回滚
-    const originalIsLiked = article.value.isLiked || false;
-    const originalLikeCount = article.value.likeCount || 0;
+    originalIsLiked = article.value.isLiked || false;
+    originalLikeCount = article.value.likeCount || 0;
 
     console.log("当前点赞状态:", originalIsLiked, "点赞数:", originalLikeCount);
 
@@ -1036,15 +1040,12 @@ const toggleLike = async () => {
     // 3. 调用store的点赞方法
     let result;
     try {
-      // 注意：这里调用 articleStore.toggleLike，它应该返回 { success: true/false, data: { isLiked, likeCount } }
       result = await articleStore.toggleLike(articleId.value);
       console.log("store点赞操作结果:", result);
     } catch (storeError) {
       console.error("store点赞操作失败:", storeError);
       // 如果store方法失败，使用原始API调用
-      const apiResult = await articleStore.$api.toggleArticleLike(
-        articleId.value
-      );
+      const apiResult = await articleApi.toggleArticleLike(articleId.value);
       console.log("API点赞操作结果:", apiResult);
 
       // 解析API响应
@@ -1074,6 +1075,7 @@ const toggleLike = async () => {
       // 更新文章数据
       article.value.isLiked = finalIsLiked;
       article.value.likeCount = finalLikeCount;
+      
       // 5. 重新加载作者统计信息（重要：确保统计信息更新）
       if (article.value && article.value.authorName) {
         console.log("点赞成功，重新加载作者统计信息");
@@ -1085,34 +1087,7 @@ const toggleLike = async () => {
           console.warn("重新加载作者统计失败:", refreshError);
         }
       }
-      // 5. 同步作者统计信息
-      try {
-        if (article.value.authorId) {
-          console.log(
-            "点赞成功，同步作者统计，作者ID:",
-            article.value.authorId
-          );
-
-          // 获取用户store
-          const userStore = useUserStore();
-
-          // 并行执行多个同步操作
-          await Promise.allSettled([
-            // 同步用户统计
-            userStore.syncUserStats &&
-              userStore.syncUserStats(article.value.authorId),
-
-            // 重新加载作者统计信息
-            loadAuthorStats(),
-          ]);
-
-          console.log("作者统计同步完成");
-        }
-      } catch (syncError) {
-        console.warn("点赞后同步作者统计失败:", syncError);
-        // 这里不抛出错误，因为点赞操作本身成功了
-      }
-
+      
       // 6. 根据点赞/取消点赞显示不同的提示
       if (finalIsLiked) {
         ElMessage.success({
@@ -1134,7 +1109,6 @@ const toggleLike = async () => {
       // 7. 更新相关文章列表中的点赞状态
       try {
         // 更新主页文章列表中的点赞状态
-        const articleStore = useArticleStore();
         updateArticlesInList(
           articleStore.articles,
           articleId.value,
@@ -1192,12 +1166,15 @@ const toggleLike = async () => {
       // API返回了错误
       throw new Error(result?.message || "操作失败");
     }
+
   } catch (error) {
     console.error("操作点赞失败:", error);
 
     // 回滚本地UI状态
-    article.value.isLiked = originalIsLiked;
-    article.value.likeCount = originalLikeCount;
+    if (article.value) {
+      article.value.isLiked = originalIsLiked;
+      article.value.likeCount = originalLikeCount;
+    }
 
     // 错误分类处理
     let errorMessage = "操作失败";
