@@ -12,7 +12,7 @@
             <p class="hero-subtitle">分享技术，记录生活，共同成长</p>
             <div class="hero-actions">
               <el-button v-if="!isLoggedIn" type="primary" size="large"
-                @click="showLoginDialog = true; activeTab = 'login'">
+               @click="uiStore.openLoginDialog('login')">
                 开始使用
               </el-button>
               <el-button v-else type="primary" size="large" @click="toWriteArticle">
@@ -223,7 +223,10 @@ import { Document, Star, Folder, PriceTag } from '@element-plus/icons-vue'
 import Header from '@/components/layout/Header.vue'
 import Footer from '@/components/layout/Footer.vue'
 import ArticleList from '@/components/article/ArticleList.vue'
+import { useUIStore } from '@/stores/ui'
 
+
+const uiStore = useUIStore()
 const router = useRouter()
 
 // Pinia Stores
@@ -266,9 +269,24 @@ const getTagType = (index) => {
   return types[index % types.length] || 'info'
 }
 
-// 登录/注册弹窗相关
-const showLoginDialog = ref(false)
-const activeTab = ref('login')
+// 登录/注册弹窗相
+// 修改：使用全局状态替代本地状态
+const showLoginDialog = computed({
+  get: () => uiStore.showLoginDialog,
+  set: (value) => {
+    if (value) {
+      uiStore.openLoginDialog(activeTab.value)
+    } else {
+      uiStore.closeLoginDialog()
+    }
+  }
+})
+const activeTab = computed({
+  get: () => uiStore.loginDialogTab,
+  set: (value) => {
+    uiStore.loginDialogTab = value
+  }
+})
 const loginFormRef = ref(null)
 const registerFormRef = ref(null)
 
@@ -287,6 +305,8 @@ const loginRules = {
     { required: true, message: '请输入密码', trigger: 'blur' }
   ]
 }
+
+
 
 // 注册表单
 const registerForm = ref({
@@ -502,7 +522,7 @@ const handleLogin = async () => {
     await authStore.login(loginForm.value.username, loginForm.value.password)
 
     ElMessage.success('登录成功')
-    showLoginDialog.value = false
+    uiStore.closeLoginDialog()
     resetForm()
     
     // 登录成功后刷新数据

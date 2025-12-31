@@ -9,3 +9,4 @@ export { useAuthStore } from './auth'
 export { useUploadStore } from './upload'
 export { useSearchStore } from './search'
 export { useFollowStore } from './follow'
+export { useUIStore } from './ui' // 新增

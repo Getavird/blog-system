@@ -24,7 +24,7 @@
           <router-link to="/categories" class="nav-item">分类</router-link>
           <router-link to="/tags" class="nav-item">标签</router-link>
           <router-link to="/archives" class="nav-item">归档</router-link>
-          <router-link to="/about" class="nav-item">关于</router-link>
+          <router-link to="/about" class="nav-item">展示404页面</router-link>
         </nav>
         
         <!-- 搜索区域 -->
@@ -119,9 +119,8 @@
           </template>
           
           <template v-else>
-            <el-button link @click="showLoginDialog">登录</el-button>
             <el-button type="primary" size="small" @click="showLoginDialog">
-              注册
+              登录
             </el-button>
           </template>
         </div>
@@ -136,6 +135,8 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUIStore } from '@/stores/ui'
+
 import {
   Search,
   ArrowDown,
@@ -146,10 +147,11 @@ import {
   Setting
 } from '@element-plus/icons-vue'
 
-const emit = defineEmits(['showLogin'])
+//const emit = defineEmits(['showLogin'])
 const router = useRouter()
 const userStore = useUserStore()
 const authStore = useAuthStore()
+const uiStore = useUIStore()
 
 // 搜索相关
 const searchKeyword = ref('')
@@ -254,7 +256,7 @@ const handleLogoError = (event) => {
 
 // 用户操作
 const showLoginDialog = () => {
-  emit('showLogin')
+  uiStore.openLoginDialog('login')
 }
 
 const toWrite = () => {
@@ -302,12 +304,9 @@ const goToUserPublicPage = () => {
 
 const logout = async () => {
   try {
-    await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-      type: 'warning',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      center: true
-    })
+    // 使用 confirm 确认框
+    const confirmResult = await window.confirm('确定要退出登录吗？')
+    if (!confirmResult) return
     
     await authStore.logout()
     userStore.clearUser()
@@ -315,10 +314,8 @@ const logout = async () => {
     router.push('/')
     
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('退出登录失败:', error)
-      ElMessage.error('退出登录失败')
-    }
+    console.error('退出登录失败:', error)
+    ElMessage.error('退出登录失败')
   }
 }
 
