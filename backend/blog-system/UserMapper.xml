@@ -35,5 +35,14 @@
     <select id="count" resultType="int">
         SELECT COUNT(*) FROM user
     </select>
-    
+    <select id="getUserStats" parameterType="integer" resultType="com.blog.entity.vo.UserStatsVO">
+    SELECT 
+        (SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status = 1) as articleCount,
+        (SELECT COALESCE(SUM(view_count), 0) FROM article WHERE user_id = #{userId} AND status != 0) as viewCount,
+        (SELECT COALESCE(COUNT(*), 0) FROM article_like al 
+         WHERE EXISTS (SELECT 1 FROM article a WHERE a.id = al.article_id AND a.user_id = #{userId} AND a.status != 0)) as likeCount,
+        (SELECT COUNT(*) FROM user_follow WHERE follower_id = #{userId} AND status = 1) as followingCount,
+        (SELECT COUNT(*) FROM user_follow WHERE following_id = #{userId} AND status = 1) as followerCount
+</select>
+
 </mapper>

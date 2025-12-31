@@ -398,7 +398,10 @@ public class UserServiceImpl implements UserService {
         try {
             System.out.println("📋 获取用户个人中心信息: ID=" + userId);
 
-            // 1. 获取用户基本信息
+            // 先更新用户统计信息到user表
+            updateUserStats(userId);
+
+            // 1. 获取用户基本信息（现在是最新的统计数据）
             User user = userMapper.findById(userId);
             if (user == null) {
                 System.out.println("❌ 用户不存在: ID=" + userId);
@@ -406,6 +409,9 @@ public class UserServiceImpl implements UserService {
             }
 
             System.out.println("✅ 找到用户: " + user.getUsername());
+            System.out.println("📊 从user表读取的数据 - 文章数: " + user.getArticleCount() +
+                    ", 阅读数: " + user.getViewCount() +
+                    ", 获赞数: " + user.getLikeCount());
 
             // 2. 创建UserProfileVO
             UserProfileVO profileVO = new UserProfileVO();
@@ -712,26 +718,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserStatsVO getPublicUserStats(String username) {
-        try {
-            User user = userMapper.findByUsername(username);
-            if (user == null) {
-                return null;
-            }
-
-            UserStatsVO stats = new UserStatsVO();
-            stats.setArticleCount(user.getArticleCount() != null ? user.getArticleCount() : 0);
-            stats.setLikeCount(user.getLikeCount() != null ? user.getLikeCount() : 0);
-            stats.setViewCount(user.getViewCount() != null ? user.getViewCount() : 0);
-            stats.setFollowingCount(followService.getFollowingCount(user.getId()));
-            stats.setFollowerCount(followService.getFollowerCount(user.getId()));
-
-            return stats;
-
-        } catch (Exception e) {
-            System.err.println("❌ 获取用户公开统计异常: " + e.getMessage());
-            e.printStackTrace();
-            return null;
+        // 根据用户名获取用户
+        User user = userMapper.findByUsername(username);
+        if (user == null) {
+            return new UserStatsVO();
         }
+
+        // 使用修改后的getUserStats方法获取实时数据
+        return userMapper.getUserStats(user.getId());
     }
 
     @Override
@@ -753,5 +747,46 @@ public class UserServiceImpl implements UserService {
 
         System.err.println("❌ 数据库更新失败");
         return false;
+    }
+
+    @Override
+    public void updateUserStats(Integer userId) {
+        try {
+            System.out.println("🔄 开始更新用户统计信息: ID=" + userId);
+
+            // 1. 获取实时统计数据
+            UserStatsVO realStats = userMapper.calculateUserStats(userId);
+            if (realStats == null) {
+                System.out.println("❌ 计算用户统计数据失败");
+                return;
+            }
+
+            // 2. 获取关注和粉丝数（从followService）
+            int followerCount = followService.getFollowerCount(userId);
+            int followingCount = followService.getFollowingCount(userId);
+
+            // 3. 打印实时统计信息（用于调试）
+            System.out.println("📊 实时计算的数据 - 文章数: " + realStats.getArticleCount() +
+                    ", 阅读数: " + realStats.getViewCount() +
+                    ", 获赞数: " + realStats.getLikeCount() +
+                    ", 粉丝数: " + followerCount +
+                    ", 关注数: " + followingCount);
+
+            // 4. 更新user表
+            int result = userMapper.updateAllStats(userId,
+                    realStats.getArticleCount(),
+                    realStats.getLikeCount(),
+                    realStats.getViewCount());
+
+            if (result > 0) {
+                System.out.println("✅ 用户统计信息更新成功: ID=" + userId);
+            } else {
+                System.out.println("❌ 用户统计信息更新失败: ID=" + userId);
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ 更新用户统计信息异常: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

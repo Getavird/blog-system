@@ -1,6 +1,8 @@
 package com.blog.dao;
 
 import com.blog.entity.User;
+import com.blog.entity.vo.UserStatsVO;
+
 import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;
@@ -130,14 +132,24 @@ public interface UserMapper {
         int countSearchUsers(@Param("keyword") String keyword);
 
         /**
-         * 获取用户统计信息
+         * 获取用户实时统计信息
+         * 文章数：只统计status=1（已发布）的文章
+         * 阅读数：统计用户所有文章（status != 0，即包括已发布和已删除）的阅读数总和
+         * 获赞数：通过article_like表关联，统计用户所有文章（status != 0）的点赞总数
+         * 粉丝数：统计关注该用户的用户数
+         * 关注数：统计该用户关注的用户数
          */
         @Select("SELECT " +
-                        "article_count as articleCount, " +
-                        "like_count as likeCount, " +
-                        "view_count as viewCount " +
-                        "FROM user WHERE id = #{userId}")
-        User getUserStats(Integer userId);
+                        "(SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status = 1) as articleCount, " +
+                        "(SELECT COALESCE(SUM(view_count), 0) FROM article WHERE user_id = #{userId} AND status != 0) as viewCount, "
+                        +
+                        "(SELECT COALESCE(COUNT(*), 0) FROM article_like al " +
+                        " WHERE EXISTS (SELECT 1 FROM article a WHERE a.id = al.article_id AND a.user_id = #{userId} AND a.status != 0)) as likeCount, "
+                        +
+                        "(SELECT COUNT(*) FROM user_follow WHERE follower_id = #{userId} AND status = 1) as followingCount, "
+                        +
+                        "(SELECT COUNT(*) FROM user_follow WHERE following_id = #{userId} AND status = 1) as followerCount")
+        UserStatsVO getUserStats(Integer userId);
 
         /**
          * 获取在线用户列表
@@ -279,6 +291,43 @@ public interface UserMapper {
          * 更新用户头像
          */
         int updateAvatar(@Param("id") Integer id, @Param("avatar") String avatar);
+
+        /**
+         * 实时计算用户统计信息
+         */
+        @Select("SELECT " +
+                        "(SELECT COUNT(*) FROM article WHERE user_id = #{userId} AND status = 1) as articleCount, " +
+                        "(SELECT COALESCE(SUM(view_count), 0) FROM article WHERE user_id = #{userId} AND status != 0) as viewCount, "
+                        +
+                        "(SELECT COALESCE(COUNT(*), 0) FROM article_like al " +
+                        " WHERE EXISTS (SELECT 1 FROM article a WHERE a.id = al.article_id AND a.user_id = #{userId} AND a.status != 0)) as likeCount")
+        UserStatsVO calculateUserStats(Integer userId);
+
+        /**
+         * 获取粉丝数
+         */
+        @Select("SELECT COUNT(*) FROM user_follow WHERE following_id = #{userId} AND status = 1")
+        int countFollowers(Integer userId);
+
+        /**
+         * 获取关注数
+         */
+        @Select("SELECT COUNT(*) FROM user_follow WHERE follower_id = #{userId} AND status = 1")
+        int countFollowing(Integer userId);
+
+        /**
+         * 更新用户统计信息（多个字段）
+         */
+        @Update("UPDATE user SET " +
+                        "article_count = #{articleCount}, " +
+                        "like_count = #{likeCount}, " +
+                        "view_count = #{viewCount}, " +
+                        "update_time = NOW() " +
+                        "WHERE id = #{userId}")
+        int updateAllStats(@Param("userId") Integer userId,
+                        @Param("articleCount") Integer articleCount,
+                        @Param("likeCount") Integer likeCount,
+                        @Param("viewCount") Integer viewCount);
 }
 
 /**

@@ -164,7 +164,6 @@ export const useUserStore = defineStore('user', () => {
       loading.value = false
     }
   }
-  
 
   // 更新用户基本信息
   const updateUserInfo = async (id, userData) => {
@@ -189,69 +188,109 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // 获取公开用户信息
-const fetchPublicUserInfo = async (username) => {
-  try {
-    publicUserLoading.value = true
-    const response = await userApi.getPublicUserInfo(username)
-    
-    console.log('fetchPublicUserInfo 响应:', response)
-    
-    let userData = null
-    
-    // 处理返回的数据格式
-    if (response && response.code === 200) {
-      userData = response.data
-    } else if (response) {
-      userData = response
-    }
-    
-    if (userData) {
-      // 使用统一的 normalizeAvatarUrl 函数处理头像
-      userData.avatar = normalizeAvatarUrl(userData.avatar)
+  const fetchPublicUserInfo = async (username, forceRefresh = false) => {
+    try {
+      publicUserLoading.value = true
       
-      // 添加时间戳避免缓存
-      const separator = userData.avatar.includes('?') ? '&' : '?'
-      userData.avatar = userData.avatar + separator + 't=' + Date.now()
+      // 如果强制刷新，添加时间戳避免缓存
+      const params = forceRefresh ? { t: Date.now() } : {}
       
-      publicUser.value = userData
+      const response = await userApi.getPublicUserInfo(username, params)
+      
+      console.log('fetchPublicUserInfo 响应:', response)
+      
+      let userData = null
+      
+      // 处理返回的数据格式
+      if (response && response.code === 200) {
+        userData = response.data
+      } else if (response) {
+        userData = response
+      }
+      
+      if (userData) {
+        // 使用统一的 normalizeAvatarUrl 函数处理头像
+        userData.avatar = normalizeAvatarUrl(userData.avatar)
+        
+        // 添加时间戳避免缓存
+        const separator = userData.avatar.includes('?') ? '&' : '?'
+        userData.avatar = userData.avatar + separator + 't=' + Date.now()
+        
+        publicUser.value = userData
+      }
+      
+      return userData
+    } catch (error) {
+      console.error('获取公开用户信息失败:', error)
+      throw error
+    } finally {
+      publicUserLoading.value = false
     }
-    
-    return userData
-  } catch (error) {
-    console.error('获取公开用户信息失败:', error)
-    throw error
-  } finally {
-    publicUserLoading.value = false
   }
-}
 
   // 获取用户公开文章
-const fetchPublicUserArticles = async (username, params) => {
-  try {
-    publicUserLoading.value = true
-    const data = await userApi.getPublicUserArticles(username, params)
-    return data
-  } catch (error) {
-    console.error('获取公开用户文章失败:', error)
-    throw error
-  } finally {
-    publicUserLoading.value = false
+  const fetchPublicUserArticles = async (username, params) => {
+    try {
+      publicUserLoading.value = true
+      const data = await userApi.getPublicUserArticles(username, params)
+      return data
+    } catch (error) {
+      console.error('获取公开用户文章失败:', error)
+      throw error
+    } finally {
+      publicUserLoading.value = false
+    }
   }
-}
 
   // 获取用户公开统计
-const fetchPublicUserStats = async (username) => {
-  try {
-    publicUserLoading.value = true
-    const data = await userApi.getPublicUserStats(username)
-    return data
-  } catch (error) {
-    console.error('获取公开用户统计失败:', error)
-    throw error
-  } finally {
-    publicUserLoading.value = false
+  const fetchPublicUserStats = async (username, forceRefresh = false) => {
+    try {
+      publicUserLoading.value = true
+      
+      // 如果强制刷新，添加时间戳避免缓存
+      const params = forceRefresh ? { t: Date.now() } : {}
+      
+      const response = await userApi.getPublicUserStats(username, params)
+      
+      let statsData = null
+      
+      // 处理返回的数据格式
+      if (response && response.code === 200) {
+        statsData = response.data
+      } else if (response) {
+        statsData = response
+      }
+      
+      if (statsData) {
+        publicUserStats.value = statsData
+      }
+      
+      return statsData
+    } catch (error) {
+      console.error('获取公开用户统计失败:', error)
+      throw error
+    } finally {
+      publicUserLoading.value = false
+    }
   }
-}
+
+  // 清除公开用户统计缓存
+  const clearPublicUserStats = () => {
+    console.log('清除公开用户统计缓存')
+    publicUserStats.value = {
+      articleCount: 0,
+      likeCount: 0,
+      viewCount: 0,
+      followerCount: 0,
+      followingCount: 0
+    }
+  }
+
+  // 清除公开用户信息缓存
+  const clearPublicUserInfo = () => {
+    console.log('清除公开用户信息缓存')
+    publicUser.value = createDefaultPublicUser()
+  }
 
   // 检查关注状态
   const checkFollowStatus = async (userId) => {
@@ -328,6 +367,7 @@ const fetchPublicUserStats = async (username) => {
       throw error
     }
   }
+
   // 设置用户头像
   const setAvatar = (avatarUrl) => {
     if (user.value) {
@@ -379,100 +419,66 @@ const fetchPublicUserStats = async (username) => {
   }
 
   // 设置公开用户文章
-const setPublicUserArticles = (articles) => {
-  publicUserArticles.value = articles
-}
+  const setPublicUserArticles = (articles) => {
+    publicUserArticles.value = articles
+  }
 
-// 设置公开用户统计
-const setPublicUserStats = (stats) => {
-  publicUserStats.value = stats
-}
+  // 设置公开用户统计
+  const setPublicUserStats = (stats) => {
+    publicUserStats.value = stats
+  }
 
-// 设置公开用户文章总数
-const setPublicUserTotal = (total) => {
-  publicUserTotal.value = total
-}
+  // 设置公开用户文章总数
+  const setPublicUserTotal = (total) => {
+    publicUserTotal.value = total
+  }
 
-// 同步用户统计信息
-const syncUserStats = async (userId) => {
-  try {
-    console.log('同步用户统计信息，用户ID:', userId)
-    
-    // 获取用户store
-    const userStore = useUserStore()
-    
-    // 1. 如果是当前用户
-    if (userStore.user && userStore.user.id === userId) {
-      console.log('同步当前用户统计')
+  // 同步用户统计信息
+  const syncUserStats = async (userId) => {
+    try {
+      console.log('同步用户统计信息，用户ID:', userId)
       
-      // 并行获取多种统计信息
-      await Promise.allSettled([
-        userStore.fetchCurrentUserStats(),
-        userStore.fetchCurrentUserStatus(),
-        // 获取用户详细资料
-        (async () => {
-          try {
-            const response = await userApi.getCurrentUserProfile()
-            if (response && response.data) {
-              // 更新本地用户信息
-              userStore.setUser(response.data)
-            }
-          } catch (error) {
-            console.warn('获取用户资料失败:', error)
-          }
-        })()
-      ])
-    }
-    
-    // 2. 如果是公开用户
-    if (userStore.publicUser.value && userStore.publicUser.value.id === userId) {
-      const username = userStore.publicUser.value.username
-      if (username) {
-        console.log('同步公开用户统计，用户名:', username)
+      // 获取用户store
+      const userStore = useUserStore()
+      
+      // 1. 如果是当前用户
+      if (userStore.user && userStore.user.id === userId) {
+        console.log('同步当前用户统计')
         
-        // 并行获取公开用户统计信息
+        // 并行获取多种统计信息
         await Promise.allSettled([
-          userStore.fetchPublicUserStats(username),
-          userStore.fetchPublicUserArticles(username, { 
-            page: 1, 
-            size: 1 // 只获取第一页的第一条，为了统计总数
-          })
+          userStore.fetchCurrentUserStats(),
+          userStore.fetchCurrentUserStatus(),
         ])
       }
-    }
-    
-    // 3. 通过followStore获取关注统计
-    try {
-      const followStore = useFollowStore()
-      const followStats = await followStore.fetchUserFollowStats(userId)
       
-      if (followStats) {
-        // 更新本地统计中的关注/粉丝数
-        const statsToUpdate = {
-          ...userStore.publicUserStats.value,
-          followerCount: followStats.followerCount || 0,
-          followingCount: followStats.followingCount || 0
+      // 2. 如果是公开用户
+      if (userStore.publicUser.value && userStore.publicUser.value.id === userId) {
+        const username = userStore.publicUser.value.username
+        if (username) {
+          console.log('同步公开用户统计，用户名:', username)
+          
+          // 并行获取公开用户统计信息
+          await Promise.allSettled([
+            userStore.fetchPublicUserStats(username, true), // 强制刷新
+            userStore.fetchPublicUserInfo(username, true)   // 强制刷新
+          ])
         }
-        userStore.setPublicUserStats(statsToUpdate)
       }
-    } catch (followError) {
-      console.warn('通过followStore获取关注统计失败:', followError)
+      
+      console.log('用户统计信息同步完成')
+      
+      // 触发事件通知其他组件
+      window.dispatchEvent(new CustomEvent('user-stats-updated', {
+        detail: { userId }
+      }))
+      
+      return true
+    } catch (error) {
+      console.error('同步用户统计信息失败:', error)
+      return false
     }
-    
-    console.log('用户统计信息同步完成')
-    
-    // 触发事件通知其他组件
-    window.dispatchEvent(new CustomEvent('user-stats-updated', {
-      detail: { userId }
-    }))
-    
-    return true
-  } catch (error) {
-    console.error('同步用户统计信息失败:', error)
-    return false
   }
-}
-
 
   // 清空公开用户数据
   const clearPublicUserData = () => {
@@ -488,6 +494,13 @@ const syncUserStats = async (userId) => {
     publicUserTotal.value = 0
   }
 
+  // 保存用户信息到本地存储
+  const saveUserToStorage = () => {
+    if (user.value) {
+      localStorage.setItem('blog_user', JSON.stringify(user.value))
+    }
+  }
+
   return {
     // 当前用户状态
     user,
@@ -501,7 +514,6 @@ const syncUserStats = async (userId) => {
     publicUserLoading,
     
     // 方法
- 
     uploadAvatar,
     updateUserInfo,
     initFromStorage,
@@ -523,12 +535,19 @@ const syncUserStats = async (userId) => {
     fetchFollowCounts,
     clearPublicUserData,
     
+    // 新增清理方法
+    clearPublicUserStats,
+    clearPublicUserInfo,
+    
     // 当前用户方法
     fetchCurrentUserStats,
     fetchCurrentUserStatus,
     setAvatar,
     clearAvatar,
-    updateAvatar
-    ,updateUserAvatar
+    updateAvatar,
+    updateUserAvatar,
+    
+    // 其他方法
+    saveUserToStorage
   }
 })

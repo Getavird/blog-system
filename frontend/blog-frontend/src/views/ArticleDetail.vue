@@ -367,10 +367,22 @@
       title="用户登录"
       width="400px"
       :close-on-click-modal="false"
+      @close="showLogin = false"
     >
       <div style="text-align: center; padding: 20px">
         <p>请先登录才能进行此操作</p>
-        <el-button type="primary" @click="toLoginPage">去登录</el-button>
+        <div
+          style="
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+          "
+        >
+          <el-button @click="showLogin = false">取消</el-button>
+          <el-button type="primary" @click="toLoginPage">去登录</el-button>
+          <el-button type="success" @click="toRegisterPage">去注册</el-button>
+        </div>
       </div>
     </el-dialog>
 
@@ -455,7 +467,7 @@ const authorStats = ref({
   likeCount: 0,
   viewCount: 0,
   followerCount: 0,
-  followingCount: 0
+  followingCount: 0,
 });
 
 // 处理标签数据
@@ -487,30 +499,32 @@ const processedTags = computed(() => {
 });
 
 const getAvatarUrl = (avatarFileName) => {
-  if (!avatarFileName || avatarFileName.trim() === '') {
-    return 'http://localhost:8080/uploads/avatars/default_avatar.png'
+  if (!avatarFileName || avatarFileName.trim() === "") {
+    return "http://localhost:8080/uploads/avatars/default_avatar.png";
   }
-  
+
   // 如果已经是完整URL，直接返回
-  if (avatarFileName.startsWith('http://') || 
-      avatarFileName.startsWith('https://') || 
-      avatarFileName.startsWith('data:')) {
-    return avatarFileName
+  if (
+    avatarFileName.startsWith("http://") ||
+    avatarFileName.startsWith("https://") ||
+    avatarFileName.startsWith("data:")
+  ) {
+    return avatarFileName;
   }
-  
+
   // 清理路径
-  let cleanFileName = avatarFileName.trim()
-  
+  let cleanFileName = avatarFileName.trim();
+
   // 移除可能的路径前缀
-  if (cleanFileName.startsWith('/uploads/avatars/')) {
-    cleanFileName = cleanFileName.replace('/uploads/avatars/', '')
-  } else if (cleanFileName.startsWith('uploads/avatars/')) {
-    cleanFileName = cleanFileName.replace('uploads/avatars/', '')
+  if (cleanFileName.startsWith("/uploads/avatars/")) {
+    cleanFileName = cleanFileName.replace("/uploads/avatars/", "");
+  } else if (cleanFileName.startsWith("uploads/avatars/")) {
+    cleanFileName = cleanFileName.replace("uploads/avatars/", "");
   }
-  
+
   // 所有头像都从 uploads/avatars/ 目录加载
-  return 'http://localhost:8080/uploads/avatars/' + cleanFileName
-}
+  return "http://localhost:8080/uploads/avatars/" + cleanFileName;
+};
 
 // 获取标签key
 const getTagKey = (tag, index) => {
@@ -565,6 +579,17 @@ const displayCategoryName = computed(() => {
 
   return "";
 });
+// 添加去注册页面方法
+const toRegisterPage = () => {
+  showLogin.value = false
+  router.push({
+    path: '/',
+    query: {
+      showRegister: true, // 假设首页有注册弹窗
+      redirect: route.fullPath,
+    },
+  })
+};
 
 // 显示的分类ID
 const displayCategoryId = computed(() => {
@@ -588,144 +613,160 @@ const categories = computed(() => categoryStore.categories || []);
 
 // 辅助方法：更新文章列表中的点赞状态
 const updateArticlesInList = (articles, articleId, isLiked, likeCount) => {
-  if (!Array.isArray(articles)) return
-  
-  const index = articles.findIndex(article => article.id === articleId)
+  if (!Array.isArray(articles)) return;
+
+  const index = articles.findIndex((article) => article.id === articleId);
   if (index !== -1) {
-    articles[index].isLiked = isLiked
-    articles[index].likeCount = likeCount
+    articles[index].isLiked = isLiked;
+    articles[index].likeCount = likeCount;
   }
-}
+};
 
 // 辅助方法：重新加载作者统计信息
 const loadAuthorStats = async () => {
-  if (!article.value || !article.value.authorName) return
-  
+  if (!article.value || !article.value.authorName) return;
+
   try {
-    console.log('重新加载作者统计信息，用户名:', article.value.authorName)
-    
-    const userStore = useUserStore()
-    
+    console.log("重新加载作者统计信息，用户名:", article.value.authorName);
+
+    const userStore = useUserStore();
+
     // 并行获取统计信息
     await Promise.allSettled([
       // 获取公开用户统计
       userStore.fetchPublicUserStats(article.value.authorName),
-      
+
       // 获取关注统计（如果需要）
       (async () => {
         if (article.value.authorId) {
           try {
-            const followStore = useFollowStore()
-            const followStats = await followStore.fetchUserFollowStats(article.value.authorId)
+            const followStore = useFollowStore();
+            const followStats = await followStore.fetchUserFollowStats(
+              article.value.authorId
+            );
             if (followStats) {
               // 更新本地状态
-              article.value.fansCount = followStats.followerCount || article.value.fansCount
+              article.value.fansCount =
+                followStats.followerCount || article.value.fansCount;
             }
           } catch (error) {
-            console.warn('获取关注统计失败:', error)
+            console.warn("获取关注统计失败:", error);
           }
         }
-      })()
-    ])
-    
+      })(),
+    ]);
+
     // 更新文章中的作者统计信息
-    const publicUserStats = userStore.publicUserStats
+    const publicUserStats = userStore.publicUserStats;
     if (publicUserStats) {
-      article.value.articleCount = publicUserStats.articleCount || article.value.articleCount
-      article.value.totalLikeCount = publicUserStats.likeCount || article.value.totalLikeCount
-      article.value.fansCount = publicUserStats.followerCount || article.value.fansCount
+      article.value.articleCount =
+        publicUserStats.articleCount || article.value.articleCount;
+      article.value.totalLikeCount =
+        publicUserStats.likeCount || article.value.totalLikeCount;
+      article.value.fansCount =
+        publicUserStats.followerCount || article.value.fansCount;
     }
-    
-    console.log('作者统计信息重新加载完成')
+
+    console.log("作者统计信息重新加载完成");
   } catch (error) {
-    console.error('重新加载作者统计信息失败:', error)
+    console.error("重新加载作者统计信息失败:", error);
   }
-}
+};
 
 // 监听全局点赞事件
 const handleArticleLikedEvent = (event) => {
-  const { articleId: likedArticleId, isLiked, likeCount, authorId } = event.detail
-  
+  const {
+    articleId: likedArticleId,
+    isLiked,
+    likeCount,
+    authorId,
+  } = event.detail;
+
   // 如果点赞的是当前文章，更新状态
   if (articleId.value === likedArticleId) {
-    article.value.isLiked = isLiked
-    article.value.likeCount = likeCount
+    article.value.isLiked = isLiked;
+    article.value.likeCount = likeCount;
   }
-}
+};
 
 // 辅助方法：触发点赞动画
 const triggerLikeAnimation = () => {
-  showLikeAnimation.value = true
-  
+  showLikeAnimation.value = true;
+
   // 添加动画类
-  const likeBtn = document.querySelector('.action-btn')
+  const likeBtn = document.querySelector(".action-btn");
   if (likeBtn) {
-    likeBtn.classList.add('like-animation')
-    
+    likeBtn.classList.add("like-animation");
+
     // 创建粒子效果
-    createLikeParticles()
-    
+    createLikeParticles();
+
     // 移除动画类（动画结束后）
     setTimeout(() => {
-      likeBtn.classList.remove('like-animation')
-      showLikeAnimation.value = false
-    }, 500)
+      likeBtn.classList.remove("like-animation");
+      showLikeAnimation.value = false;
+    }, 500);
   }
-}
+};
 
 // 辅助方法：创建点赞粒子效果
 const createLikeParticles = () => {
-  const container = document.querySelector('.interaction-actions')
-  if (!container) return
-  
-  const particleCount = 12
-  
+  const container = document.querySelector(".interaction-actions");
+  if (!container) return;
+
+  const particleCount = 12;
+
   for (let i = 0; i < particleCount; i++) {
-    const particle = document.createElement('div')
-    particle.className = 'like-particle'
-    
+    const particle = document.createElement("div");
+    particle.className = "like-particle";
+
     // 随机位置和角度
-    const angle = (Math.PI * 2 * i) / particleCount
-    const distance = 30 + Math.random() * 20
-    
+    const angle = (Math.PI * 2 * i) / particleCount;
+    const distance = 30 + Math.random() * 20;
+
     // 随机大小
-    const size = 3 + Math.random() * 4
-    particle.style.width = `${size}px`
-    particle.style.height = `${size}px`
-    
+    const size = 3 + Math.random() * 4;
+    particle.style.width = `${size}px`;
+    particle.style.height = `${size}px`;
+
     // 随机颜色
-    const hue = 350 + Math.random() * 20 // 红色系
-    particle.style.backgroundColor = `hsl(${hue}, 100%, 65%)`
-    
+    const hue = 350 + Math.random() * 20; // 红色系
+    particle.style.backgroundColor = `hsl(${hue}, 100%, 65%)`;
+
     // 设置初始位置
-    particle.style.position = 'absolute'
-    particle.style.borderRadius = '50%'
-    particle.style.pointerEvents = 'none'
-    particle.style.zIndex = '1000'
-    
-    container.appendChild(particle)
-    
+    particle.style.position = "absolute";
+    particle.style.borderRadius = "50%";
+    particle.style.pointerEvents = "none";
+    particle.style.zIndex = "1000";
+
+    container.appendChild(particle);
+
     // 动画
-    const animation = particle.animate([
-      { 
-        transform: 'translate(0, 0) scale(1)',
-        opacity: 1
-      },
-      { 
-        transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px) scale(0)`,
-        opacity: 0
+    const animation = particle.animate(
+      [
+        {
+          transform: "translate(0, 0) scale(1)",
+          opacity: 1,
+        },
+        {
+          transform: `translate(${Math.cos(angle) * distance}px, ${
+            Math.sin(angle) * distance
+          }px) scale(0)`,
+          opacity: 0,
+        },
+      ],
+      {
+        duration: 500 + Math.random() * 200,
+        easing: "cubic-bezier(0.1, 0.8, 0.2, 1)",
       }
-    ], {
-      duration: 500 + Math.random() * 200,
-      easing: 'cubic-bezier(0.1, 0.8, 0.2, 1)'
-    })
-    
+    );
+
     // 动画结束后移除粒子
     animation.onfinish = () => {
-      particle.remove()
-    }
+      particle.remove();
+    };
   }
-}
+};
 
 // 组件挂载
 onMounted(async () => {
@@ -738,8 +779,8 @@ onMounted(async () => {
   });
 
   // 监听全局点赞事件
-  window.addEventListener('article-liked', handleArticleLikedEvent)
-  
+  window.addEventListener("article-liked", handleArticleLikedEvent);
+
   // 加载文章详情
   if (articleId.value) {
     await loadArticleDetail();
@@ -749,7 +790,7 @@ onMounted(async () => {
 // 组件卸载
 onUnmounted(() => {
   // 移除事件监听器
-  window.removeEventListener('article-liked', handleArticleLikedEvent)
+  window.removeEventListener("article-liked", handleArticleLikedEvent);
 });
 
 // 监听路由参数变化
@@ -771,11 +812,12 @@ const loadArticleDetail = async () => {
     console.log("开始加载文章详情，文章ID:", articleId.value);
 
     // 1. 加载文章详情
-    await articleStore.fetchArticleDetail(articleId.value)
-    
+    await articleStore.fetchArticleDetail(articleId.value);
+
     // 2. 如果有作者信息，加载作者公开信息
     if (article.value && article.value.authorName) {
-      await loadAuthorInfo(article.value.authorName)
+      console.log("立即加载作者信息，作者名:", article.value.authorName);
+      await loadAuthorInfo(article.value.authorName);
     }
 
     // 3. 验证分类数据
@@ -854,32 +896,49 @@ const loadArticleDetail = async () => {
 
 const loadAuthorInfo = async (username) => {
   try {
-    console.log('加载作者信息，用户名:', username)
-    
-    // 使用userStore获取公开用户信息
-    const userData = await userStore.fetchPublicUserInfo(username)
-    console.log('作者信息获取结果:', userData)
-    
-    if (userData) {
-      // 更新作者统计信息
-      if (userData.stats) {
-        authorStats.value = { ...authorStats.value, ...userData.stats }
-      }
-      
-      // 如果有需要，可以更新其他作者信息
-      if (userData.bio) {
-        // 如果文章对象没有bio字段，可以添加一个临时字段
-        if (!article.value.authorBio) {
-          article.value.authorBio = userData.bio
-        }
+    console.log("加载作者信息，用户名:", username);
+
+    // 清除缓存，确保获取最新数据
+    const userStore = useUserStore();
+
+    // 1. 首先清除可能的缓存数据
+    userStore.clearPublicUserStats();
+
+    // 2. 并行获取用户公开信息和统计信息
+    const [userData, statsData] = await Promise.allSettled([
+      userStore.fetchPublicUserInfo(username),
+      userStore.fetchPublicUserStats(username),
+    ]);
+
+    console.log("作者信息获取结果:", {
+      userInfo: userData.status === "fulfilled" ? userData.value : null,
+      stats: statsData.status === "fulfilled" ? statsData.value : null,
+    });
+
+    // 3. 更新作者统计信息
+    if (statsData.status === "fulfilled" && statsData.value) {
+      authorStats.value = { ...authorStats.value, ...statsData.value };
+      console.log("更新后的作者统计:", authorStats.value);
+    } else if (userData.status === "fulfilled" && userData.value?.stats) {
+      // 如果获取统计信息失败，使用用户信息中的统计
+      authorStats.value = { ...authorStats.value, ...userData.value.stats };
+    }
+
+    // 4. 如果有需要，可以更新其他作者信息
+    if (userData.status === "fulfilled" && userData.value) {
+      if (userData.value.bio && !article.value.authorBio) {
+        article.value.authorBio = userData.value.bio;
       }
     }
   } catch (error) {
-    console.error('加载作者信息失败:', error)
-    // 这里不显示错误提示，因为文章详情加载成功即可
+    console.error("加载作者信息失败:", error);
+    // 尝试使用文章中的作者信息作为后备
+    if (article.value && article.value.authorId) {
+      console.log("尝试使用文章中的作者信息作为后备");
+      // 这里可以调用其他方法获取作者信息
+    }
   }
 };
-
 // 加载文章评论
 const loadArticleComments = async () => {
   try {
@@ -952,215 +1011,259 @@ const toggleLike = async () => {
     ElMessage.warning("请先登录");
     return;
   }
-  
+
   try {
     likeLoading.value = true;
-    
-    console.log('开始点赞操作，文章ID:', articleId.value);
-    
+
+    console.log("开始点赞操作，文章ID:", articleId.value);
+
     // 保存当前点赞状态，用于回滚
     const originalIsLiked = article.value.isLiked || false;
     const originalLikeCount = article.value.likeCount || 0;
-    
-    console.log('当前点赞状态:', originalIsLiked, '点赞数:', originalLikeCount);
-    
+
+    console.log("当前点赞状态:", originalIsLiked, "点赞数:", originalLikeCount);
+
     // 1. 计算新的点赞状态和点赞数
     const newIsLiked = !originalIsLiked;
-    const newLikeCount = newIsLiked 
-      ? originalLikeCount + 1 
+    const newLikeCount = newIsLiked
+      ? originalLikeCount + 1
       : Math.max(0, originalLikeCount - 1);
-    
+
     // 2. 立即更新本地UI（乐观更新）
     article.value.isLiked = newIsLiked;
     article.value.likeCount = newLikeCount;
-    
+
     // 3. 调用store的点赞方法
     let result;
     try {
       // 注意：这里调用 articleStore.toggleLike，它应该返回 { success: true/false, data: { isLiked, likeCount } }
       result = await articleStore.toggleLike(articleId.value);
-      console.log('store点赞操作结果:', result);
+      console.log("store点赞操作结果:", result);
     } catch (storeError) {
-      console.error('store点赞操作失败:', storeError);
+      console.error("store点赞操作失败:", storeError);
       // 如果store方法失败，使用原始API调用
-      const apiResult = await articleStore.$api.toggleArticleLike(articleId.value);
-      console.log('API点赞操作结果:', apiResult);
-      
+      const apiResult = await articleStore.$api.toggleArticleLike(
+        articleId.value
+      );
+      console.log("API点赞操作结果:", apiResult);
+
       // 解析API响应
       if (apiResult && apiResult.code === 200) {
         result = {
           success: true,
-          data: apiResult.data || { isLiked: newIsLiked, likeCount: newLikeCount }
+          data: apiResult.data || {
+            isLiked: newIsLiked,
+            likeCount: newLikeCount,
+          },
         };
       } else {
-        throw new Error(apiResult?.message || '点赞操作失败');
+        throw new Error(apiResult?.message || "点赞操作失败");
       }
     }
-    
+
     // 4. 处理响应结果
     if (result?.success === true) {
       const resultData = result.data || result;
-      const finalIsLiked = resultData.isLiked !== undefined ? resultData.isLiked : newIsLiked;
-      const finalLikeCount = resultData.likeCount !== undefined ? resultData.likeCount : newLikeCount;
-      
+      const finalIsLiked =
+        resultData.isLiked !== undefined ? resultData.isLiked : newIsLiked;
+      const finalLikeCount =
+        resultData.likeCount !== undefined
+          ? resultData.likeCount
+          : newLikeCount;
+
       // 更新文章数据
       article.value.isLiked = finalIsLiked;
       article.value.likeCount = finalLikeCount;
-      
+      // 5. 重新加载作者统计信息（重要：确保统计信息更新）
+      if (article.value && article.value.authorName) {
+        console.log("点赞成功，重新加载作者统计信息");
+        try {
+          // 使用forceRefresh参数确保获取最新数据
+          await loadAuthorInfo(article.value.authorName);
+          console.log("作者统计信息重新加载完成");
+        } catch (refreshError) {
+          console.warn("重新加载作者统计失败:", refreshError);
+        }
+      }
       // 5. 同步作者统计信息
       try {
         if (article.value.authorId) {
-          console.log('点赞成功，同步作者统计，作者ID:', article.value.authorId);
-          
+          console.log(
+            "点赞成功，同步作者统计，作者ID:",
+            article.value.authorId
+          );
+
           // 获取用户store
           const userStore = useUserStore();
-          
+
           // 并行执行多个同步操作
           await Promise.allSettled([
             // 同步用户统计
-            userStore.syncUserStats && userStore.syncUserStats(article.value.authorId),
-            
+            userStore.syncUserStats &&
+              userStore.syncUserStats(article.value.authorId),
+
             // 重新加载作者统计信息
-            loadAuthorStats()
+            loadAuthorStats(),
           ]);
-          
-          console.log('作者统计同步完成');
+
+          console.log("作者统计同步完成");
         }
       } catch (syncError) {
-        console.warn('点赞后同步作者统计失败:', syncError);
+        console.warn("点赞后同步作者统计失败:", syncError);
         // 这里不抛出错误，因为点赞操作本身成功了
       }
-      
+
       // 6. 根据点赞/取消点赞显示不同的提示
       if (finalIsLiked) {
         ElMessage.success({
-          message: '点赞成功',
+          message: "点赞成功",
           duration: 2000,
-          showClose: true
+          showClose: true,
         });
-        
+
         // 触发点赞成功动画
         triggerLikeAnimation();
       } else {
         ElMessage.info({
-          message: '已取消点赞',
+          message: "已取消点赞",
           duration: 2000,
-          showClose: true
+          showClose: true,
         });
       }
-      
+
       // 7. 更新相关文章列表中的点赞状态
       try {
         // 更新主页文章列表中的点赞状态
         const articleStore = useArticleStore();
-        updateArticlesInList(articleStore.articles, articleId.value, finalIsLiked, finalLikeCount);
-        
+        updateArticlesInList(
+          articleStore.articles,
+          articleId.value,
+          finalIsLiked,
+          finalLikeCount
+        );
+
         // 更新热门文章列表
-        updateArticlesInList(articleStore.hotArticles, articleId.value, finalIsLiked, finalLikeCount);
-        
+        updateArticlesInList(
+          articleStore.hotArticles,
+          articleId.value,
+          finalIsLiked,
+          finalLikeCount
+        );
+
         // 更新最新文章列表
-        updateArticlesInList(articleStore.newestArticles, articleId.value, finalIsLiked, finalLikeCount);
-        
+        updateArticlesInList(
+          articleStore.newestArticles,
+          articleId.value,
+          finalIsLiked,
+          finalLikeCount
+        );
+
         // 更新我的文章列表
         if (articleStore.myArticles && articleStore.myArticles.list) {
-          updateArticlesInList(articleStore.myArticles.list, articleId.value, finalIsLiked, finalLikeCount);
+          updateArticlesInList(
+            articleStore.myArticles.list,
+            articleId.value,
+            finalIsLiked,
+            finalLikeCount
+          );
         }
       } catch (updateError) {
-        console.warn('更新文章列表状态失败:', updateError);
+        console.warn("更新文章列表状态失败:", updateError);
       }
-      
+
       // 8. 触发全局事件
-      window.dispatchEvent(new CustomEvent('article-liked', {
-        detail: { 
-          articleId: articleId.value, 
-          isLiked: finalIsLiked, 
-          likeCount: finalLikeCount,
-          authorId: article.value.authorId
-        }
-      }));
-      
+      window.dispatchEvent(
+        new CustomEvent("article-liked", {
+          detail: {
+            articleId: articleId.value,
+            isLiked: finalIsLiked,
+            likeCount: finalLikeCount,
+            authorId: article.value.authorId,
+          },
+        })
+      );
+
       return {
         success: true,
         isLiked: finalIsLiked,
-        likeCount: finalLikeCount
+        likeCount: finalLikeCount,
       };
     } else {
       // API返回了错误
-      throw new Error(result?.message || '操作失败');
+      throw new Error(result?.message || "操作失败");
     }
-    
   } catch (error) {
-    console.error('操作点赞失败:', error);
-    
+    console.error("操作点赞失败:", error);
+
     // 回滚本地UI状态
     article.value.isLiked = originalIsLiked;
     article.value.likeCount = originalLikeCount;
-    
+
     // 错误分类处理
-    let errorMessage = '操作失败';
+    let errorMessage = "操作失败";
     let showLoginPrompt = false;
-    
+
     if (error.response) {
       // API响应错误
       const { status, data } = error.response;
-      console.error('点赞API错误详情:', { status, data });
-      
+      console.error("点赞API错误详情:", { status, data });
+
       switch (status) {
         case 401:
-          errorMessage = '请先登录';
+          errorMessage = "请先登录";
           showLoginPrompt = true;
           break;
         case 403:
-          errorMessage = '没有权限进行此操作';
+          errorMessage = "没有权限进行此操作";
           break;
         case 404:
-          errorMessage = '文章不存在';
+          errorMessage = "文章不存在";
           break;
         case 409:
-          errorMessage = '已经点过赞了';
+          errorMessage = "已经点过赞了";
           break;
         case 429:
-          errorMessage = '操作过于频繁，请稍后再试';
+          errorMessage = "操作过于频繁，请稍后再试";
           break;
         case 500:
-          errorMessage = '服务器内部错误';
+          errorMessage = "服务器内部错误";
           break;
         default:
           errorMessage = data?.message || `操作失败 (${status})`;
       }
     } else if (error.request) {
       // 请求发送但无响应
-      errorMessage = '网络连接失败，请检查网络';
-    } else if (error.message === '点赞成功') {
+      errorMessage = "网络连接失败，请检查网络";
+    } else if (error.message === "点赞成功") {
       // 特殊处理：后端可能返回"点赞成功"作为错误消息（兼容性处理）
       console.warn('收到"点赞成功"的错误消息，按成功处理');
       // 不显示错误，而是更新状态
       article.value.isLiked = !originalIsLiked;
-      article.value.likeCount = originalIsLiked 
-        ? Math.max(0, originalLikeCount - 1) 
+      article.value.likeCount = originalIsLiked
+        ? Math.max(0, originalLikeCount - 1)
         : originalLikeCount + 1;
-        
-      ElMessage.success('点赞成功');
+
+      ElMessage.success("点赞成功");
       return { success: true };
     } else {
       // 其他错误
-      errorMessage = error.message || '操作失败';
+      errorMessage = error.message || "操作失败";
     }
-    
+
     // 显示错误提示
-    if (errorMessage !== '点赞成功') {
+    if (errorMessage !== "点赞成功") {
       ElMessage.error({
         message: errorMessage,
         duration: 3000,
-        showClose: true
+        showClose: true,
       });
     }
-    
+
     // 如果需要登录，显示登录弹窗
     if (showLoginPrompt) {
       showLogin.value = true;
     }
-    
+
     // 抛出错误供调用者处理
     throw error;
   } finally {
@@ -1198,11 +1301,10 @@ const toggleFollow = async () => {
     article.value.isFollowing = newStatus;
     article.value.fansCount = article.value.fansCount || 0;
     article.value.fansCount += newStatus ? 1 : -1;
-    
+
     // 同步用户统计
     const userStore = useUserStore();
     await userStore.syncUserStats(article.value.authorId);
-    
   } catch (error) {
     console.error("操作关注失败:", error);
     ElMessage.error("操作失败");
@@ -1447,7 +1549,6 @@ const toLoginPage = () => {
     },
   });
 };
-
 </script>
 
 <style scoped>
@@ -1566,7 +1667,7 @@ const toLoginPage = () => {
   color: #1a1a1a;
   margin-bottom: 1.2rem;
   text-align: left;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 /* 文章信息（标题下面） */
@@ -1631,7 +1732,7 @@ const toLoginPage = () => {
   line-height: 1.8;
   color: #333;
   font-size: 16px;
-  font-family: 'Georgia', 'Times New Roman', serif;
+  font-family: "Georgia", "Times New Roman", serif;
 }
 
 .article-content :deep(h1) {
@@ -1685,7 +1786,7 @@ const toLoginPage = () => {
   background: #f6f8fa;
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
   font-size: 14px;
   color: #e83e8c;
 }
@@ -1745,7 +1846,8 @@ const toLoginPage = () => {
   justify-content: center;
 }
 
-.action-btn, .edit-btn {
+.action-btn,
+.edit-btn {
   min-width: 140px;
   height: 48px;
   border-radius: 24px;
@@ -1766,7 +1868,7 @@ const toLoginPage = () => {
 }
 
 .author-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -2255,7 +2357,8 @@ const toLoginPage = () => {
 }
 
 @keyframes count-bounce {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
@@ -2269,7 +2372,7 @@ const toLoginPage = () => {
     grid-template-columns: 250px 1fr;
     gap: 20px;
   }
-  
+
   .right-sidebar {
     display: none;
   }
@@ -2280,21 +2383,21 @@ const toLoginPage = () => {
     grid-template-columns: 1fr;
     gap: 0;
   }
-  
+
   .left-sidebar,
   .right-sidebar {
     display: block; /* 显示在移动端 */
     position: static;
     margin-bottom: 20px;
   }
-  
+
   .author-card {
     display: flex;
     align-items: center;
     gap: 20px;
     padding: 20px;
   }
-  
+
   .author-header {
     display: flex;
     align-items: center;
@@ -2303,30 +2406,30 @@ const toLoginPage = () => {
     margin-bottom: 0;
     flex: 1;
   }
-  
+
   .author-avatar-large {
     width: 60px;
     height: 60px;
     font-size: 24px;
     margin: 0;
   }
-  
+
   .author-info {
     text-align: left;
     flex: 1;
   }
-  
+
   .author-name {
     font-size: 18px;
     margin-bottom: 4px;
   }
-  
+
   .author-bio {
     -webkit-line-clamp: 2;
     line-clamp: 2;
     max-height: 40px;
   }
-  
+
   .author-stats {
     border: none;
     margin: 0;
@@ -2334,16 +2437,16 @@ const toLoginPage = () => {
     flex: 1;
     justify-content: space-evenly;
   }
-  
+
   .follow-btn {
     width: auto;
     min-width: 120px;
   }
-  
+
   .main-content {
     padding: 25px;
   }
-  
+
   .article-title {
     font-size: 1.8rem;
   }
@@ -2354,16 +2457,16 @@ const toLoginPage = () => {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .author-header {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .author-info {
     text-align: center;
   }
-  
+
   .author-stats {
     width: 100%;
     border-top: 1px solid #eee;
@@ -2371,7 +2474,7 @@ const toLoginPage = () => {
     padding: 15px 0;
     margin: 15px 0;
   }
-  
+
   .follow-btn {
     width: 100%;
   }
@@ -2381,7 +2484,7 @@ const toLoginPage = () => {
   .article-title {
     font-size: 1.3rem;
   }
-  
+
   .main-content {
     padding: 16px;
   }

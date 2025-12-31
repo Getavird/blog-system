@@ -81,4 +81,9 @@ public interface UserService {
     User getUserByUsername(String username);
 
     boolean updateAvatar(Integer userId, String avatarFilename);
+
+    /**
+     * 更新用户统计信息到user表
+     */
+    void updateUserStats(Integer userId);
 }
