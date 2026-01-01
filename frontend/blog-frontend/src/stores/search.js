@@ -224,25 +224,21 @@ const searchUsers = async (keyword, page = 1, size = 10) => {
     if (response) {
       // 尝试不同的数据结构
       if (response.users) {
-        // 新结构：直接有 users 字段
         users = response.users || []
         total = response.total || 0
         currentPage = response.page || page
         currentSize = response.size || size
       } else if (response.data && response.data.users) {
-        // 嵌套结构
         users = response.data.users || []
         total = response.data.total || 0
         currentPage = response.data.page || page
         currentSize = response.data.size || size
       } else if (response.data && response.data.items) {
-        // 旧结构
         users = response.data.items || []
         total = response.data.total || 0
         currentPage = response.data.page || page
         currentSize = response.data.size || size
       } else if (response.items) {
-        // 另一种旧结构
         users = response.items || []
         total = response.total || 0
         currentPage = response.page || page
@@ -252,17 +248,47 @@ const searchUsers = async (keyword, page = 1, size = 10) => {
     
     console.log('👤 原始用户数据:', users)
     
-    // 处理用户数据
-    const processedUsers = users.map(user => ({
-      id: user.id,
-      username: user.username || '',
-      avatar: user.avatar || '',
-      bio: user.bio || '',
-      articleCount: user.articleCount || 0,
-      followerCount: user.followerCount || 0,
-      likeCount: user.likeCount || 0,
-      viewCount: user.viewCount || 0
-    }))
+    // 处理用户数据，确保有必要的字段
+const processedUsers = users.map(user => {
+  console.log('👤 处理用户数据:', user)
+  
+  // 同样的头像处理逻辑
+  let avatarUrl = ''
+  if (user.avatar) {
+    // 情况1：已经是完整URL
+    if (user.avatar.startsWith('http://') || user.avatar.startsWith('https://')) {
+      avatarUrl = user.avatar
+    } 
+    // 情况2：以 /uploads/avatars/ 开头
+    else if (user.avatar.startsWith('/uploads/avatars/')) {
+      avatarUrl = `http://localhost:8080${user.avatar}`
+    }
+    // 情况3：只是文件名
+    else if (user.avatar.includes('.') && !user.avatar.includes('/')) {
+      avatarUrl = `http://localhost:8080/uploads/avatars/${user.avatar}`
+    }
+    // 情况4：其他格式
+    else {
+      avatarUrl = `http://localhost:8080/uploads/avatars/${user.avatar}`
+    }
+  } else {
+    // 没有头像，使用默认头像
+    avatarUrl = 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+  }
+  
+  return {
+    id: user.id,
+    username: user.username || '',
+    avatar: avatarUrl,  // 使用处理后的头像URL
+    bio: user.bio || '',
+    articleCount: user.articleCount || 0,
+    followerCount: user.followerCount || 0,
+    likeCount: user.likeCount || 0,
+    viewCount: user.viewCount || 0,
+    // 保持原始数据用于调试
+    _raw: user
+  }
+})
     
     console.log('👤 处理后的用户数据:', processedUsers)
     

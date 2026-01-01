@@ -2,14 +2,14 @@
   <div class="search-page">
     <!-- 添加Header -->
     <Header />
-    
+
     <div class="search-container">
       <div class="container">
         <!-- 搜索头部 -->
         <div class="search-header">
           <h1 class="search-title">搜索</h1>
           <p class="search-subtitle">发现你感兴趣的内容</p>
-          
+
           <!-- 搜索框区域 -->
           <div class="search-wrapper">
             <!-- 搜索框 -->
@@ -27,9 +27,9 @@
                 ref="searchInputRef"
               >
                 <template #prepend>
-                  <el-select 
-                    v-model="searchType" 
-                    placeholder="类型" 
+                  <el-select
+                    v-model="searchType"
+                    placeholder="类型"
                     style="width: 120px"
                     @change="handleTypeChange"
                   >
@@ -37,9 +37,9 @@
                   </el-select>
                 </template>
                 <template #append>
-                  <el-button 
-                    @click="doSearch" 
-                    type="primary" 
+                  <el-button
+                    @click="doSearch"
+                    type="primary"
                     :loading="searchStore.searchLoading"
                     :icon="Search"
                   >
@@ -47,15 +47,17 @@
                   </el-button>
                 </template>
               </el-input>
-              
+
               <!-- 搜索建议 -->
-              <div 
-                v-if="showSuggestions && searchStore.searchSuggestions.length > 0" 
+              <div
+                v-if="
+                  showSuggestions && searchStore.searchSuggestions.length > 0
+                "
                 class="search-suggestions"
                 ref="suggestionsRef"
               >
-                <div 
-                  v-for="suggestion in searchStore.searchSuggestions" 
+                <div
+                  v-for="suggestion in searchStore.searchSuggestions"
                   :key="suggestion"
                   class="suggestion-item"
                   @click="selectSuggestion(suggestion)"
@@ -65,20 +67,22 @@
                 </div>
               </div>
             </div>
-            
+
             <!-- 搜索历史（在搜索框下方） -->
-            <div 
-              v-if="showHistory && !keyword && searchHistory.length > 0" 
+            <div
+              v-if="showHistory && !keyword && searchHistory.length > 0"
               class="search-history-dropdown"
               ref="historyRef"
             >
               <div class="history-header">
                 <h4>搜索历史</h4>
-                <el-button type="text" size="small" @click="clearHistory">清空</el-button>
+                <el-button type="text" size="small" @click="clearHistory"
+                  >清空</el-button
+                >
               </div>
               <div class="history-list">
-                <div 
-                  v-for="item in searchHistory" 
+                <div
+                  v-for="item in searchHistory"
                   :key="item"
                   class="history-item"
                 >
@@ -90,19 +94,17 @@
                 </div>
               </div>
             </div>
-            
+
             <!-- 搜索统计 -->
             <div v-if="keyword" class="search-stats">
               <span class="stats-item">
                 共找到 {{ searchStore.pagination.total }} 个结果
               </span>
-              <span class="stats-item">
-                搜索类型: {{ searchTypeLabel }}
-              </span>
+              <span class="stats-item"> 搜索类型: {{ searchTypeLabel }} </span>
             </div>
           </div>
         </div>
-        
+
         <!-- 搜索结果 -->
         <div class="search-results">
           <!-- 加载状态 -->
@@ -114,7 +116,7 @@
               <p>正在搜索...</p>
             </div>
           </div>
-          
+
           <!-- 空状态（未输入关键词） -->
           <div v-else-if="!keyword" class="empty-state">
             <div class="empty-content">
@@ -125,7 +127,7 @@
               <p>搜索文章、用户、标签等内容</p>
             </div>
           </div>
-          
+
           <!-- 搜索结果为空 -->
           <div v-else-if="!searchStore.hasResults" class="no-results">
             <div class="no-results-content">
@@ -144,31 +146,35 @@
               </div>
             </div>
           </div>
-          
+
           <!-- 搜索结果 -->
           <div v-else class="results-container">
-  
-  
             <!-- 搜索结果头部 -->
             <div class="results-header">
               <h2>搜索结果</h2>
               <div class="results-meta">
-                共 {{ searchStore.pagination.total }} 个结果，
-                第 {{ searchStore.pagination.page }}/{{ searchStore.pagination.totalPages }} 页
+                共 {{ searchStore.pagination.total }} 个结果， 第
+                {{ searchStore.pagination.page }}/{{
+                  searchStore.pagination.totalPages
+                }}
+                页
               </div>
             </div>
-            
+
             <!-- 搜索结果列表 -->
             <div class="results-list">
               <!-- 文章结果 -->
-              <div v-if="searchStore.searchResults.articles.length > 0" class="result-section">
+              <div
+                v-if="searchStore.searchResults.articles.length > 0"
+                class="result-section"
+              >
                 <h3 class="section-title">
                   <el-icon><Document /></el-icon>
                   文章
                 </h3>
                 <div class="article-results">
-                  <div 
-                    v-for="article in searchStore.searchResults.articles" 
+                  <div
+                    v-for="article in searchStore.searchResults.articles"
                     :key="article.id"
                     class="article-item"
                     @click="viewArticle(article.id)"
@@ -178,7 +184,7 @@
                       <div class="article-meta">
                         <span class="meta-item">
                           <el-icon><User /></el-icon>
-                          {{ article.authorName || '匿名' }}
+                          {{ article.authorName || "匿名" }}
                         </span>
                         <span class="meta-item">
                           <el-icon><Calendar /></el-icon>
@@ -200,24 +206,34 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- 用户结果 -->
-              <div v-if="searchStore.searchResults.users.length > 0" class="result-section">
+              <div
+                v-if="searchStore.searchResults.users.length > 0"
+                class="result-section"
+              >
                 <h3 class="section-title">
                   <el-icon><User /></el-icon>
                   用户
                 </h3>
                 <div class="user-results">
-                  <div 
-                    v-for="user in searchStore.searchResults.users" 
+                  <div
+                    v-for="user in searchStore.searchResults.users"
                     :key="user.id"
                     class="user-item"
                     @click="viewUser(user.username)"
                   >
                     <div class="user-avatar">
-                      <img v-if="user.avatar" :src="user.avatar" alt="用户头像" />
+                      <!-- 使用新的头像处理方法 -->
+                      <img
+                        v-if="user.avatar || user._raw?.avatar"
+                        :src="
+                          getFullAvatarUrl(user._raw?.avatar || user.avatar)
+                        "
+                        alt="用户头像"
+                      />
                       <div v-else class="avatar-placeholder">
-                        {{ user.username?.charAt(0)?.toUpperCase() || 'U' }}
+                        {{ user.username?.charAt(0)?.toUpperCase() || "U" }}
                       </div>
                     </div>
                     <div class="user-info">
@@ -237,9 +253,12 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- 标签结果 -->
-              <div v-if="searchStore.searchResults.tags.length > 0" class="result-section">
+              <div
+                v-if="searchStore.searchResults.tags.length > 0"
+                class="result-section"
+              >
                 <h3 class="section-title">
                   <el-icon><CollectionTag /></el-icon>
                   标签
@@ -262,9 +281,12 @@
                 </div>
               </div>
             </div>
-            
+
             <!-- 分页 -->
-            <div v-if="searchStore.pagination.total > 0" class="pagination-wrapper">
+            <div
+              v-if="searchStore.pagination.total > 0"
+              class="pagination-wrapper"
+            >
               <el-pagination
                 :current-page="searchStore.pagination.page"
                 :page-size="searchStore.pagination.size"
@@ -280,17 +302,17 @@
         </div>
       </div>
     </div>
-    
+
     <!-- 添加Footer -->
     <Footer />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useSearchStore } from '@/stores/search'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useSearchStore } from "@/stores/search";
+import { ElMessage } from "element-plus";
 import {
   Search,
   Loading,
@@ -302,392 +324,446 @@ import {
   CollectionTag,
   Clock,
   Close,
-  InfoFilled // 🔍 新增调试图标
-} from '@element-plus/icons-vue'
+  InfoFilled, // 🔍 新增调试图标
+} from "@element-plus/icons-vue";
 
 // 组件导入
-import Header from '@/components/layout/Header.vue'
-import Footer from '@/components/layout/Footer.vue'
+import Header from "@/components/layout/Header.vue";
+import Footer from "@/components/layout/Footer.vue";
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute();
+const router = useRouter();
 
 // Pinia Store
-const searchStore = useSearchStore()
+const searchStore = useSearchStore();
 
-const isDevelopment = ref(true) // 暂时设为true以便调试，实际应为：import.meta.env.MODE === 'development'
+const isDevelopment = ref(true); // 暂时设为true以便调试，实际应为：import.meta.env.MODE === 'development'
 
 // DOM引用
-const searchBoxRef = ref(null)
-const searchInputRef = ref(null)
-const suggestionsRef = ref(null)
-const historyRef = ref(null)
+const searchBoxRef = ref(null);
+const searchInputRef = ref(null);
+const suggestionsRef = ref(null);
+const historyRef = ref(null);
 
 // 搜索状态
-const keyword = ref('')
-const searchType = ref('full')
-const showSuggestions = ref(false)
-const showHistory = ref(false)
-
+const keyword = ref("");
+const searchType = ref("full");
+const showSuggestions = ref(false);
+const showHistory = ref(false);
 
 // 🔍 第3步：新增调试相关响应式数据
 // ===============================================
-const showDebugDetails = ref(false)
-const showRawDataDialog = ref(false)
-const currentRawData = ref('')
+const showDebugDetails = ref(false);
+const showRawDataDialog = ref(false);
+const currentRawData = ref("");
 // ===============================================
 
 const showUserRawData = (user) => {
   if (user._raw) {
-    currentRawData.value = JSON.stringify(user._raw, null, 2)
+    currentRawData.value = JSON.stringify(user._raw, null, 2);
   } else {
-    currentRawData.value = JSON.stringify(user, null, 2)
+    currentRawData.value = JSON.stringify(user, null, 2);
   }
-  showRawDataDialog.value = true
-}
+  showRawDataDialog.value = true;
+};
 
 // 计算属性
 const searchTypeLabel = computed(() => {
   const labels = {
-    full: '全部',
-    articles: '文章',
-    users: '用户',
-    tags: '标签'
-  }
-  return labels[searchType.value] || '全部'
-})
+    full: "全部",
+    articles: "文章",
+    users: "用户",
+    tags: "标签",
+  };
+  return labels[searchType.value] || "全部";
+});
 
 // 从本地存储加载搜索历史
-const searchHistory = computed(() => searchStore.searchHistory)
+const searchHistory = computed(() => searchStore.searchHistory);
 
 // 全局点击事件处理器 - 修复版本
 const handleGlobalClick = (e) => {
   // 延迟执行，确保点击事件完成
   setTimeout(() => {
     // 检查点击的目标
-    const target = e.target
-    const inputEl = searchInputRef.value?.$el?.querySelector('input') || searchInputRef.value?.$el
-    const suggestionsEl = suggestionsRef.value
-    const historyEl = historyRef.value
-    const searchBoxEl = searchBoxRef.value
-    
+    const target = e.target;
+    const inputEl =
+      searchInputRef.value?.$el?.querySelector("input") ||
+      searchInputRef.value?.$el;
+    const suggestionsEl = suggestionsRef.value;
+    const historyEl = historyRef.value;
+    const searchBoxEl = searchBoxRef.value;
+
     // 检查点击是否在搜索框相关元素内部
-    const isClickInsideInput = inputEl && (inputEl === target || inputEl.contains(target))
-    const isClickInsideSuggestions = suggestionsEl && (suggestionsEl === target || suggestionsEl.contains(target))
-    const isClickInsideHistory = historyEl && (historyEl === target || historyEl.contains(target))
-    const isClickInsideSearchBox = searchBoxEl && (searchBoxEl === target || searchBoxEl.contains(target))
-    
+    const isClickInsideInput =
+      inputEl && (inputEl === target || inputEl.contains(target));
+    const isClickInsideSuggestions =
+      suggestionsEl &&
+      (suggestionsEl === target || suggestionsEl.contains(target));
+    const isClickInsideHistory =
+      historyEl && (historyEl === target || historyEl.contains(target));
+    const isClickInsideSearchBox =
+      searchBoxEl && (searchBoxEl === target || searchBoxEl.contains(target));
+
     // 如果点击的是输入框或下拉框内部，不处理
-    if (isClickInsideInput || isClickInsideSuggestions || isClickInsideHistory || isClickInsideSearchBox) {
-      return
+    if (
+      isClickInsideInput ||
+      isClickInsideSuggestions ||
+      isClickInsideHistory ||
+      isClickInsideSearchBox
+    ) {
+      return;
     }
-    
+
     // 点击外部，隐藏下拉框
     if (showSuggestions.value) {
-      showSuggestions.value = false
+      showSuggestions.value = false;
     }
-    
+
     if (showHistory.value) {
-      showHistory.value = false
+      showHistory.value = false;
     }
-  }, 10)
-}
+  }, 10);
+};
 
 // 生命周期
 onMounted(() => {
   // 从路由参数获取搜索关键词
-  const queryKeyword = route.query.q || ''
-  const queryType = route.query.type || 'full'
-  
+  const queryKeyword = route.query.q || "";
+  const queryType = route.query.type || "full";
+
   if (queryKeyword) {
-    keyword.value = queryKeyword
-    searchType.value = queryType
-    doSearch()
+    keyword.value = queryKeyword;
+    searchType.value = queryType;
+    doSearch();
   }
-  
+
   // 加载搜索历史
-  searchStore.loadSearchHistoryFromStorage()
-  
+  searchStore.loadSearchHistoryFromStorage();
+
   // 添加全局点击事件监听器
   setTimeout(() => {
-    document.addEventListener('click', handleGlobalClick)
-  }, 100)
-})
+    document.addEventListener("click", handleGlobalClick);
+  }, 100);
+});
 
 onUnmounted(() => {
   // 移除全局点击事件监听器
-  document.removeEventListener('click', handleGlobalClick)
-})
+  document.removeEventListener("click", handleGlobalClick);
+});
 
 // 监听路由参数变化
 watch(
   () => route.query,
   (newQuery) => {
-    const newKeyword = newQuery.q || ''
-    const newType = newQuery.type || 'full'
-    
+    const newKeyword = newQuery.q || "";
+    const newType = newQuery.type || "full";
+
     if (newKeyword && newKeyword !== keyword.value) {
-      keyword.value = newKeyword
-      searchType.value = newType
-      doSearch()
+      keyword.value = newKeyword;
+      searchType.value = newType;
+      doSearch();
     }
   }
-)
+);
 
 // 监听输入变化
 const handleInput = () => {
-  const trimmedKeyword = keyword.value.trim()
-  
+  const trimmedKeyword = keyword.value.trim();
+
   if (trimmedKeyword) {
-    showSuggestions.value = true
-    showHistory.value = false
-    searchStore.fetchSearchSuggestions(trimmedKeyword)
+    showSuggestions.value = true;
+    showHistory.value = false;
+    searchStore.fetchSearchSuggestions(trimmedKeyword);
   } else {
-    showSuggestions.value = false
-    showHistory.value = true
+    showSuggestions.value = false;
+    showHistory.value = true;
   }
+};
+
+// 添加头像处理方法
+const getFullAvatarUrl = (avatar) => {
+  console.log('🔄 处理头像:', avatar)
+  
+  if (!avatar) {
+    return 'http://localhost:8080/static/images/default-avatars/default_avatar.png'
+  }
+  
+  // 如果已经是完整URL
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+    return avatar
+  }
+  
+  // 如果是相对路径
+  if (avatar.startsWith('/')) {
+    return `http://localhost:8080${avatar}`
+  }
+  
+  // 如果是纯文件名（包含点号但没有斜杠）
+  if (avatar.includes('.') && !avatar.includes('/')) {
+    return `http://localhost:8080/uploads/avatars/${avatar}`
+  }
+  
+  // 默认情况
+  return `http://localhost:8080/uploads/avatars/${avatar}`
 }
 
 // 输入框获得焦点
 const handleFocus = () => {
-  const trimmedKeyword = keyword.value.trim()
-  
+  const trimmedKeyword = keyword.value.trim();
+
   if (trimmedKeyword) {
-    showSuggestions.value = true
-    showHistory.value = false
+    showSuggestions.value = true;
+    showHistory.value = false;
     // 获取搜索建议
-    searchStore.fetchSearchSuggestions(trimmedKeyword)
+    searchStore.fetchSearchSuggestions(trimmedKeyword);
   } else {
     // 显示搜索历史
-    showHistory.value = true
-    showSuggestions.value = false
+    showHistory.value = true;
+    showSuggestions.value = false;
   }
-}
+};
 
 // 清空输入
 const handleClear = () => {
-  showSuggestions.value = false
-  showHistory.value = true
-  searchStore.clearSearchResults()
-}
+  showSuggestions.value = false;
+  showHistory.value = true;
+  searchStore.clearSearchResults();
+};
 
 // 搜索类型改变
 const handleTypeChange = () => {
   if (keyword.value.trim()) {
-    doSearch()
+    doSearch();
   }
-}
+};
 
 // 执行搜索
 const doSearch = async () => {
-  const searchKeyword = keyword.value.trim()
-  
-  console.log("🔍 开始搜索 - 关键词:", searchKeyword, "类型:", searchType.value)
-  
+  const searchKeyword = keyword.value.trim();
+
+  console.log(
+    "🔍 开始搜索 - 关键词:",
+    searchKeyword,
+    "类型:",
+    searchType.value
+  );
+
   if (!searchKeyword) {
-    showHistory.value = true
-    showSuggestions.value = false
-    return
+    showHistory.value = true;
+    showSuggestions.value = false;
+    return;
   }
-  
+
   try {
-    showSuggestions.value = false
-    showHistory.value = false
-    
+    showSuggestions.value = false;
+    showHistory.value = false;
+
     router.replace({
-      path: '/search',
-      query: { 
+      path: "/search",
+      query: {
         q: searchKeyword,
-        type: searchType.value 
-      }
-    })
-    
-    let searchResult
+        type: searchType.value,
+      },
+    });
+
+    let searchResult;
     switch (searchType.value) {
-      case 'articles':
-        searchResult = await searchStore.searchArticles(searchKeyword, 
-          searchStore.pagination.page, 
-          searchStore.pagination.size)
-        break
-      case 'users':
-        searchResult = await searchStore.searchUsers(searchKeyword, 
-          searchStore.pagination.page, 
-          searchStore.pagination.size)
-        break
-      case 'tags':
-        searchResult = await searchStore.searchTags(searchKeyword, 
-          searchStore.pagination.page, 
-          searchStore.pagination.size)
-        break
+      case "articles":
+        searchResult = await searchStore.searchArticles(
+          searchKeyword,
+          searchStore.pagination.page,
+          searchStore.pagination.size
+        );
+        break;
+      case "users":
+        searchResult = await searchStore.searchUsers(
+          searchKeyword,
+          searchStore.pagination.page,
+          searchStore.pagination.size
+        );
+        break;
+      case "tags":
+        searchResult = await searchStore.searchTags(
+          searchKeyword,
+          searchStore.pagination.page,
+          searchStore.pagination.size
+        );
+        break;
       default:
-        searchResult = await searchStore.fullSearch(searchKeyword, 
-          searchStore.pagination.page, 
-          searchStore.pagination.size)
+        searchResult = await searchStore.fullSearch(
+          searchKeyword,
+          searchStore.pagination.page,
+          searchStore.pagination.size
+        );
     }
-    
-    console.log("✅ 搜索完成 - 结果:", searchResult)
-    console.log("📊 用户搜索结果:", searchStore.searchResults.users)
-    
+
+    console.log("✅ 搜索完成 - 结果:", searchResult);
+    console.log("📊 用户搜索结果:", searchStore.searchResults.users);
+
     if (searchKeyword) {
-      searchStore.addToSearchHistory(searchKeyword)
+      searchStore.addToSearchHistory(searchKeyword);
     }
-    
-    return searchResult
-    
+
+    return searchResult;
   } catch (error) {
-    console.error('搜索失败:', error)
-    ElMessage.error(error.message || '搜索失败，请稍后重试')
+    console.error("搜索失败:", error);
+    ElMessage.error(error.message || "搜索失败，请稍后重试");
   }
-}
+};
 
 // 选择搜索建议
 const selectSuggestion = (suggestion) => {
-  keyword.value = suggestion
+  keyword.value = suggestion;
   // 聚焦到输入框
   if (searchInputRef.value) {
-    searchInputRef.value.focus()
+    searchInputRef.value.focus();
   }
   // 延迟执行搜索，确保输入框更新
   setTimeout(() => {
-    doSearch()
-  }, 50)
-}
+    doSearch();
+  }, 50);
+};
 
 // 选择搜索历史
 const selectHistory = (historyItem) => {
-  keyword.value = historyItem
+  keyword.value = historyItem;
   // 聚焦到输入框
   if (searchInputRef.value) {
-    searchInputRef.value.focus()
+    searchInputRef.value.focus();
   }
   // 延迟执行搜索，确保输入框更新
   setTimeout(() => {
-    doSearch()
-  }, 50)
-}
+    doSearch();
+  }, 50);
+};
 
 // 移除搜索历史
 const removeHistory = (historyItem) => {
-  searchStore.searchHistory = searchStore.searchHistory.filter(item => item !== historyItem)
-  localStorage.setItem('search_history', JSON.stringify(searchStore.searchHistory))
-}
+  searchStore.searchHistory = searchStore.searchHistory.filter(
+    (item) => item !== historyItem
+  );
+  localStorage.setItem(
+    "search_history",
+    JSON.stringify(searchStore.searchHistory)
+  );
+};
 
 // 清空搜索历史
 const clearHistory = async () => {
   try {
-    await searchStore.clearSearchHistory()
-    ElMessage.success('搜索历史已清空')
-    showHistory.value = false
+    await searchStore.clearSearchHistory();
+    ElMessage.success("搜索历史已清空");
+    showHistory.value = false;
   } catch (error) {
-    console.error('清空历史失败:', error)
-    ElMessage.error('清空历史失败')
+    console.error("清空历史失败:", error);
+    ElMessage.error("清空历史失败");
   }
-}
+};
 
 // 格式化时间
 const formatTime = (time) => {
-  if (!time) return ''
+  if (!time) return "";
   try {
-    const date = new Date(time)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    
+    const date = new Date(time);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
     if (days === 0) {
-      return '今天'
+      return "今天";
     } else if (days === 1) {
-      return '昨天'
+      return "昨天";
     } else if (days < 7) {
-      return `${days}天前`
+      return `${days}天前`;
     } else if (days < 30) {
-      const weeks = Math.floor(days / 7)
-      return `${weeks}周前`
+      const weeks = Math.floor(days / 7);
+      return `${weeks}周前`;
     } else {
-      return date.toLocaleDateString('zh-CN')
+      return date.toLocaleDateString("zh-CN");
     }
   } catch (error) {
-    return time
+    return time;
   }
-}
+};
 
 // 获取标签类型
 const getTagType = (tag) => {
-  const count = tag.count || 0
-  if (count > 50) return 'danger'
-  if (count > 20) return 'warning'
-  if (count > 10) return 'success'
-  if (count > 5) return 'primary'
-  return 'info'
-}
+  const count = tag.count || 0;
+  if (count > 50) return "danger";
+  if (count > 20) return "warning";
+  if (count > 10) return "success";
+  if (count > 5) return "primary";
+  return "info";
+};
 
 // 查看文章
 const viewArticle = (articleId) => {
-  router.push(`/article/${articleId}`)
-}
+  router.push(`/article/${articleId}`);
+};
 
 // 查看用户
 const viewUser = (username) => {
-  router.push(`/user/${username}`)
-}
+  router.push(`/user/${username}`);
+};
 
 // 查看标签
 const viewTag = (tagName) => {
-  router.push(`/tag/${encodeURIComponent(tagName)}`)
-}
-
+  router.push(`/tag/${encodeURIComponent(tagName)}`);
+};
 
 // 🔍 第3步：添加调试相关方法（新增代码）
 // ===============================================
 // 切换调试详情显示
 const toggleDebug = () => {
-  showDebugDetails.value = !showDebugDetails.value
-}
+  showDebugDetails.value = !showDebugDetails.value;
+};
 
 // 格式化调试数据
 const formatDebugData = (data) => {
   try {
     if (Array.isArray(data) && data.length > 0) {
       // 只显示第一条数据的结构示例
-      const sample = data[0]
+      const sample = data[0];
       const formatted = {
         count: data.length,
         sample: sample,
-        fields: Object.keys(sample)
-      }
-      return JSON.stringify(formatted, null, 2)
+        fields: Object.keys(sample),
+      };
+      return JSON.stringify(formatted, null, 2);
     }
-    return JSON.stringify(data, null, 2)
+    return JSON.stringify(data, null, 2);
   } catch (e) {
-    return '数据格式错误'
+    return "数据格式错误";
   }
-}
+};
 // ===============================================
 
 // 搜索标签
 const searchTag = (tagName) => {
-  keyword.value = tagName
-  searchType.value = 'tags'
-  doSearch()
-}
+  keyword.value = tagName;
+  searchType.value = "tags";
+  doSearch();
+};
 
 // 分页处理
 const handlePageChange = async (page) => {
-  searchStore.pagination.page = page
+  searchStore.pagination.page = page;
   if (keyword.value.trim()) {
-    await doSearch()
+    await doSearch();
   }
   // 滚动到顶部
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
 
 // 每页数量改变
 const handleSizeChange = async (size) => {
-  searchStore.pagination.size = size
-  searchStore.pagination.page = 1
+  searchStore.pagination.size = size;
+  searchStore.pagination.page = 1;
   if (keyword.value.trim()) {
-    await doSearch()
+    await doSearch();
   }
-}
+};
 </script>
 
 <style scoped>
@@ -908,8 +984,12 @@ const handleSizeChange = async (size) => {
 }
 
 @keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 空状态 */
@@ -1206,27 +1286,27 @@ const handleSizeChange = async (size) => {
   .search-title {
     font-size: 28px;
   }
-  
+
   .search-input :deep(.el-input-group__prepend) {
     display: none;
   }
-  
+
   .search-stats {
     flex-direction: column;
     align-items: center;
     gap: 10px;
   }
-  
+
   .results-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
   }
-  
+
   .user-results {
     grid-template-columns: 1fr;
   }
-  
+
   .article-meta {
     gap: 10px;
   }
@@ -1236,7 +1316,7 @@ const handleSizeChange = async (size) => {
   .search-title {
     font-size: 24px;
   }
-  
+
   .search-input :deep(.el-input-group__append .el-button) {
     padding: 0 15px;
   }
@@ -1313,9 +1393,15 @@ const handleSizeChange = async (size) => {
 }
 
 @keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 .debug-details {
@@ -1357,12 +1443,12 @@ const handleSizeChange = async (size) => {
   .debug-summary {
     grid-template-columns: 1fr;
   }
-  
+
   .debug-item {
     flex-direction: column;
     gap: 4px;
   }
-  
+
   .debug-label {
     min-width: auto;
   }
