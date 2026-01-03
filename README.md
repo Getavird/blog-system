@@ -326,6 +326,7 @@ A: 检查上传目录权限，确保应用有读写权限。
 Q: 头像显示不正确
 A: 检查头像URL处理逻辑，确保路径正确拼接。
 
------Start by 2024.12.15
+-----Start by 2025.12.15
 
 -----Still a WIP. I’ll keep refining it if time ever decides to spare me.
+
